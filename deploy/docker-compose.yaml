@@ -1,0 +1,64 @@
+version: "3.8"
+services:
+  db:
+    image: "postgres:13.0"
+    restart: "always"
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_PASSWORD: "password"
+    networks:
+      - rustcron
+  redis:
+    image: "redis"
+    restart: "always"
+    ports:
+      - "6379"
+    networks:
+      - rustcron
+  cronman:
+    build:
+      context: ".."
+      dockerfile: "deploy/Dockerfile.cronman"
+    restart: "always"
+    ports:
+      - "8080:8080"
+    environment:
+      CRONMAN_DOMAIN: "localhost"
+      CRONMAN_PORT: "8080"
+      CRONMAN_DATABASE_URL: "postgres://postgres:password@db:5432?sslmode=disable"
+      CRONMAN_MIGRATION_SOURCE: "file:///db/migrations"
+      CRONMAN_MIGRATION_DATABASE_URL: "postgres://postgres:password@db:5432?sslmode=disable"
+      CRONMAN_REDIS_ADDR: "redis:6379"
+      CRONMAN_REDIS_PASSWORD: ""
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    networks:
+      - rustcron
+    depends_on:
+      - db
+      - redis
+  user:
+    build:
+      context: ".."
+      dockerfile: "deploy/Dockerfile.user"
+    restart: "always"
+    ports:
+      - "8080:8080"
+    environment:
+      CRONMAN_DOMAIN: "localhost"
+      CRONMAN_PORT: "8080"
+      CRONMAN_DATABASE_URL: "postgres://postgres:password@db:5432?sslmode=disable"
+      CRONMAN_MIGRATION_SOURCE: "file:///db/migrations"
+      CRONMAN_MIGRATION_DATABASE_URL: "postgres://postgres:password@db:5432?sslmode=disable"
+      CRONMAN_REDIS_ADDR: "redis:6379"
+      CRONMAN_REDIS_PASSWORD: ""
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    networks:
+      - rustcron
+    depends_on:
+      - db
+      - redis
+networks:
+  rustcron:

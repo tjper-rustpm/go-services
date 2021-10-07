@@ -1,0 +1,156 @@
+{
+	"id": "id",
+	"name": "Integration Test Omega",
+	"instanceKind": "STANDARD",
+	"instanceID": "instanceId",
+	"allocationID": "allocationId",
+	"elasticIP": "elasticIp",
+	"maxPlayers": 300,
+	"mapSize": 1000,
+	"mapSeed": 1234,
+	"mapSalt": 1234,
+	"tickRate": 40,
+	"rconPassword": "omega-rcon-password",
+	"description": "Rustpm Omega integration test server.",
+	"background": "FOREST",
+	"url": "rustpm.com/omega",
+	"bannerURL": "rustpm.com/omega/banner",
+	"wipeDay": "TUESDAY",
+	"blueprintWipeFrequency": "BIWEEKLY",
+	"mapWipeFrequency": "BIWEEKLY",
+	"region": "US_EAST",
+	"schedule": [
+		{
+			"id": "id",
+			"day": 1,
+			"hour": 18,
+			"kind": "START"
+		},
+		{
+			"id": "id",
+			"day": 2,
+			"hour": 21,
+			"kind": "STOP"
+		},
+		{
+			"id": "id",
+			"day": 2,
+			"hour": 18,
+			"kind": "START"
+		},
+		{
+			"id": "id",
+			"day": 3,
+			"hour": 21,
+			"kind": "STOP"
+		},
+		{
+			"id": "id",
+			"day": 3,
+			"hour": 18,
+			"kind": "START"
+		},
+		{
+			"id": "id",
+			"day": 4,
+			"hour": 21,
+			"kind": "STOP"
+		},
+		{
+			"id": "id",
+			"day": 4,
+			"hour": 18,
+			"kind": "START"
+		},
+		{
+			"id": "id",
+			"day": 5,
+			"hour": 21,
+			"kind": "STOP"
+		},
+		{
+			"id": "id",
+			"day": 5,
+			"hour": 18,
+			"kind": "START"
+		},
+		{
+			"id": "id",
+			"day": 6,
+			"hour": 21,
+			"kind": "STOP"
+		},
+		{
+			"id": "id",
+			"day": 6,
+			"hour": 18,
+			"kind": "START"
+		},
+		{
+			"id": "id",
+			"day": 7,
+			"hour": 21,
+			"kind": "STOP"
+		},
+		{
+			"id": "id",
+			"day": 7,
+			"hour": 18,
+			"kind": "START"
+		},
+		{
+			"id": "id",
+			"day": 1,
+			"hour": 21,
+			"kind": "STOP"
+		}
+	],
+	"moderators": [
+		{
+			"id": "id",
+			"steamID": "76561197962911631"
+		},
+		{
+			"id": "id",
+			"steamID": "76561197962911764"
+		}
+	],
+	"tags": [
+		{
+			"id": "id",
+			"description": "Region",
+			"icon": "GLOBE",
+			"value": "US East"
+		},
+		{
+			"id": "id",
+			"description": "Map Size",
+			"icon": "MAP",
+			"value": "4000"
+		},
+		{
+			"id": "id",
+			"description": "Map Seed",
+			"icon": "GAMES",
+			"value": "3253"
+		},
+		{
+			"id": "id",
+			"description": "Map Wipe Schedule",
+			"icon": "CALENDAR_WEEK",
+			"value": "Bi-Weekly"
+		},
+		{
+			"id": "id",
+			"description": "Blueprint Wipe Schedule",
+			"icon": "CALENDAR_EVENT",
+			"value": "Monthly"
+		},
+		{
+			"id": "id",
+			"description": "Game Mode",
+			"icon": "GAMES",
+			"value": "Vanilla"
+		}
+	]
+}

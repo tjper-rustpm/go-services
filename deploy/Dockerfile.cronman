@@ -1,0 +1,19 @@
+# syntax = docker/dockerfile:1-experimental
+
+FROM golang:1.15-alpine AS builder
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /target
+
+COPY go.* .
+RUN go mod download
+
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -o cronman cmd/cronman/server.go
+
+FROM scratch
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /target/cmd/cronman/db/migrations /db/migrations
+COPY --from=builder /target/cronman .
+CMD ["./cronman"]

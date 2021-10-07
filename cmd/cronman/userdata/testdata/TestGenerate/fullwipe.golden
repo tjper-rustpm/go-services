@@ -1,0 +1,72 @@
+Content-Type: multipart/mixed; boundary="//"
+MIME-Version: 1.0
+
+--//
+Content-Type: text/cloud-config; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="cloud-config.txt"
+
+#cloud-config
+cloud_final_modules:
+- [scripts-user, always]
+
+--//
+Content-Type: text/x-shellscript; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="userdata.txt"
+
+#!/bin/bash
+dpkg --add-architecture i386
+apt-get update && apt-get upgrade -y
+apt-get install -y \
+  ca-certificates \
+  lib32gcc1 \
+  libsdl2-2.0-0:i386 \
+  libsdl2-2.0-0 \
+  sqlite3 \
+	docker.io \
+	unzip
+
+
+echo steamcmd steam/license note '' | debconf-set-selections
+echo steamcmd steam/question select "I AGREE" | debconf-set-selections
+apt-get install -y steamcmd
+ln -s /usr/games/steamcmd /usr/bin/steamcmd
+
+id -u rustserver &>/dev/null || adduser --disabled-password --gecos "" rustserver
+su -c "steamcmd +login anonymous +force_install_dir /home/rustserver/ +app_update 258550 validate +quit" - rustserver
+
+su -c "curl --output Oxide.Rust-linux.zip -L https://github.com/OxideMod/Oxide.Rust/releases/latest/download/Oxide.Rust-linux.zip" - rustserver
+su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
+
+find /home/rustserver/server/rustpm -name "player\.blueprints\.*\.db" | xargs rm
+ 
+find /home/rustserver/server/rustpm -name 'proceduralmap\.*\.*\.*\.map' | xargs rm
+ 
+export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRARY_PATH};
+
+echo "--- Starting Dedicated Server\n"
+while true; do
+  su -c "/home/rustserver/RustDedicated -batchmode -nographics \
+    -server.ip \"0.0.0.0\" \
+    -server.identity \"rustpm\" \
+    -server.hostname \"rustpm-east-1\" \
+    -server.port \"28015\" \
+    -rcon.ip \"0.0.0.0\" \
+    -rcon.password \"rustpm-rconpassword\" \
+    -rcon.web \"1\" \
+    -rcon.port \"28016\" \
+    -app.listenip \"0.0.0.0\" \
+    -app.port \"28082\" \
+    -server.maxplayers 100 \
+    -server.worldsize 2000 \
+    -server.seed 123 \
+    -server.salt 321 \
+    -server.tickrate 30 \
+    -server.saveinterval 300 \
+    -logfile" - rustserver
+  echo "\n--- Restarting Dedicated Server\n"
+done
+--//

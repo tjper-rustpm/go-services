@@ -1,0 +1,432 @@
+[
+	{
+		"ID": "00000000-0000-0000-0000-000000000000",
+		"CreatedAt": "0001-01-01T00:00:00Z",
+		"UpdatedAt": "0001-01-01T00:00:00Z",
+		"DeletedAt": null,
+		"ServerDefinitionID": "00000000-0000-0000-0000-000000000000",
+		"ServerDefinition": {
+			"ID": "00000000-0000-0000-0000-000000000000",
+			"CreatedAt": "0001-01-01T00:00:00Z",
+			"UpdatedAt": "0001-01-01T00:00:00Z",
+			"DeletedAt": null,
+			"Name": "Bravo US West",
+			"InstanceID": "instance-ID",
+			"InstanceKind": "STANDARD",
+			"AllocationID": "allocation-ID",
+			"ElasticIP": "elastic-IP",
+			"MaxPlayers": 201,
+			"MapSize": 3501,
+			"MapSeed": 2001,
+			"MapSalt": 3240,
+			"TickRate": 30,
+			"RconPassword": "bravo-rcon-password",
+			"Description": "Bravo US West Vanilla w/ active admins and high-performance and reliable servers.",
+			"Background": "JUNKYARD",
+			"Url": "rustpm.com/bravo-us-east",
+			"BannerUrl": "rustpm.com/bravo-us-east/banner",
+			"WipeDay": "FRIDAY",
+			"BlueprintWipeFrequency": "MONTHLY",
+			"MapWipeFrequency": "WEEKLY",
+			"Region": "US_EAST",
+			"Tags": [
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Description": "Blueprint Wipe",
+					"Icon": "CALENDAR_DAY",
+					"Value": "Monthly",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				}
+			],
+			"Events": [
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 1,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 2,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 2,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 3,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 3,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 4,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 4,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 5,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 5,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 6,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 6,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 7,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 7,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 1,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				}
+			],
+			"Moderators": [
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"SteamID": "76561197962911631",
+					"QueuedDeletionAt": {
+						"Time": "0001-01-01T00:00:00Z",
+						"Valid": false
+					},
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"SteamID": "moderator-steam-id",
+					"QueuedDeletionAt": {
+						"Time": "0001-01-01T00:00:00Z",
+						"Valid": false
+					},
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				}
+			]
+		},
+		"AssociationID": "",
+		"ActivePlayers": 0,
+		"QueuedPlayers": 0
+	},
+	{
+		"ID": "00000000-0000-0000-0000-000000000000",
+		"CreatedAt": "0001-01-01T00:00:00Z",
+		"UpdatedAt": "0001-01-01T00:00:00Z",
+		"DeletedAt": null,
+		"ServerDefinitionID": "00000000-0000-0000-0000-000000000000",
+		"ServerDefinition": {
+			"ID": "00000000-0000-0000-0000-000000000000",
+			"CreatedAt": "0001-01-01T00:00:00Z",
+			"UpdatedAt": "0001-01-01T00:00:00Z",
+			"DeletedAt": null,
+			"Name": "Omega US East",
+			"InstanceID": "instance-ID",
+			"InstanceKind": "STANDARD",
+			"AllocationID": "allocation-ID",
+			"ElasticIP": "elastic-IP",
+			"MaxPlayers": 350,
+			"MapSize": 4500,
+			"MapSeed": 3000,
+			"MapSalt": 1000,
+			"TickRate": 40,
+			"RconPassword": "omega-rcon-password",
+			"Description": "Omega US East w/ active admins, high performance and reliable servers, and high player counts.",
+			"Background": "airport",
+			"Url": "rustpm.com/omega-us-east",
+			"BannerUrl": "rustpm.com/omega-us-east/banner",
+			"WipeDay": "saturday",
+			"BlueprintWipeFrequency": "biweekly",
+			"MapWipeFrequency": "biweekly",
+			"Region": "US_EAST",
+			"Tags": [
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Description": "Blueprint Wipe",
+					"Icon": "CALENDAR_DAY",
+					"Value": "Monthly",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				}
+			],
+			"Events": [
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 1,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 2,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 2,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 3,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 3,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 4,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 4,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 5,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 5,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 6,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 6,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 7,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 7,
+					"Hour": 18,
+					"EventKind": "START",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"Day": 1,
+					"Hour": 21,
+					"EventKind": "STOP",
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				}
+			],
+			"Moderators": [
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"SteamID": "76561197962911631",
+					"QueuedDeletionAt": {
+						"Time": "0001-01-01T00:00:00Z",
+						"Valid": false
+					},
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				},
+				{
+					"ID": "00000000-0000-0000-0000-000000000000",
+					"CreatedAt": "0001-01-01T00:00:00Z",
+					"UpdatedAt": "0001-01-01T00:00:00Z",
+					"DeletedAt": null,
+					"SteamID": "moderator-steam-id",
+					"QueuedDeletionAt": {
+						"Time": "0001-01-01T00:00:00Z",
+						"Valid": false
+					},
+					"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+				}
+			]
+		},
+		"AssociationID": "",
+		"ActivePlayers": 0,
+		"QueuedPlayers": 0
+	}
+]

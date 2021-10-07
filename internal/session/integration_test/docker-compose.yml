@@ -1,0 +1,20 @@
+version: "3.8"
+services:
+  redis:
+    image: "redis"
+    restart: "always"
+    ports:
+      - "6379"
+    networks:
+      - sessionIntegrationTest
+  test:
+    build:
+      context: "../../.."
+      dockerfile: "internal/session/integration_test/Dockerfile"
+    restart: "no"
+    environment:
+      CRONMAN_REDIS_ADDR: "redis:6379"
+    networks:
+      - sessionIntegrationTest
+networks:
+  sessionIntegrationTest:

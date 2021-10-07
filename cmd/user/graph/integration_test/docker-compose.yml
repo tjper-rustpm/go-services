@@ -1,0 +1,32 @@
+version: "3.8"
+services:
+  db:
+    image: "postgres:13.0"
+    restart: "always"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: "password"
+    networks:
+      - graphIntegrationTest
+  redis:
+    image: "redis"
+    restart: "always"
+    ports:
+      - "6379:6379"
+    networks:
+      - graphIntegrationTest
+  test:
+    build:
+      context: "../../../.."
+      dockerfile: "cmd/user/graph/integration_test/Dockerfile"
+    restart: "no"
+    environment:
+      USER_DSN: "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
+      USER_MIGRATIONS: "file:///target/cmd/user/db/migrations"
+      CRONMAN_REDIS_ADDR: "redis:6379"
+      CRONMAN_REDIS_PASSWORD: ""
+    networks:
+      - graphIntegrationTest
+networks:
+  graphIntegrationTest:

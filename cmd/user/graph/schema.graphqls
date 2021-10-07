@@ -1,0 +1,74 @@
+# https://gqlgen.com/getting-started/
+
+# -----------------------------------------------------------------------------
+# Queries
+# -----------------------------------------------------------------------------
+type User @key(fields: "id") {
+  id: ID!
+  email: String!
+  role: RoleKind!
+
+  verifiedAt: Time
+  updatedAt: Time!
+  createdAt: Time!
+}
+
+# -----------------------------------------------------------------------------
+# Queries
+# -----------------------------------------------------------------------------
+extend type Query {
+  me: User! @isAuthenticated
+}
+
+# -----------------------------------------------------------------------------
+# Mutations
+# -----------------------------------------------------------------------------
+extend type Mutation {
+  createUser(input: CreateUserInput!): CreateUserResult!
+  updateUserPassword(input: UpdateUserPasswordInput!): UpdateUserPasswordResult! @isAuthenticated
+
+  loginUser(input: LoginUserInput!): LoginUserResult!
+  logoutUser: Boolean! @isAuthenticated
+
+  forgotPassword(input: ForgotPasswordInput!): Boolean!
+  changePassword(input: ChangePasswordInput!): Boolean!
+  resendEmailVerification(input: ResendEmailVerificationInput!): Boolean! @isAuthenticated
+}
+
+input CreateUserInput {
+  email: String!
+  password: String!
+}
+type CreateUserResult {
+  user: User!
+}
+
+input UpdateUserPasswordInput {
+  id: ID!
+  currentPassword: String!
+  newPassword: String!
+}
+type UpdateUserPasswordResult {
+  user: User!
+}
+
+input LoginUserInput {
+  email: String!
+  password: String!
+}
+type LoginUserResult {
+  user: User!
+}
+
+input ForgotPasswordInput {
+  email: String!
+}
+
+input ChangePasswordInput {
+  hash: String!
+  password: String!
+}
+
+input ResendEmailVerificationInput {
+  id: ID!
+}

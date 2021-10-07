@@ -1,0 +1,14 @@
+[
+	{
+		"ID": "00000000-0000-0000-0000-000000000000",
+		"CreatedAt": "0001-01-01T00:00:00Z",
+		"UpdatedAt": "0001-01-01T00:00:00Z",
+		"DeletedAt": null,
+		"SteamID": "moderator-steam-id",
+		"QueuedDeletionAt": {
+			"Time": "0001-01-01T00:00:00Z",
+			"Valid": false
+		},
+		"ServerDefinitionID": "00000000-0000-0000-0000-000000000000"
+	}
+]
