@@ -1,3 +1,5 @@
+// +build localonly
+
 package lock
 
 import (
@@ -58,6 +60,7 @@ func TestLock(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
 			ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 			defer cancel()
@@ -138,6 +141,7 @@ func TestUnlock(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
 			ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 			defer cancel()
@@ -191,10 +195,11 @@ func (r *redisMock) SetNX(
 	if r.val != nil {
 		return false, nil
 	}
+
 	r.val = val
 	r.expiration = time.Now().Add(exp)
-
 	r.acquired++
+
 	return true, nil
 }
 
