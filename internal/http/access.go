@@ -40,6 +40,7 @@ func WithAccess(ctx context.Context, access *Access) context.Context {
 // context, if it is available.
 func AccessFromContext(ctx context.Context) (*Access, bool) {
 	access, ok := ctx.Value(accessCtxKey).(*Access)
+
 	return access, ok
 }
 
@@ -58,6 +59,7 @@ func (a Access) SessionID() (string, bool) {
 	if err != nil {
 		return "", false
 	}
+
 	return cookie.Value, true
 }
 

@@ -32,12 +32,14 @@ func NewResolver(
 	ctrl IController,
 	cookieDomain string,
 	cookieSecure bool,
+	cookieSameSite http.SameSite,
 ) *Resolver {
 	return &Resolver{
-		logger:       logger,
-		ctrl:         ctrl,
-		cookieDomain: cookieDomain,
-		cookieSecure: cookieSecure,
+		logger:         logger,
+		ctrl:           ctrl,
+		cookieDomain:   cookieDomain,
+		cookieSecure:   cookieSecure,
+		cookieSameSite: cookieSameSite,
 	}
 }
 
