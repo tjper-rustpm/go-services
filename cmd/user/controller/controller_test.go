@@ -32,7 +32,7 @@ func TestIsPassword(t *testing.T) {
 		},
 		"no number": {
 			password: "NoNumber",
-			err:      rpmerrors.PasswordError("at least on number required"),
+			err:      rpmerrors.PasswordError("at least one number required"),
 		},
 		"valid password":                {password: "1ValidPassword", err: nil},
 		"valid with special characters": {password: "1ValidPassword!", err: nil},

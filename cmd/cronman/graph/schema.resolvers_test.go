@@ -1,4 +1,4 @@
-// +build db-integration
+// +build dbintegration
 
 package graph
 
