@@ -1,6 +1,18 @@
 version: 2.1
+orbs:
+  aws-ecr: circleci/aws-ecr@7.2.0
 
 jobs:
+  lint:
+    working_directory: ~/repo
+    docker:
+      - image: golangci/golangci-lint:v1.42.1
+    steps:
+      - checkout
+      - run:
+          name: Lint Repo
+          command: |
+            golangci-lint run -v
   test:
     working_directory: ~/repo
     docker:
@@ -24,19 +36,37 @@ jobs:
             gotestsum --debug --junitfile /tmp/test-reports/unit-tests.xml
       - store_test_results:
           path: /tmp/test-reports
-  lint:
-    working_directory: ~/repo
-    docker:
-      - image: golangci/golangci-lint:v1.42.1
-    steps:
-      - checkout
-      - run:
-          name: Lint Repo
-          command: |
-            golangci-lint run -v
 
 workflows:
   standard:
     jobs:
       - lint
       - test
+  build_and_push_image:
+    jobs:
+      - aws-ecr/build_and_push_image:
+          account-url: $AWS_ECR_ACCOUNT_URL
+          aws-access-key-id: $AWS_ECR_ACCESS_KEY_ID
+          aws-secret-access-key: $AWS_ECR_SECRET_ACCESS_KEY
+          context: .
+          create-repo: false
+          dockerfile: deploy/Dockerfile.cronman
+          no-output-timeout: 20m
+          path: .
+          region: us-east-1
+          repo: rustpm/cronman
+          skip-when-tags-exist: false
+          tag: 'latest,$CIRCLE_BRANCH'
+      - aws-ecr/build_and_push_image:
+          account-url: $AWS_ECR_ACCOUNT_URL
+          aws-access-key-id: $AWS_ECR_ACCESS_KEY_ID
+          aws-secret-access-key: $AWS_ECR_SECRET_ACCESS_KEY
+          context: .
+          create-repo: false
+          dockerfile: deploy/Dockerfile.user
+          no-output-timeout: 20m
+          path: .
+          region: us-east-1
+          repo: rustpm/user
+          skip-when-tags-exist: false
+          tag: 'latest,$CIRCLE_BRANCH'
