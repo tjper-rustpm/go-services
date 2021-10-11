@@ -1,0 +1,78 @@
+version: 2.1
+orbs:
+  aws-ecr: circleci/aws-ecr@7.2.0
+
+jobs:
+  lint:
+    working_directory: ~/repo
+    docker:
+      - image: golangci/golangci-lint:v1.42.1
+    steps:
+      - checkout
+      - run:
+          name: Lint Repo
+          command: |
+            golangci-lint run -v
+  test:
+    working_directory: ~/repo
+    docker:
+      - image: circleci/golang:1.15.8
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - go-mod-v4-{{ checksum "go.sum" }}
+      - run:
+          name: Install Dependencies
+          command: go mod download
+      - save_cache:
+          key: go-mod-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+      - run:
+          name: Run tests
+          command: |
+            mkdir -p /tmp/test-reports
+            gotestsum --debug --junitfile /tmp/test-reports/unit-tests.xml
+      - store_test_results:
+          path: /tmp/test-reports
+
+workflows:
+  lint-test-build-push:
+    jobs:
+      - lint
+      - test
+      - aws-ecr/build-and-push-image:
+          requires:
+            - lint
+            - test
+          account-url: AWS_ECR_ACCOUNT_URL
+          aws-access-key-id: AWS_ECR_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_ECR_SECRET_ACCESS_KEY
+          context: aws
+          create-repo: false
+          dockerfile: deploy/Dockerfile.cronman
+          no-output-timeout: 20m
+          path: .
+          region: AWS_REGION
+          repo: rustpm/cronman
+          skip-when-tags-exist: false
+          tag: $CIRCLE_BRANCH
+          remote-docker-version: 20.10.7
+      - aws-ecr/build-and-push-image:
+          requires:
+            - lint
+            - test
+          account-url: AWS_ECR_ACCOUNT_URL
+          aws-access-key-id: AWS_ECR_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_ECR_SECRET_ACCESS_KEY
+          context: aws
+          create-repo: false
+          dockerfile: deploy/Dockerfile.user
+          no-output-timeout: 20m
+          path: .
+          region: AWS_REGION
+          repo: rustpm/user
+          skip-when-tags-exist: false
+          tag: $CIRCLE_BRANCH
+          remote-docker-version: 20.10.7

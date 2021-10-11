@@ -5,11 +5,11 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /target
 
-COPY go.* .
+COPY go.* ./
 RUN go mod download
 
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -o user cmd/user/server.go
+RUN CGO_ENABLED=0 go build -o user cmd/user/server.go
 
 FROM scratch
 

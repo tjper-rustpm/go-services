@@ -1,3 +1,5 @@
+// +build localonly
+
 package lock
 
 import (
@@ -193,10 +195,11 @@ func (r *redisMock) SetNX(
 	if r.val != nil {
 		return false, nil
 	}
+
 	r.val = val
 	r.expiration = time.Now().Add(exp)
-
 	r.acquired++
+
 	return true, nil
 }
 

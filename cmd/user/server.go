@@ -110,6 +110,7 @@ func run() int {
 		ctrl,
 		config.CookieDomain(),
 		config.CookieSecure(),
+		config.CookieSameSite(),
 	)
 	directive := rpmgraph.NewDirective(logger, sessionManager)
 	srv := handler.NewDefaultServer(
