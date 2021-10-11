@@ -44,29 +44,29 @@ workflows:
       - test
   build_and_push_image:
     jobs:
-      - aws-ecr/build_and_push_image:
-          account-url: $AWS_ECR_ACCOUNT_URL
-          aws-access-key-id: $AWS_ECR_ACCESS_KEY_ID
-          aws-secret-access-key: $AWS_ECR_SECRET_ACCESS_KEY
+      - aws-ecr/build-and-push-image:
+          account-url: AWS_ECR_ACCOUNT_URL
+          aws-access-key-id: AWS_ECR_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_ECR_SECRET_ACCESS_KEY
           context: .
           create-repo: false
           dockerfile: deploy/Dockerfile.cronman
           no-output-timeout: 20m
           path: .
-          region: us-east-1
+          region: AWS_REGION
           repo: rustpm/cronman
           skip-when-tags-exist: false
           tag: 'latest,$CIRCLE_BRANCH'
-      - aws-ecr/build_and_push_image:
-          account-url: $AWS_ECR_ACCOUNT_URL
-          aws-access-key-id: $AWS_ECR_ACCESS_KEY_ID
-          aws-secret-access-key: $AWS_ECR_SECRET_ACCESS_KEY
+      - aws-ecr/build-and-push-image:
+          account-url: AWS_ECR_ACCOUNT_URL
+          aws-access-key-id: AWS_ECR_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_ECR_SECRET_ACCESS_KEY
           context: .
           create-repo: false
           dockerfile: deploy/Dockerfile.user
           no-output-timeout: 20m
           path: .
-          region: us-east-1
+          region: AWS_REGION
           repo: rustpm/user
           skip-when-tags-exist: false
           tag: 'latest,$CIRCLE_BRANCH'
