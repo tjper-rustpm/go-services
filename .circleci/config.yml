@@ -38,13 +38,14 @@ jobs:
           path: /tmp/test-reports
 
 workflows:
-  standard:
+  lint-test-build-push:
     jobs:
       - lint
       - test
-  build_and_push_image:
-    jobs:
       - aws-ecr/build-and-push-image:
+          requires:
+            - lint
+            - test
           account-url: AWS_ECR_ACCOUNT_URL
           aws-access-key-id: AWS_ECR_ACCESS_KEY_ID
           aws-secret-access-key: AWS_ECR_SECRET_ACCESS_KEY
@@ -56,9 +57,12 @@ workflows:
           region: AWS_REGION
           repo: rustpm/cronman
           skip-when-tags-exist: false
-          tag: CIRCLE_BRANCH
+          tag: $CIRCLE_BRANCH
           remote-docker-version: 20.10.7
       - aws-ecr/build-and-push-image:
+          requires:
+            - lint
+            - test
           account-url: AWS_ECR_ACCOUNT_URL
           aws-access-key-id: AWS_ECR_ACCESS_KEY_ID
           aws-secret-access-key: AWS_ECR_SECRET_ACCESS_KEY
@@ -70,5 +74,5 @@ workflows:
           region: AWS_REGION
           repo: rustpm/user
           skip-when-tags-exist: false
-          tag: CIRCLE_BRANCH
+          tag: $CIRCLE_BRANCH
           remote-docker-version: 20.10.7
