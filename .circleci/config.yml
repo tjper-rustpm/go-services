@@ -58,7 +58,6 @@ workflows:
           repo: rustpm/cronman
           skip-when-tags-exist: false
           tag: $CIRCLE_BRANCH
-          remote-docker-version: 20.10.7
       - aws-ecr/build-and-push-image:
           requires:
             - lint
@@ -75,4 +74,3 @@ workflows:
           repo: rustpm/user
           skip-when-tags-exist: false
           tag: $CIRCLE_BRANCH
-          remote-docker-version: 20.10.7
