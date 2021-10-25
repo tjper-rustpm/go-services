@@ -41,7 +41,7 @@ type config struct {
 func (c *config) loadDefaults() {
 	c.viper.SetDefault(keyPort, 8080)
 	c.viper.SetDefault(keyDSN, "host=localhost user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC")
-	c.viper.SetDefault(keyMigrations, "file:///migrations")
+	c.viper.SetDefault(keyMigrations, "file:///db/migrations")
 	c.viper.SetDefault(keyRedisAddr, "redis:6379")
 	c.viper.SetDefault(keyRedisPassword, "")
 	c.viper.SetDefault(keyMailgunDomain, "mg.rustpm.com")
@@ -95,6 +95,7 @@ func CookieSecure() bool {
 
 func CookieSameSite() http.SameSite {
 	sameSiteStr := global.viper.GetString(keyCookieSameSite)
+
 	var sameSite http.SameSite
 	switch sameSiteStr {
 	case "off":
@@ -108,6 +109,7 @@ func CookieSameSite() http.SameSite {
 	default:
 		panic("unrecognized Same-Site cookie configuration value")
 	}
+
 	return sameSite
 }
 
