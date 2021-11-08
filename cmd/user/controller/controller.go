@@ -107,10 +107,12 @@ func (ctrl Controller) CreateUser(
 	if err != nil {
 		return nil, err
 	}
+
 	salt, err := rand.GenerateString(32)
 	if err != nil {
 		return nil, err
 	}
+
 	user := &model.User{
 		Email:              input.Email,
 		Password:           hash([]byte(input.Password), []byte(salt)),

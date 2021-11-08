@@ -28,30 +28,6 @@ type Endpoints struct {
 	ctrl   IController
 }
 
-func (endpoints Endpoints) VerifyEmailHandler(w http.ResponseWriter, r *http.Request) {
-	hash := r.URL.Query().Get("hash")
-	if len(hash) == 0 {
-		endpoints.logger.Error("error retrieving hash from URL query parameter")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	_, err := endpoints.ctrl.VerifyEmail(r.Context(), hash)
-	if authErr := rpmerrors.AsAuthError(err); authErr != nil {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-	if hashErr := rpmerrors.AsHashError(err); hashErr != nil {
-		w.WriteHeader(http.StatusConflict)
-		return
-	}
-	if err != nil {
-		endpoints.logger.Error("error verifying email hash", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusCreated)
-}
-
 func (endpoints Endpoints) ValidateResetPasswordHashHandler(w http.ResponseWriter, r *http.Request) {
 	hash := r.URL.Query().Get("hash")
 	if len(hash) == 0 {
