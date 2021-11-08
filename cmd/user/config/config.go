@@ -49,7 +49,7 @@ func (c *config) loadDefaults() {
 	c.viper.SetDefault(keyMailgunHost, "localhost")
 	c.viper.SetDefault(keyCookieDomain, "localhost")
 	c.viper.SetDefault(keyCookieSecure, false)
-	c.viper.SetDefault(keyCookieSameSite, http.SameSiteDefaultMode)
+	c.viper.SetDefault(keyCookieSameSite, "off")
 	c.viper.SetDefault(keyAdmins, []string{})
 }
 
