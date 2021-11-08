@@ -26,6 +26,7 @@ extend type Query {
 extend type Mutation {
   createUser(input: CreateUserInput!): CreateUserResult!
   updateUserPassword(input: UpdateUserPasswordInput!): UpdateUserPasswordResult! @isAuthenticated
+  verifyEmail(input: VerifyEmailInput!): VerifyEmailResult!
 
   loginUser(input: LoginUserInput!): LoginUserResult!
   logoutUser: Boolean! @isAuthenticated
@@ -49,6 +50,13 @@ input UpdateUserPasswordInput {
   newPassword: String!
 }
 type UpdateUserPasswordResult {
+  user: User!
+}
+
+input VerifyEmailInput {
+  hash: String!
+}
+type VerifyEmailResult {
   user: User!
 }
 

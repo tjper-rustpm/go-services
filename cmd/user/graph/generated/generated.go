@@ -70,6 +70,7 @@ type ComplexityRoot struct {
 		LogoutUser              func(childComplexity int) int
 		ResendEmailVerification func(childComplexity int, input model1.ResendEmailVerificationInput) int
 		UpdateUserPassword      func(childComplexity int, input model1.UpdateUserPasswordInput) int
+		VerifyEmail             func(childComplexity int, input model1.VerifyEmailInput) int
 	}
 
 	Query struct {
@@ -91,6 +92,10 @@ type ComplexityRoot struct {
 		VerifiedAt func(childComplexity int) int
 	}
 
+	VerifyEmailResult struct {
+		User func(childComplexity int) int
+	}
+
 	Service struct {
 		SDL func(childComplexity int) int
 	}
@@ -102,6 +107,7 @@ type EntityResolver interface {
 type MutationResolver interface {
 	CreateUser(ctx context.Context, input model1.CreateUserInput) (*model1.CreateUserResult, error)
 	UpdateUserPassword(ctx context.Context, input model1.UpdateUserPasswordInput) (*model1.UpdateUserPasswordResult, error)
+	VerifyEmail(ctx context.Context, input model1.VerifyEmailInput) (*model1.VerifyEmailResult, error)
 	LoginUser(ctx context.Context, input model1.LoginUserInput) (*model1.LoginUserResult, error)
 	LogoutUser(ctx context.Context) (bool, error)
 	ForgotPassword(ctx context.Context, input model1.ForgotPasswordInput) (bool, error)
@@ -232,6 +238,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.UpdateUserPassword(childComplexity, args["input"].(model1.UpdateUserPasswordInput)), true
 
+	case "Mutation.verifyEmail":
+		if e.complexity.Mutation.VerifyEmail == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_verifyEmail_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.VerifyEmail(childComplexity, args["input"].(model1.VerifyEmailInput)), true
+
 	case "Query.me":
 		if e.complexity.Query.Me == nil {
 			break
@@ -306,6 +324,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.User.VerifiedAt(childComplexity), true
+
+	case "VerifyEmailResult.user":
+		if e.complexity.VerifyEmailResult.User == nil {
+			break
+		}
+
+		return e.complexity.VerifyEmailResult.User(childComplexity), true
 
 	case "_Service.sdl":
 		if e.complexity.Service.SDL == nil {
@@ -406,6 +431,7 @@ extend type Query {
 extend type Mutation {
   createUser(input: CreateUserInput!): CreateUserResult!
   updateUserPassword(input: UpdateUserPasswordInput!): UpdateUserPasswordResult! @isAuthenticated
+  verifyEmail(input: VerifyEmailInput!): VerifyEmailResult!
 
   loginUser(input: LoginUserInput!): LoginUserResult!
   logoutUser: Boolean! @isAuthenticated
@@ -429,6 +455,13 @@ input UpdateUserPasswordInput {
   newPassword: String!
 }
 type UpdateUserPasswordResult {
+  user: User!
+}
+
+input VerifyEmailInput {
+  hash: String!
+}
+type VerifyEmailResult {
   user: User!
 }
 
@@ -627,6 +660,21 @@ func (ec *executionContext) field_Mutation_updateUserPassword_args(ctx context.C
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
 		arg0, err = ec.unmarshalNUpdateUserPasswordInput2githubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐUpdateUserPasswordInput(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_verifyEmail_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 model1.VerifyEmailInput
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+		arg0, err = ec.unmarshalNVerifyEmailInput2githubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐVerifyEmailInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -917,6 +965,48 @@ func (ec *executionContext) _Mutation_updateUserPassword(ctx context.Context, fi
 	res := resTmp.(*model1.UpdateUserPasswordResult)
 	fc.Result = res
 	return ec.marshalNUpdateUserPasswordResult2ᚖgithubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐUpdateUserPasswordResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_verifyEmail(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_verifyEmail_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().VerifyEmail(rctx, args["input"].(model1.VerifyEmailInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model1.VerifyEmailResult)
+	fc.Result = res
+	return ec.marshalNVerifyEmailResult2ᚖgithubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐVerifyEmailResult(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_loginUser(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1605,6 +1695,41 @@ func (ec *executionContext) _User_createdAt(ctx context.Context, field graphql.C
 	res := resTmp.(time.Time)
 	fc.Result = res
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _VerifyEmailResult_user(ctx context.Context, field graphql.CollectedField, obj *model1.VerifyEmailResult) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "VerifyEmailResult",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.User, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model1.User)
+	fc.Result = res
+	return ec.marshalNUser2ᚖgithubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) __Service_sdl(ctx context.Context, field graphql.CollectedField, obj *fedruntime.Service) (ret graphql.Marshaler) {
@@ -2886,6 +3011,26 @@ func (ec *executionContext) unmarshalInputUpdateUserPasswordInput(ctx context.Co
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputVerifyEmailInput(ctx context.Context, obj interface{}) (model1.VerifyEmailInput, error) {
+	var it model1.VerifyEmailInput
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "hash":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("hash"))
+			it.Hash, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -3026,6 +3171,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "updateUserPassword":
 			out.Values[i] = ec._Mutation_updateUserPassword(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "verifyEmail":
+			out.Values[i] = ec._Mutation_verifyEmail(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -3199,6 +3349,33 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "createdAt":
 			out.Values[i] = ec._User_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var verifyEmailResultImplementors = []string{"VerifyEmailResult"}
+
+func (ec *executionContext) _VerifyEmailResult(ctx context.Context, sel ast.SelectionSet, obj *model1.VerifyEmailResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, verifyEmailResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("VerifyEmailResult")
+		case "user":
+			out.Values[i] = ec._VerifyEmailResult_user(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -3642,6 +3819,25 @@ func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋtjperᚋrustcronᚋcm
 		return graphql.Null
 	}
 	return ec._User(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNVerifyEmailInput2githubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐVerifyEmailInput(ctx context.Context, v interface{}) (model1.VerifyEmailInput, error) {
+	res, err := ec.unmarshalInputVerifyEmailInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNVerifyEmailResult2githubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐVerifyEmailResult(ctx context.Context, sel ast.SelectionSet, v model1.VerifyEmailResult) graphql.Marshaler {
+	return ec._VerifyEmailResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNVerifyEmailResult2ᚖgithubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐVerifyEmailResult(ctx context.Context, sel ast.SelectionSet, v *model1.VerifyEmailResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	return ec._VerifyEmailResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalN_Any2map(ctx context.Context, v interface{}) (map[string]interface{}, error) {

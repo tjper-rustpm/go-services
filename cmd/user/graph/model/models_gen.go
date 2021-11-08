@@ -59,3 +59,11 @@ type User struct {
 }
 
 func (User) IsEntity() {}
+
+type VerifyEmailInput struct {
+	Hash string `json:"hash"`
+}
+
+type VerifyEmailResult struct {
+	User *User `json:"user"`
+}

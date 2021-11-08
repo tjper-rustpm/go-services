@@ -90,6 +90,24 @@ func (r *mutationResolver) UpdateUserPassword(ctx context.Context, input model.U
 	}, nil
 }
 
+func (r *mutationResolver) VerifyEmail(ctx context.Context, input model.VerifyEmailInput) (*model.VerifyEmailResult, error) {
+	user, err := r.ctrl.VerifyEmail(ctx, input.Hash)
+	if authErr := rpmerrors.AsAuthError(err); authErr != nil {
+		return nil, gerrors.ErrUnauthorized
+	}
+	if hashErr := rpmerrors.AsHashError(err); hashErr != nil {
+		return nil, gerrors.ErrUnauthorized
+	}
+	if err != nil {
+		r.logger.Error("error verifying email hash", zap.Error(err))
+		return nil, gerrors.ErrInternalServer
+	}
+
+	return &model.VerifyEmailResult{
+		User: toModelUser(*user),
+	}, nil
+}
+
 func (r *mutationResolver) LoginUser(ctx context.Context, input model.LoginUserInput) (*model.LoginUserResult, error) {
 	out, err := r.ctrl.LoginUser(
 		ctx,

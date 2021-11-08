@@ -130,7 +130,6 @@ func run() int {
 	)
 	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	router.Handle("/query", srv)
-	router.Post("/verify-email", endpoints.VerifyEmailHandler)
 	router.Post("/validate-password-reset", endpoints.ValidateResetPasswordHashHandler)
 
 	logger.Sugar().Infof("[Startup] user endpoint listening at :%d", config.Port())

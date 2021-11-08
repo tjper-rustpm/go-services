@@ -22,6 +22,7 @@ type IController interface {
 	LoginUser(context.Context, controller.LoginUserInput) (*controller.LoginUserOutput, error)
 	LogoutUser(context.Context, string) error
 
+	VerifyEmail(context.Context, string) (*model.User, error)
 	RequestPasswordReset(context.Context, string) error
 	ResetPassword(context.Context, string, string) error
 	ResendEmailVerification(context.Context, uuid.UUID) (*model.User, error)
