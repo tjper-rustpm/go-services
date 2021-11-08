@@ -63,7 +63,7 @@ func (e MailgunEmailer) send(ctx context.Context, msg *mailgun.Message) error {
 func addVerifyEmailURL(msg *mailgun.Message, host, hash string) error {
 	return msg.AddTemplateVariable(
 		"verifyEmailURL",
-		fmt.Sprintf("https://%s/user/verify?hash=%s", host, hash),
+		fmt.Sprintf("https://%s/verify-email?hash=%s", host, hash),
 	)
 }
 
