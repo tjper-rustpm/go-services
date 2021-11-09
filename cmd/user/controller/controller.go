@@ -252,6 +252,9 @@ func (ctrl Controller) User(ctx context.Context, id uuid.UUID) (*model.User, err
 // cryptographically-secure pseudorandom number.
 func (ctrl Controller) VerifyEmail(ctx context.Context, hash string) (*model.User, error) {
 	user, err := ctrl.store.UserByVerificationHash(ctx, hash)
+	if errors.Is(err, rpmerrors.UserDNE) {
+		return nil, rpmerrors.HashError("invalid hash")
+	}
 	if err != nil {
 		return nil, err
 	}
