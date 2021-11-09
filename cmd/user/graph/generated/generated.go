@@ -68,7 +68,7 @@ type ComplexityRoot struct {
 		ForgotPassword          func(childComplexity int, input model1.ForgotPasswordInput) int
 		LoginUser               func(childComplexity int, input model1.LoginUserInput) int
 		LogoutUser              func(childComplexity int) int
-		ResendEmailVerification func(childComplexity int, input model1.ResendEmailVerificationInput) int
+		ResendEmailVerification func(childComplexity int) int
 		UpdateUserPassword      func(childComplexity int, input model1.UpdateUserPasswordInput) int
 		VerifyEmail             func(childComplexity int, input model1.VerifyEmailInput) int
 	}
@@ -112,7 +112,7 @@ type MutationResolver interface {
 	LogoutUser(ctx context.Context) (bool, error)
 	ForgotPassword(ctx context.Context, input model1.ForgotPasswordInput) (bool, error)
 	ChangePassword(ctx context.Context, input model1.ChangePasswordInput) (bool, error)
-	ResendEmailVerification(ctx context.Context, input model1.ResendEmailVerificationInput) (bool, error)
+	ResendEmailVerification(ctx context.Context) (bool, error)
 }
 type QueryResolver interface {
 	Me(ctx context.Context) (*model1.User, error)
@@ -219,12 +219,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_resendEmailVerification_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.ResendEmailVerification(childComplexity, args["input"].(model1.ResendEmailVerificationInput)), true
+		return e.complexity.Mutation.ResendEmailVerification(childComplexity), true
 
 	case "Mutation.updateUserPassword":
 		if e.complexity.Mutation.UpdateUserPassword == nil {
@@ -438,7 +433,7 @@ extend type Mutation {
 
   forgotPassword(input: ForgotPasswordInput!): Boolean!
   changePassword(input: ChangePasswordInput!): Boolean!
-  resendEmailVerification(input: ResendEmailVerificationInput!): Boolean! @isAuthenticated
+  resendEmailVerification: Boolean! @isAuthenticated
 }
 
 input CreateUserInput {
@@ -480,10 +475,6 @@ input ForgotPasswordInput {
 input ChangePasswordInput {
   hash: String!
   password: String!
-}
-
-input ResendEmailVerificationInput {
-  id: ID!
 }`, BuiltIn: false},
 	{Name: "../../internal/graph/schema.graphqls", Input: `# https://gqlgen.com/getting-started/
 
@@ -630,21 +621,6 @@ func (ec *executionContext) field_Mutation_loginUser_args(ctx context.Context, r
 	if tmp, ok := rawArgs["input"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
 		arg0, err = ec.unmarshalNLoginUserInput2githubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐLoginUserInput(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_resendEmailVerification_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 model1.ResendEmailVerificationInput
-	if tmp, ok := rawArgs["input"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
-		arg0, err = ec.unmarshalNResendEmailVerificationInput2githubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐResendEmailVerificationInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1206,17 +1182,10 @@ func (ec *executionContext) _Mutation_resendEmailVerification(ctx context.Contex
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_resendEmailVerification_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().ResendEmailVerification(rctx, args["input"].(model1.ResendEmailVerificationInput))
+			return ec.resolvers.Mutation().ResendEmailVerification(rctx)
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			if ec.directives.IsAuthenticated == nil {
@@ -2955,26 +2924,6 @@ func (ec *executionContext) unmarshalInputLoginUserInput(ctx context.Context, ob
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputResendEmailVerificationInput(ctx context.Context, obj interface{}) (model1.ResendEmailVerificationInput, error) {
-	var it model1.ResendEmailVerificationInput
-	var asMap = obj.(map[string]interface{})
-
-	for k, v := range asMap {
-		switch k {
-		case "id":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
-			it.ID, err = ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		}
-	}
-
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputUpdateUserPasswordInput(ctx context.Context, obj interface{}) (model1.UpdateUserPasswordInput, error) {
 	var it model1.UpdateUserPasswordInput
 	var asMap = obj.(map[string]interface{})
@@ -3735,11 +3684,6 @@ func (ec *executionContext) marshalNLoginUserResult2ᚖgithubᚗcomᚋtjperᚋru
 		return graphql.Null
 	}
 	return ec._LoginUserResult(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNResendEmailVerificationInput2githubᚗcomᚋtjperᚋrustcronᚋcmdᚋuserᚋgraphᚋmodelᚐResendEmailVerificationInput(ctx context.Context, v interface{}) (model1.ResendEmailVerificationInput, error) {
-	res, err := ec.unmarshalInputResendEmailVerificationInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNRoleKind2githubᚗcomᚋtjperᚋrustcronᚋinternalᚋgraphᚋmodelᚐRoleKind(ctx context.Context, v interface{}) (model.RoleKind, error) {

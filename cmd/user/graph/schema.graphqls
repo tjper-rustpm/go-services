@@ -33,7 +33,7 @@ extend type Mutation {
 
   forgotPassword(input: ForgotPasswordInput!): Boolean!
   changePassword(input: ChangePasswordInput!): Boolean!
-  resendEmailVerification(input: ResendEmailVerificationInput!): Boolean! @isAuthenticated
+  resendEmailVerification: Boolean! @isAuthenticated
 }
 
 input CreateUserInput {
@@ -75,8 +75,4 @@ input ForgotPasswordInput {
 input ChangePasswordInput {
   hash: String!
   password: String!
-}
-
-input ResendEmailVerificationInput {
-  id: ID!
 }

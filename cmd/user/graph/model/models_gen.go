@@ -35,10 +35,6 @@ type LoginUserResult struct {
 	User *User `json:"user"`
 }
 
-type ResendEmailVerificationInput struct {
-	ID string `json:"id"`
-}
-
 type UpdateUserPasswordInput struct {
 	ID              string `json:"id"`
 	CurrentPassword string `json:"currentPassword"`

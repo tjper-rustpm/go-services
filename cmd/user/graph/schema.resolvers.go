@@ -186,22 +186,18 @@ func (r *mutationResolver) ChangePassword(ctx context.Context, input model.Chang
 	return true, nil
 }
 
-func (r *mutationResolver) ResendEmailVerification(ctx context.Context, input model.ResendEmailVerificationInput) (bool, error) {
+func (r *mutationResolver) ResendEmailVerification(ctx context.Context) (bool, error) {
 	sess, ok := session.FromContext(ctx)
 	if !ok {
 		r.logger.Error("session no longer exists for request's user")
 		return false, gerrors.ErrUnauthenticated
 	}
-	if !sess.IsAuthorized(input.ID) {
-		r.logger.Error("client is not authorized to access this resource")
-		return false, gerrors.ErrUnauthorized
-	}
 
-	userID, err := uuid.Parse(input.ID)
-	if err != nil {
-		return false, gerrors.ErrInvalidUUID
+	_, err := r.ctrl.ResendEmailVerification(ctx, sess.User.ID)
+	if errors.Is(err, rpmerrors.EmailAlreadyVerified) {
+		return false, err
 	}
-	if _, err := r.ctrl.ResendEmailVerification(ctx, userID); err != nil {
+	if err != nil {
 		r.logger.Error("error resending email verification", zap.Error(err))
 		return false, gerrors.ErrInternalServer
 	}
