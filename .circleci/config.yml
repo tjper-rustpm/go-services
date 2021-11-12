@@ -12,7 +12,7 @@ jobs:
       - run:
           name: Lint Repo
           command: |
-            golangci-lint run -v
+            golangci-lint run -v --timeout 5m
   test:
     working_directory: ~/repo
     docker:
