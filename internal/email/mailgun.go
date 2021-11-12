@@ -63,13 +63,13 @@ func (e MailgunEmailer) send(ctx context.Context, msg *mailgun.Message) error {
 func addVerifyEmailURL(msg *mailgun.Message, host, hash string) error {
 	return msg.AddTemplateVariable(
 		"verifyEmailURL",
-		fmt.Sprintf("https://%s/verify-email?hash=%s", host, hash),
+		fmt.Sprintf("%s/verify-email?hash=%s", host, hash),
 	)
 }
 
 func addResetPasswordURL(msg *mailgun.Message, host, hash string) error {
 	return msg.AddTemplateVariable(
 		"resetPasswordURL",
-		fmt.Sprintf("https://%s/user/reset-password?hash=%s", host, hash),
+		fmt.Sprintf("%s/reset-password?hash=%s", host, hash),
 	)
 }
