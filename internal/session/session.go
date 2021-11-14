@@ -2,6 +2,8 @@ package session
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Session represents a client Session.
@@ -19,8 +21,8 @@ type Session struct {
 
 // IsAuthorized ensures that the session is authorized to interact with the
 // specified user ID.
-func (s Session) IsAuthorized(userID string) bool {
-	return s.User.ID.String() == userID
+func (s Session) IsAuthorized(userID uuid.UUID) bool {
+	return s.User.ID == userID
 }
 
 // Equal checks if the passed Session is equal to the reciever Session.
