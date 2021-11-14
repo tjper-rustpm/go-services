@@ -1,32 +1,30 @@
 package model
 
-import graphmodel "github.com/tjper/rustcron/cmd/cronman/graph/model"
-
 // ServerDefinition is general server information shared by all server types.
 type ServerDefinition struct {
 	Model
-	Name                   string
-	InstanceID             string
-	InstanceKind           graphmodel.InstanceKind
-	AllocationID           string
-	ElasticIP              string
-	MaxPlayers             uint16
-	MapSize                uint16
-	MapSeed                uint16
-	MapSalt                uint16
-	TickRate               uint8
-	RconPassword           string
-	Description            string
-	Background             graphmodel.BackgroundKind
-	Url                    string
-	BannerUrl              string
-	WipeDay                graphmodel.WipeDay
-	BlueprintWipeFrequency graphmodel.WipeFrequency
-	MapWipeFrequency       graphmodel.WipeFrequency
-	Region                 graphmodel.Region
-	Tags                   DefinitionTags
-	Events                 DefinitionEvents
-	Moderators             DefinitionModerators
+	Name                   string               `json:"name"`
+	InstanceID             string               `json:"instanceID"`
+	InstanceKind           InstanceKind         `json:"instanceKind"`
+	AllocationID           string               `json:"maxPlayers"`
+	ElasticIP              string               `json:"elasticIP"`
+	MaxPlayers             uint16               `json:"maxPlayers"`
+	MapSize                uint16               `json:"mapSize"`
+	MapSeed                uint16               `json:"mapSeed"`
+	MapSalt                uint16               `json:"mapSalt"`
+	TickRate               uint8                `json:"tickRate"`
+	RconPassword           string               `json:"rconPassword"`
+	Description            string               `json:"description"`
+	Background             BackgroundKind       `json:"background"`
+	Url                    string               `json:"url"`
+	BannerUrl              string               `json:"bannerURL"`
+	WipeDay                WipeDay              `json:"wipeDay"`
+	BlueprintWipeFrequency WipeFrequency        `json:"blueprintWipeFrequency"`
+	MapWipeFrequency       WipeFrequency        `json:"mapWipeFrequency"`
+	Region                 Region               `json:"region"`
+	Tags                   DefinitionTags       `json:"tags"`
+	Events                 DefinitionEvents     `json:"events"`
+	Moderators             DefinitionModerators `json:"moderators"`
 }
 
 func (sd ServerDefinition) Clone() *ServerDefinition {

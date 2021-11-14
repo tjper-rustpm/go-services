@@ -3,8 +3,6 @@ package model
 import (
 	"time"
 
-	graphmodel "github.com/tjper/rustcron/cmd/cronman/graph/model"
-
 	"github.com/google/uuid"
 )
 
@@ -24,7 +22,7 @@ func (dts DefinitionEvents) Scrub() {
 	}
 }
 
-func (dts DefinitionEvents) NextOf(t time.Time, kind graphmodel.EventKind) DefinitionEvent {
+func (dts DefinitionEvents) NextOf(t time.Time, kind EventKind) DefinitionEvent {
 	var next DefinitionEvent
 	for _, dt := range dts {
 		if dt.EventKind != kind {
@@ -45,9 +43,9 @@ func (dts DefinitionEvents) NextOf(t time.Time, kind graphmodel.EventKind) Defin
 
 type DefinitionEvent struct {
 	Model
-	Weekday            time.Weekday
-	Hour               uint8
-	EventKind          graphmodel.EventKind
+	Weekday            time.Weekday `json:"weekday"`
+	Hour               uint8        `json:"hour"`
+	EventKind          EventKind    `json:"kind"`
 	ServerDefinitionID uuid.UUID
 }
 
@@ -70,3 +68,10 @@ func (de DefinitionEvent) NextOccurenceAfter(after time.Time) time.Time {
 			time.Duration(int(de.Hour)-after.Hour())*time.Hour,
 	).Truncate(time.Hour)
 }
+
+type EventKind string
+
+const (
+	EventKindStart EventKind = "START"
+	EventKindStop  EventKind = "STOP"
+)

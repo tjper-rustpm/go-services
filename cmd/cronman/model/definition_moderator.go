@@ -24,7 +24,7 @@ func (dts DefinitionModerators) Scrub() {
 
 type DefinitionModerator struct {
 	Model
-	SteamID            string
+	SteamID            string `json:"steamID"`
 	QueuedDeletionAt   sql.NullTime
 	ServerDefinitionID uuid.UUID
 }

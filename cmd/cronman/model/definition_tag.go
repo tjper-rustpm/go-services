@@ -1,8 +1,6 @@
 package model
 
 import (
-	graphmodel "github.com/tjper/rustcron/cmd/cronman/graph/model"
-
 	"github.com/google/uuid"
 )
 
@@ -24,9 +22,9 @@ func (dts DefinitionTags) Scrub() {
 
 type DefinitionTag struct {
 	Model
-	Description        string
-	Icon               graphmodel.IconKind
-	Value              string
+	Description        string   `json:"description"`
+	Icon               IconKind `json:"icon"`
+	Value              string   `json:"value"`
 	ServerDefinitionID uuid.UUID
 }
 
@@ -38,3 +36,15 @@ func (dt *DefinitionTag) Scrub() {
 	dt.Model.Scrub()
 	dt.ServerDefinitionID = uuid.Nil
 }
+
+type IconKind string
+
+const (
+	IconKindUserGroup     IconKind = "userGroup"
+	IconKindMap           IconKind = "map"
+	IconKindGlobe         IconKind = "globe"
+	IconKindCalendarDay   IconKind = "calendarDay"
+	IconKindCalendarWeek  IconKind = "calendarWeek"
+	IconKindCalendarEvent IconKind = "calendarEvent"
+	IconKindGames         IconKind = "games"
+)
