@@ -11,17 +11,11 @@ import (
 	"github.com/tjper/rustcron/cmd/user/config"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/db"
-	"github.com/tjper/rustcron/cmd/user/graph"
-	"github.com/tjper/rustcron/cmd/user/graph/generated"
 	"github.com/tjper/rustcron/cmd/user/rest"
 	"github.com/tjper/rustcron/internal/email"
-	rpmgraph "github.com/tjper/rustcron/internal/graph"
-	rpmhttp "github.com/tjper/rustcron/internal/http"
+	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 
-	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/go-chi/chi"
 	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/mailgun/mailgun-go/v4"
 	"go.uber.org/zap"
@@ -100,39 +94,21 @@ func run() int {
 	)
 	logger.Info("[Startup] Created controller.")
 
-	logger.Info("[Startup] Creating REST endpoints ...")
-	endpoints := rest.NewEndpoints(logger, ctrl)
-	logger.Info("[Startup] Created REST endpoints.")
-
-	logger.Info("[Startup] Launching server ...")
-	resolver := graph.NewResolver(
+	logger.Info("[Startup] Creating REST API ...")
+	api := rest.NewAPI(
 		logger,
 		ctrl,
-		config.CookieDomain(),
-		config.CookieSecure(),
-		config.CookieSameSite(),
+		ihttp.CookieOptions{
+			Domain:   config.CookieDomain(),
+			Secure:   config.CookieSecure(),
+			SameSite: config.CookieSameSite(),
+		},
 	)
-	directive := rpmgraph.NewDirective(logger, sessionManager)
-	srv := handler.NewDefaultServer(
-		generated.NewExecutableSchema(
-			generated.Config{
-				Resolvers: resolver,
-				Directives: generated.DirectiveRoot{
-					IsAuthenticated: directive.IsAuthenticated,
-				},
-			},
-		),
-	)
+	logger.Info("[Startup] Created REST API.")
 
-	router := chi.NewRouter()
-	router.Use(
-		rpmhttp.AccessMiddleware(),
-	)
-	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	router.Handle("/query", srv)
-	router.Post("/validate-password-reset", endpoints.ValidateResetPasswordHashHandler)
+	logger.Info("[Startup] Launching server ...")
 
-	logger.Sugar().Infof("[Startup] user endpoint listening at :%d", config.Port())
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), router))
+	logger.Sugar().Infof("[Startup] user API listening at :%d", config.Port())
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), api.Mux))
 	return ecExit
 }
