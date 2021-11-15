@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
-	"github.com/tjper/rustcron/cmd/cronman/db/model"
 	"github.com/tjper/rustcron/cmd/cronman/logger"
+	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/schedule"
 	"github.com/tjper/rustcron/cmd/cronman/userdata"

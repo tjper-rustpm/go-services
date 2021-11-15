@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tjper/rustcron/cmd/cronman/db"
-	graphmodel "github.com/tjper/rustcron/cmd/cronman/graph/model"
 	"github.com/tjper/rustcron/cmd/cronman/lock"
+	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/redis"
 	"github.com/tjper/rustcron/cmd/cronman/server"
 	"go.uber.org/zap"
@@ -28,7 +28,7 @@ const (
 // IServerManager represents the API by which the Controller interacts with
 // Rust servers.
 type IServerManager interface {
-	CreateInstance(ctx context.Context, template graphmodel.InstanceKind) (*server.CreateInstanceOutput, error)
+	CreateInstance(ctx context.Context, template model.InstanceKind) (*server.CreateInstanceOutput, error)
 	StartInstance(ctx context.Context, id string, userdata string) error
 	StopInstance(ctx context.Context, id string) error
 	MakeInstanceAvailable(ctx context.Context, instanceId, allocationId string) (*server.AssociationOutput, error)
@@ -101,20 +101,20 @@ type Controller struct {
 // NewServerDirerctor creates a new ServerDirector object.
 func NewServerDirector(usEast, usWest, euCentral IServerManager) *ServerDirector {
 	return &ServerDirector{
-		managers: map[graphmodel.Region]IServerManager{
-			graphmodel.RegionUsEast:    usEast,
-			graphmodel.RegionUsWest:    usWest,
-			graphmodel.RegionEuCentral: euCentral,
+		managers: map[model.Region]IServerManager{
+			model.RegionUsEast:    usEast,
+			model.RegionUsWest:    usWest,
+			model.RegionEuCentral: euCentral,
 		},
 	}
 }
 
 // ServerDirector is responsible for exposing the server Managers for use.
 type ServerDirector struct {
-	managers map[graphmodel.Region]IServerManager
+	managers map[model.Region]IServerManager
 }
 
 // Region retrieves the Manager allocated to the specified region.
-func (dir ServerDirector) Region(region graphmodel.Region) IServerManager {
+func (dir ServerDirector) Region(region model.Region) IServerManager {
 	return dir.managers[region]
 }

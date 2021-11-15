@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/cronman/graph/model"
+	"github.com/tjper/rustcron/cmd/cronman/model"
 )
 
 // Week in a month.
@@ -51,7 +51,7 @@ func IsMapWipe(
 		wipe = IsNthWeekDay(t, SecondWeek, day) ||
 			IsNthWeekDay(t, ThirdWeek, day) ||
 			IsNthWeekDay(t, FourthWeek, day)
-	case model.WipeFrequencyBiweekly:
+	case model.WipeFrequencyBiWeekly:
 		wipe = IsNthWeekDay(t, ThirdWeek, day)
 	case model.WipeFrequencyMonthly:
 		wipe = false
@@ -74,7 +74,7 @@ func IsFullWipe(
 			IsNthWeekDay(t, SecondWeek, day) ||
 			IsNthWeekDay(t, ThirdWeek, day) ||
 			IsNthWeekDay(t, FourthWeek, day)
-	case model.WipeFrequencyBiweekly:
+	case model.WipeFrequencyBiWeekly:
 		wipe = IsNthWeekDay(t, FirstWeek, day) ||
 			IsNthWeekDay(t, ThirdWeek, day)
 	case model.WipeFrequencyMonthly:

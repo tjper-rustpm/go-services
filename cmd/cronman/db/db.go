@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/cronman/db/model"
+	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/internal/migrate"
 
 	"gorm.io/driver/postgres"
