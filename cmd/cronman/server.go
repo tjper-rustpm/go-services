@@ -12,21 +12,13 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/config"
 	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/db"
-	"github.com/tjper/rustcron/cmd/cronman/graph"
-	"github.com/tjper/rustcron/cmd/cronman/graph/generated"
-	loggerpkg "github.com/tjper/rustcron/cmd/cronman/logger"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/redis"
+	"github.com/tjper/rustcron/cmd/cronman/rest"
 	"github.com/tjper/rustcron/cmd/cronman/server"
-	rpmgraph "github.com/tjper/rustcron/internal/graph"
-	rpmhttp "github.com/tjper/rustcron/internal/http"
-	"github.com/tjper/rustcron/internal/session"
 
-	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/playground"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/go-chi/chi"
 	redisv8 "github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 )
@@ -108,10 +100,6 @@ func run() int {
 	logger.Info("[Startup] Loaded eu-central-1 client.")
 	logger.Info("[Startup] Loaded AWS configuration.")
 
-	logger.Info("[Startup] Creating session manager ...")
-	sessionManager := session.NewManager(rdb)
-	logger.Info("[Startup] Created session manager.")
-
 	logger.Info("[Startup] Creating controller ...")
 	ctrl := controller.New(
 		logger,
@@ -135,10 +123,11 @@ func run() int {
 	defer cancel()
 
 	if config.DirectorEnabled() {
+		logger.Info("[Startup] Creating director ...")
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			logger.Info("[Startup] Controller.WatchAndDirect launched.")
+			logger.Info("[Startup] Created director.")
 			err := ctrl.WatchAndDirect(ctx)
 			if errors.Is(err, context.Canceled) {
 				logger.Info("[Startup] Another process cancelled Controller.WatchAndDirect.")
@@ -151,34 +140,15 @@ func run() int {
 		}()
 	}
 
-	resolver := graph.NewResolver(
+	logger.Info("[Startup] Creating REST API ...")
+	api := rest.NewAPI(
 		logger,
 		ctrl,
 	)
-	directive := rpmgraph.NewDirective(logger, sessionManager)
-	srv := handler.NewDefaultServer(
-		generated.NewExecutableSchema(
-			generated.Config{
-				Resolvers: resolver,
-				Directives: generated.DirectiveRoot{
-					HasRole:         directive.HasRole,
-					IsAuthenticated: directive.IsAuthenticated,
-				},
-			},
-		),
-	)
-	srv.Use(loggerpkg.NewTracer(logger))
+	logger.Info("[Startup] Created REST API.")
 
 	logger.Info("[Startup] Launching server ...")
-	router := chi.NewRouter()
-	router.Use(
-		loggerpkg.Middleware(),
-		rpmhttp.AccessMiddleware(),
-	)
-	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	router.Handle("/query", srv)
-
-	logger.Sugar().Infof("[Startup] cronman endpoint listening at :%d", config.Port())
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), router))
+	logger.Sugar().Infof("[Startup] cronman API listening at :%d", config.Port())
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), api.Mux))
 	return ecExit
 }
