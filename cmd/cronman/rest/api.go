@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/go-chi/chi"
 	"github.com/tjper/rustcron/cmd/cronman/model"
@@ -20,10 +21,6 @@ type IController interface {
 	ListServers(context.Context, interface{}) error
 }
 
-type Router interface {
-	Route(chi.Router)
-}
-
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
@@ -34,18 +31,12 @@ func NewAPI(
 		ctrl:   ctrl,
 	}
 
-	v1 := []Router{
-		CreateServer{API: api},
-		ArchiveServer{API: api},
-		StartServer{API: api},
-		StopServer{API: api},
-		Servers{API: api},
-	}
-
 	api.Mux.Route("/v1", func(router chi.Router) {
-		for _, endpoint := range v1 {
-			endpoint.Route(router)
-		}
+		router.Method(http.MethodPost, "/server", CreateServer{API: api})
+		router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
+		router.Method(http.MethodPost, "/server/start", StartServer{API: api})
+		router.Method(http.MethodPost, "/server/stop", StopServer{API: api})
+		router.Method(http.MethodGet, "/servers", Servers{API: api})
 	})
 
 	return &api

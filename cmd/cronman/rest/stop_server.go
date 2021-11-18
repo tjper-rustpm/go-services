@@ -4,16 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
 type StopServer struct{ API }
-
-func (ep StopServer) Route(router chi.Router) {
-	router.Post("/server/stop", ep.ServeHTTP)
-}
 
 func (ep StopServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {

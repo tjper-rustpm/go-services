@@ -4,16 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
 type ArchiveServer struct{ API }
-
-func (ep ArchiveServer) Route(router chi.Router) {
-	router.Post("/server/archive", ep.ServeHTTP)
-}
 
 func (ep ArchiveServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {

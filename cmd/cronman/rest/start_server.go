@@ -4,16 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
 type StartServer struct{ API }
-
-func (ep StartServer) Route(router chi.Router) {
-	router.Post("/server/start", ep.ServeHTTP)
-}
 
 func (ep StartServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
