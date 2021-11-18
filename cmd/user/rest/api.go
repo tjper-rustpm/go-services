@@ -27,11 +27,6 @@ type IController interface {
 	ResendEmailVerification(context.Context, uuid.UUID) (*model.User, error)
 }
 
-type IEndpoint interface {
-	http.Handler
-	Route(chi.Router)
-}
-
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
@@ -44,22 +39,17 @@ func NewAPI(
 		cookieOptions: cookieOptions,
 	}
 
-	v1 := []IEndpoint{
-		CreateUser{API: api},
-		LoginUser{API: api},
-		LogoutUser{API: api},
-		Me{API: api},
-		UpdateUserPassword{API: api},
-		ForgotPassword{API: api},
-		ChangePassword{API: api},
-		ResendEmailVerification{API: api},
-		VerifyEmail{API: api},
-	}
-
 	api.Mux.Route("/v1", func(router chi.Router) {
-		for _, endpoint := range v1 {
-			endpoint.Route(router)
-		}
+		router.Method(http.MethodPost, "/user", CreateUser{API: api})
+		router.Method(http.MethodPost, "/user/login", LoginUser{API: api})
+		router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
+		router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})
+		router.Method(http.MethodPost, "/user/forgot-password", ForgotPassword{API: api})
+		router.Method(http.MethodPost, "/user/change-password", ChangePassword{API: api})
+		router.Method(http.MethodPost, "/user/resend-verification-email", ResendEmailVerification{API: api})
+		router.Method(http.MethodPost, "/user/verify-email", VerifyEmail{API: api})
+
+		router.Method(http.MethodGet, "/user", Me{API: api})
 	})
 
 	return &api

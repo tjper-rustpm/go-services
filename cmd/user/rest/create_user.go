@@ -4,17 +4,12 @@ import (
 	errors "errors"
 	http "net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
 type CreateUser struct{ API }
-
-func (ep CreateUser) Route(router chi.Router) {
-	router.Post("/user", ep.ServeHTTP)
-}
 
 func (ep CreateUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {

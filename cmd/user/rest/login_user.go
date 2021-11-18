@@ -3,17 +3,12 @@ package rest
 import (
 	http "net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
 type LoginUser struct{ API }
-
-func (ep LoginUser) Route(router chi.Router) {
-	router.Post("/login", ep.ServeHTTP)
-}
 
 func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {

@@ -3,7 +3,6 @@ package rest
 import (
 	http "net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
@@ -12,10 +11,6 @@ import (
 )
 
 type UpdateUserPassword struct{ API }
-
-func (ep UpdateUserPassword) Route(router chi.Router) {
-	router.Post("/user/password", ep.ServeHTTP)
-}
 
 func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {

@@ -4,16 +4,12 @@ import (
 	errors "errors"
 	http "net/http"
 
-	"github.com/go-chi/chi"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
 type ForgotPassword struct{ API }
 
-func (ep ForgotPassword) Route(router chi.Router) {
-	router.Post("/forgot-password", ep.ServeHTTP)
-}
 func (ep ForgotPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		Email string
