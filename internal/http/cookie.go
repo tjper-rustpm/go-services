@@ -8,6 +8,8 @@ type CookieOptions struct {
 	SameSite http.SameSite
 }
 
+const sessionKey = "_rpm-session"
+
 func SetSessionCookie(
 	w http.ResponseWriter,
 	id string,
