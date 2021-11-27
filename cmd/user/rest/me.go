@@ -21,7 +21,7 @@ func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	user, err := ep.ctrl.User(r.Context(), sess.User.ID)
 	if err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 

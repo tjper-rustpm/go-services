@@ -13,13 +13,13 @@ type Servers struct{ API }
 func (ep Servers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	liveServers := make([]model.LiveServer, 0)
 	if err := ep.ctrl.ListServers(r.Context(), &liveServers); err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
 	dormantServers := make([]model.DormantServer, 0)
 	if err := ep.ctrl.ListServers(r.Context(), &dormantServers); err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 

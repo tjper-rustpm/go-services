@@ -30,7 +30,7 @@ func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 

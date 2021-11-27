@@ -22,7 +22,7 @@ func (ep ResendEmailVerification) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 

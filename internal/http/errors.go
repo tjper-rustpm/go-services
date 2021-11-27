@@ -3,9 +3,12 @@ package http
 import (
 	"fmt"
 	"net/http"
+
+	"go.uber.org/zap"
 )
 
-func ErrInternal(w http.ResponseWriter) {
+func ErrInternal(logger *zap.Logger, w http.ResponseWriter, err error) {
+	logger.Error("internal server error", zap.Error(err))
 	http.Error(
 		w,
 		"An unexpected internal server error occurred, please try again. If the issue persists, please contact support",

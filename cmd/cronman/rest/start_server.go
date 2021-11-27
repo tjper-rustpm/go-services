@@ -17,24 +17,24 @@ func (ep StartServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var b body
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
 	if _, err := ep.ctrl.StartServer(r.Context(), b.ServerID); err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
 	liveServer, err := ep.ctrl.MakeServerLive(r.Context(), b.ServerID)
 	if err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(liveServer); err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 }

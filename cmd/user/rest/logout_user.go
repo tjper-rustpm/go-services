@@ -15,7 +15,7 @@ func (ep LogoutUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := ep.ctrl.LogoutUser(r.Context(), sess.ID); err != nil {
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 

@@ -42,7 +42,7 @@ func (ep CreateUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		ep.logger.Error("error creating user", zap.Error(err))
-		ihttp.ErrInternal(w)
+		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
