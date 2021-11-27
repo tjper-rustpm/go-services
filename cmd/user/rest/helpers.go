@@ -7,13 +7,11 @@ import (
 
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
-	"go.uber.org/zap"
 )
 
 func (api API) read(w http.ResponseWriter, req *http.Request, i interface{}) error {
 	if err := json.NewDecoder(req.Body).Decode(i); err != nil {
-		api.logger.Error("error decoding body", zap.Error(err))
-		ihttp.ErrInternal(ep.logger, w, err)
+		ihttp.ErrInternal(api.logger, w, err)
 		return err
 	}
 	return nil
@@ -25,7 +23,7 @@ func (api API) write(w http.ResponseWriter, code int, i interface{}) {
 		return
 	}
 	if err := json.NewEncoder(w).Encode(i); err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
+		ihttp.ErrInternal(api.logger, w, err)
 	}
 }
 
