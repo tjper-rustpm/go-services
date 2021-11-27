@@ -14,15 +14,15 @@ import (
 type User struct {
 	Model
 	Email    string `gorm:"uniqueIndex"`
-	Password []byte
-	Salt     string
+	Password []byte `json:"-"`
+	Salt     string `json:"-"`
 	Role     graphmodel.RoleKind
 
-	VerificationHash   string `gorm:"uniqueIndex"`
-	VerificationSentAt time.Time
+	VerificationHash   string    `json:"-" gorm:"uniqueIndex"`
+	VerificationSentAt time.Time `json:"-"`
 	VerifiedAt         sql.NullTime
 
-	PasswordResets []PasswordReset
+	PasswordResets []PasswordReset `json:"-"`
 }
 
 func (u User) IsVerified() bool {
