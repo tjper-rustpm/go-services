@@ -4,11 +4,12 @@ import (
 	"context"
 	http "net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/model"
 	ihttp "github.com/tjper/rustcron/internal/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -38,6 +39,8 @@ func NewAPI(
 		ctrl:          ctrl,
 		cookieOptions: cookieOptions,
 	}
+
+	api.Mux.Use(middleware.Logger)
 
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Method(http.MethodPost, "/user", CreateUser{API: api})

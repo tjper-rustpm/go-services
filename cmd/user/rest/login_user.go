@@ -17,7 +17,7 @@ func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var b body
-	if err := ep.read(w, r, b); err != nil {
+	if err := ep.read(w, r, &b); err != nil {
 		return
 	}
 
