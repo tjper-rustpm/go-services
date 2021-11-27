@@ -14,13 +14,25 @@ func NewZapLogFormatter(logger *zap.Logger) *ZapLogFormatter {
 	}
 }
 
+const kongRequestID = "KONG_REQUEST_ID"
+
 type ZapLogFormatter struct{ logger *zap.Logger }
 
 func (f ZapLogFormatter) NewLogEntry(r *http.Request) middleware.LogEntry {
-	return logEntry(f)
+	return logEntry{
+		logger:    f.logger,
+		method:    r.Method,
+		uri:       r.RequestURI,
+		requestID: r.Header.Get(kongRequestID),
+	}
 }
 
-type logEntry struct{ logger *zap.Logger }
+type logEntry struct {
+	logger    *zap.Logger
+	method    string
+	uri       string
+	requestID string
+}
 
 func (e logEntry) Write(
 	status, bytes int,
@@ -45,7 +57,9 @@ func (e logEntry) Write(
 
 	level(
 		"[HTTP Request]",
-		zap.String("KONG_REQUEST_ID", header.Get("KONG_REQUEST_ID")),
+		zap.String(kongRequestID, e.requestID),
+		zap.String("method", e.method),
+		zap.String("uri", e.uri),
 		zap.Int("status", status),
 		zap.Int("bytes", bytes),
 		zap.Duration("elapsed", elapsed),
