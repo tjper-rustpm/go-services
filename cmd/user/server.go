@@ -98,6 +98,7 @@ func run() int {
 	api := rest.NewAPI(
 		logger,
 		ctrl,
+		sessionManager,
 		ihttp.CookieOptions{
 			Domain:   config.CookieDomain(),
 			Secure:   config.CookieSecure(),

@@ -31,12 +31,14 @@ type IController interface {
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
+	retriever ihttp.Retriever,
 	cookieOptions ihttp.CookieOptions,
 ) *API {
 	api := API{
 		Mux:           chi.NewRouter(),
 		logger:        logger,
 		ctrl:          ctrl,
+		retriever:     retriever,
 		cookieOptions: cookieOptions,
 	}
 
@@ -47,14 +49,21 @@ func NewAPI(
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Method(http.MethodPost, "/user", CreateUser{API: api})
 		router.Method(http.MethodPost, "/user/login", LoginUser{API: api})
-		router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
-		router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})
 		router.Method(http.MethodPost, "/user/forgot-password", ForgotPassword{API: api})
-		router.Method(http.MethodPost, "/user/change-password", ChangePassword{API: api})
-		router.Method(http.MethodPost, "/user/resend-verification-email", ResendEmailVerification{API: api})
 		router.Method(http.MethodPost, "/user/verify-email", VerifyEmail{API: api})
+		router.Method(http.MethodPost, "/user/change-password", ChangePassword{API: api})
 
-		router.Method(http.MethodGet, "/user", Me{API: api})
+		router.Group(func(router chi.Router) {
+			router.Use(ihttp.SessionAuthenticated(retriever))
+
+			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
+			router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})
+			router.Method(http.MethodPost, "/user/resend-verification-email", ResendEmailVerification{API: api})
+
+			router.Method(http.MethodGet, "/user", Me{API: api})
+
+		})
+
 	})
 
 	return &api
@@ -63,8 +72,9 @@ func NewAPI(
 type API struct {
 	Mux *chi.Mux
 
-	logger *zap.Logger
-	ctrl   IController
+	logger    *zap.Logger
+	ctrl      IController
+	retriever ihttp.Retriever
 
 	cookieOptions ihttp.CookieOptions
 }
