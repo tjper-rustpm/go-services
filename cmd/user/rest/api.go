@@ -40,7 +40,9 @@ func NewAPI(
 		cookieOptions: cookieOptions,
 	}
 
-	api.Mux.Use(middleware.Logger)
+	api.Mux.Use(
+		middleware.RequestLogger(ihttp.NewZapLogFormatter(logger)),
+	)
 
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Method(http.MethodPost, "/user", CreateUser{API: api})
