@@ -25,5 +25,5 @@ func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ep.write(w, http.StatusCreated, user)
+	ep.write(w, http.StatusOK, user)
 }
