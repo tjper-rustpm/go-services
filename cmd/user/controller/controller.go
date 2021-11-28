@@ -125,8 +125,8 @@ func (ctrl Controller) CreateUser(
 		return nil, err
 	}
 
-	// Ensure the duration of user creation in non-deterministic.
-	time.Sleep(time.Duration(stdrand.Intn(3)))
+	// Ensure the duration of user creation is non-deterministic.
+	time.Sleep(time.Duration(stdrand.Intn(3)) * time.Second)
 
 	if err := ctrl.emailer.SendVerifyEmail(
 		ctx,
@@ -228,8 +228,8 @@ func (ctrl Controller) LoginUser(
 		return nil, err
 	}
 
-	// Ensure the duration of user creation in non-deterministic.
-	time.Sleep(time.Duration(stdrand.Intn(3)))
+	// Ensure the duration of user login is non-deterministic.
+	time.Sleep(time.Duration(stdrand.Intn(3)) * time.Second)
 
 	return &LoginUserOutput{
 		User:      user,

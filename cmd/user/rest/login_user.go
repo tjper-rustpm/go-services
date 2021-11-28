@@ -21,7 +21,7 @@ func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := ep.ctrl.LoginUser(
+	out, err := ep.ctrl.LoginUser(
 		r.Context(),
 		controller.LoginUserInput{Email: b.Email, Password: b.Password},
 	)
@@ -36,9 +36,9 @@ func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ihttp.SetSessionCookie(
 		w,
-		user.SessionID,
+		out.SessionID,
 		ep.cookieOptions,
 	)
 
-	ep.write(w, http.StatusCreated, user)
+	ep.write(w, http.StatusCreated, out.User)
 }

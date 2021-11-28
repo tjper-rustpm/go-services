@@ -59,11 +59,8 @@ func NewAPI(
 			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
 			router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})
 			router.Method(http.MethodPost, "/user/resend-verification-email", ResendEmailVerification{API: api})
-
 			router.Method(http.MethodGet, "/user", Me{API: api})
-
 		})
-
 	})
 
 	return &api

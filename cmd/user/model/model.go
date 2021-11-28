@@ -13,14 +13,14 @@ import (
 
 type User struct {
 	Model
-	Email    string `gorm:"uniqueIndex"`
-	Password []byte `json:"-"`
-	Salt     string `json:"-"`
-	Role     graphmodel.RoleKind
+	Email    string              `json:"email" gorm:"uniqueIndex"`
+	Password []byte              `json:"-"`
+	Salt     string              `json:"-"`
+	Role     graphmodel.RoleKind `json:"role"`
 
-	VerificationHash   string    `json:"-" gorm:"uniqueIndex"`
-	VerificationSentAt time.Time `json:"-"`
-	VerifiedAt         sql.NullTime
+	VerificationHash   string       `json:"-" gorm:"uniqueIndex"`
+	VerificationSentAt time.Time    `json:"-"`
+	VerifiedAt         sql.NullTime `json:"verifiedAt"`
 
 	PasswordResets []PasswordReset `json:"-"`
 }
@@ -62,10 +62,10 @@ func (r PasswordReset) IsRequestStale() bool {
 }
 
 type Model struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	ID        uuid.UUID      `json:"id" gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index"`
 }
 
 func (m *Model) Scrub() {
