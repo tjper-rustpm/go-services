@@ -28,7 +28,7 @@ const (
 // SendPasswordReset sends a reset_password email to the "to" email specified.
 // Mailgun templates are used, acquire access to the Mailgun UI to learn more.
 func (e MailgunEmailer) SendPasswordReset(ctx context.Context, to, hash string) error {
-	msg := e.mg.NewMessage("password_reset@mg.rustpm.com", "Forgot your password?", "", to)
+	msg := e.mg.NewMessage("password-reset@mg.rustpm.com", "Forgot your password?", "", to)
 	msg.SetTemplate(resetPassword)
 	if err := addResetPasswordURL(msg, e.host, hash); err != nil {
 		return err

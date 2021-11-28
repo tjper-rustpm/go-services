@@ -46,7 +46,7 @@ func (c *config) loadDefaults() {
 	c.viper.SetDefault(keyRedisPassword, "")
 	c.viper.SetDefault(keyMailgunDomain, "mg.rustpm.com")
 	c.viper.SetDefault(keyMailgunAPIKey, "")
-	c.viper.SetDefault(keyMailgunHost, "http://localhost:8000")
+	c.viper.SetDefault(keyMailgunHost, "http://localhost")
 	c.viper.SetDefault(keyCookieDomain, "localhost")
 	c.viper.SetDefault(keyCookieSecure, false)
 	c.viper.SetDefault(keyCookieSameSite, "off")
