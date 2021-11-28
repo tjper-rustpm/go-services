@@ -70,6 +70,6 @@ func addVerifyEmailURL(msg *mailgun.Message, host, hash string) error {
 func addResetPasswordURL(msg *mailgun.Message, host, hash string) error {
 	return msg.AddTemplateVariable(
 		"resetPasswordURL",
-		fmt.Sprintf("%s/reset-password?hash=%s", host, hash),
+		fmt.Sprintf("%s/change-password?hash=%s", host, hash),
 	)
 }
