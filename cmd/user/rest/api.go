@@ -47,6 +47,7 @@ func NewAPI(
 	)
 
 	api.Mux.Route("/v1", func(router chi.Router) {
+		router.Method(http.MethodGet, "/user/me", Me{API: api})
 		router.Method(http.MethodPost, "/user", CreateUser{API: api})
 		router.Method(http.MethodPost, "/user/login", LoginUser{API: api})
 		router.Method(http.MethodPost, "/user/forgot-password", ForgotPassword{API: api})
@@ -54,12 +55,12 @@ func NewAPI(
 		router.Method(http.MethodPost, "/user/change-password", ChangePassword{API: api})
 
 		router.Group(func(router chi.Router) {
-			router.Use(ihttp.SessionAuthenticated(retriever))
+			router.Use(ihttp.SessionAuthenticated(logger, retriever))
 
 			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
 			router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})
 			router.Method(http.MethodPost, "/user/resend-verification-email", ResendEmailVerification{API: api})
-			router.Method(http.MethodGet, "/user", Me{API: api})
+			router.Method(http.MethodGet, "/user", User{API: api})
 		})
 	})
 

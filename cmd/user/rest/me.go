@@ -1,24 +1,31 @@
 package rest
 
 import (
-	http "net/http"
+	errors "errors"
+	"net/http"
 
 	ihttp "github.com/tjper/rustcron/internal/http"
+	"github.com/tjper/rustcron/internal/session"
 )
 
 type Me struct{ API }
 
 func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	sess, ok := ep.session(r.Context(), w)
-	if !ok {
+
+	sessionID := ihttp.SessionFromRequest(r)
+	if sessionID == "" {
+		ep.write(w, http.StatusNoContent, nil)
 		return
 	}
 
-	user, err := ep.ctrl.User(r.Context(), sess.User.ID)
+	sess, err := ep.retriever.Retrieve(r.Context(), sessionID)
+	if errors.Is(err, session.ErrSessionDNE) {
+		ep.write(w, http.StatusNoContent, nil)
+	}
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
-	ep.write(w, http.StatusOK, user)
+	ep.write(w, http.StatusOK, sess.User)
 }
