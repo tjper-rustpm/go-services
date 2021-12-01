@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/user/admin"
 	"github.com/tjper/rustcron/cmd/user/config"
@@ -91,6 +92,8 @@ func run() int {
 		db.NewStore(logger, dbconn),
 		email.NewMailgunEmailer(mg, config.MailgunHost()),
 		admin.NewAdminSet(config.Admins()),
+		48*time.Hour,   // 2 days
+		7*24*time.Hour, // 1 week
 	)
 	logger.Info("[Startup] Created controller.")
 
