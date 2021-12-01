@@ -61,6 +61,10 @@ func (r PasswordReset) IsRequestStale() bool {
 	return time.Since(r.RequestedAt) > 30*time.Minute
 }
 
+func (r PasswordReset) IsCompleted() bool {
+	return r.CompletedAt.Valid
+}
+
 type Model struct {
 	ID        uuid.UUID      `json:"id" gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	CreatedAt time.Time      `json:"createdAt"`

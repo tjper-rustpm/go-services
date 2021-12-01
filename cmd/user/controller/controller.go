@@ -391,16 +391,16 @@ func (ctrl Controller) ResetPassword(
 	if reset.IsRequestStale() {
 		return rpmerrors.AuthError("stale hash")
 	}
+	if reset.IsCompleted() {
+		return rpmerrors.AuthError("reset previously completed")
+	}
 
-	if err := ctrl.store.CompleteUserPasswordReset(
+	return ctrl.store.CompleteUserPasswordReset(
 		ctx,
 		user.ID,
 		reset.ID,
 		hash([]byte(password), []byte(user.Salt)),
-	); err != nil {
-		return err
-	}
-	return nil
+	)
 }
 
 // --- helpers ---
