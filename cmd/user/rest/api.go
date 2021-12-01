@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	http "net/http"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/model"
@@ -31,15 +32,16 @@ type IController interface {
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
-	retriever ihttp.Retriever,
 	cookieOptions ihttp.CookieOptions,
+	sessionManager ihttp.ISessionManager,
+	sessionExpiration time.Duration,
 ) *API {
 	api := API{
-		Mux:           chi.NewRouter(),
-		logger:        logger,
-		ctrl:          ctrl,
-		retriever:     retriever,
-		cookieOptions: cookieOptions,
+		Mux:            chi.NewRouter(),
+		logger:         logger,
+		ctrl:           ctrl,
+		cookieOptions:  cookieOptions,
+		sessionManager: sessionManager,
 	}
 
 	api.Mux.Use(
@@ -55,7 +57,7 @@ func NewAPI(
 		router.Method(http.MethodPost, "/user/change-password", ChangePassword{API: api})
 
 		router.Group(func(router chi.Router) {
-			router.Use(ihttp.SessionAuthenticated(logger, retriever))
+			router.Use(ihttp.Session(logger, sessionManager, sessionExpiration))
 
 			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
 			router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})
@@ -70,9 +72,9 @@ func NewAPI(
 type API struct {
 	Mux *chi.Mux
 
-	logger    *zap.Logger
-	ctrl      IController
-	retriever ihttp.Retriever
+	logger         *zap.Logger
+	ctrl           IController
+	sessionManager ihttp.ISessionManager
 
 	cookieOptions ihttp.CookieOptions
 }

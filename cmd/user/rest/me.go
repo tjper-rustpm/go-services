@@ -18,7 +18,7 @@ func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, err := ep.retriever.Retrieve(r.Context(), sessionID)
+	sess, err := ep.sessionManager.Retrieve(r.Context(), sessionID)
 	if errors.Is(err, session.ErrSessionDNE) {
 		ep.write(w, http.StatusNoContent, nil)
 	}
