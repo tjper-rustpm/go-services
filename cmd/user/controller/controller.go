@@ -59,10 +59,12 @@ func New(
 	absoluteSessionExpiration time.Duration,
 ) *Controller {
 	return &Controller{
-		sessionManager: sessionManager,
-		store:          store,
-		emailer:        emailer,
-		admins:         admins,
+		sessionManager:            sessionManager,
+		store:                     store,
+		emailer:                   emailer,
+		admins:                    admins,
+		activeSessionExpiration:   activeSessionExpiration,
+		absoluteSessionExpiration: absoluteSessionExpiration,
 	}
 }
 
