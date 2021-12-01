@@ -12,11 +12,16 @@ type Session struct {
 	// crytographically secure pseudo-random number.
 	ID string
 
-	// LastActivityAt is the last time the Session was interacted with.
-	LastActivityAt time.Time
-
 	// User is the session User.
 	User User
+
+	// AbsoluteExpiration is the time at which the Session is considered expired
+	// regardless of recent activity. User must then re-authenticate with
+	// service.
+	AbsoluteExpiration time.Time
+
+	// LastActivityAt is the last time the Session was interacted with.
+	LastActivityAt time.Time
 }
 
 // IsAuthorized ensures that the session is authorized to interact with the
