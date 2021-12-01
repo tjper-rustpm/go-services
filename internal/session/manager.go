@@ -10,10 +10,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-const (
-	prefix = "rustpm-session-"
-)
-
 var (
 	// ErrSessionIDNotUnique indicates that the session ID used to create a
 	// session is already being used by another session.
@@ -38,20 +34,13 @@ type Manager struct {
 func (m Manager) Create(
 	ctx context.Context,
 	sess Session,
-	expiration time.Duration,
+	exp time.Duration,
 ) error {
-	val, err := encode(sess)
-	if err != nil {
+	if err := m.setnx(ctx, keygen(sessionPrefix, sess.ID), sess, exp); err != nil {
 		return err
 	}
-	set, err := m.redis.SetNX(ctx, key(sess.ID), val, expiration).Result()
-	if err != nil {
-		return err
-	}
-	if !set {
-		return ErrSessionIDNotUnique
-	}
-	return nil
+
+	return m.setnx(ctx, keygen(lastActivityAtPrefix, sess.ID), sess.LastActivityAt, exp)
 }
 
 // Retrieve gets the Session related to the sessionID passed.
@@ -59,49 +48,39 @@ func (m Manager) Retrieve(
 	ctx context.Context,
 	sessionID string,
 ) (*Session, error) {
-	val, err := m.redis.Get(ctx, key(sessionID)).Result()
-	if errors.Is(err, redis.Nil) {
-		return nil, ErrSessionDNE
-	}
-	if err != nil {
+	var sess Session
+	if err := m.get(ctx, keygen(sessionPrefix, sessionID), &sess); err != nil {
 		return nil, err
 	}
 
-	sess := new(Session)
+	var lastActivityAt time.Time
+	if err := m.get(ctx, keygen(lastActivityAtPrefix, sessionID), &lastActivityAt); err != nil {
+		return nil, err
+	}
 
-	return sess, decode([]byte(val), sess)
+	sess.LastActivityAt = lastActivityAt
+
+	return &sess, nil
 }
 
-// Touch updated the LastActivityAt field of the session identified by
+// Touch updates the LastActivityAt field of the session identified by
 // sessionID. This session must already exist. If it does not exist, an error
 // will be thrown.
-//
-// NOTE: It is possible for another process to mutate the session after it is
-// retrieved by this process. This results in a race condition. This is not
-// ideal and should be addressed later using an optimistic locking mechanism.
 func (m Manager) Touch(
 	ctx context.Context,
 	sessionID string,
-	expiration time.Duration,
+	exp time.Duration,
 ) error {
-	sess, err := m.Retrieve(ctx, sessionID)
-	if err != nil {
-		return err
-	}
-
-	sess.LastActivityAt = time.Now()
-
-	val, err := encode(sess)
-	if err != nil {
-		return err
-	}
-
-	set, err := m.redis.SetXX(
+	if err := m.setxx(
 		ctx,
-		key(sess.ID),
-		val,
-		expiration,
-	).Result()
+		keygen(lastActivityAtPrefix, sessionID),
+		time.Now(),
+		exp,
+	); err != nil {
+		return err
+	}
+
+	set, err := m.redis.Expire(ctx, keygen(sessionPrefix, sessionID), exp).Result()
 	if err != nil {
 		return err
 	}
@@ -114,15 +93,80 @@ func (m Manager) Touch(
 
 // Delete deletes the specified Session.
 func (m Manager) Delete(ctx context.Context, sessionID string) error {
-	if _, err := m.redis.Del(ctx, key(sessionID)).Result(); err != nil {
+	if _, err := m.redis.Del(ctx, keygen(sessionPrefix, sessionID)).Result(); err != nil {
 		return err
+	}
+
+	if _, err := m.redis.Del(ctx, keygen(lastActivityAtPrefix, sessionID)).Result(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m Manager) setxx(
+	ctx context.Context,
+	key string,
+	val interface{},
+	exp time.Duration,
+) error {
+	b, err := encode(val)
+	if err != nil {
+		return err
+	}
+
+	set, err := m.redis.SetXX(ctx, key, b, exp).Result()
+	if err != nil {
+		return err
+	}
+	if !set {
+		return ErrSessionDNE
+	}
+
+	return nil
+}
+
+func (m Manager) setnx(
+	ctx context.Context,
+	key string,
+	val interface{},
+	exp time.Duration,
+) error {
+	b, err := encode(val)
+	if err != nil {
+		return err
+	}
+
+	set, err := m.redis.SetNX(ctx, key, b, exp).Result()
+	if err != nil {
+		return err
+	}
+	if !set {
+		return ErrSessionIDNotUnique
 	}
 	return nil
 }
 
+func (m Manager) get(ctx context.Context, key string, dst interface{}) error {
+	res, err := m.redis.Get(ctx, key).Result()
+	if errors.Is(err, redis.Nil) {
+		return ErrSessionDNE
+	}
+	if err != nil {
+		return err
+	}
+
+	return decode([]byte(res), dst)
+}
+
 // --- helpers ---
 
-func key(id string) string {
+const (
+	sessionPrefix        = "rustpm-session-"
+	lastActivityAtPrefix = "last-activity-at-"
+)
+
+func keygen(prefix, id string) string {
 	return fmt.Sprintf("%s%s", prefix, id)
 }
 
