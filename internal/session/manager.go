@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/vmihailenco/msgpack/v5"
@@ -34,12 +35,16 @@ type Manager struct {
 
 // Creates creates a new Session. This session should not already exist. If
 // it does, an error will be thrown.
-func (m Manager) Create(ctx context.Context, sess Session) error {
+func (m Manager) Create(
+	ctx context.Context,
+	sess Session,
+	expiration time.Duration,
+) error {
 	val, err := encode(sess)
 	if err != nil {
 		return err
 	}
-	set, err := m.redis.SetNX(ctx, key(sess.ID), val, 0).Result()
+	set, err := m.redis.SetNX(ctx, key(sess.ID), val, expiration).Result()
 	if err != nil {
 		return err
 	}
@@ -50,7 +55,10 @@ func (m Manager) Create(ctx context.Context, sess Session) error {
 }
 
 // Retrieve gets the Session related to the sessionID passed.
-func (m Manager) Retrieve(ctx context.Context, sessionID string) (*Session, error) {
+func (m Manager) Retrieve(
+	ctx context.Context,
+	sessionID string,
+) (*Session, error) {
 	val, err := m.redis.Get(ctx, key(sessionID)).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, ErrSessionDNE
@@ -58,22 +66,41 @@ func (m Manager) Retrieve(ctx context.Context, sessionID string) (*Session, erro
 	if err != nil {
 		return nil, err
 	}
+
 	sess := new(Session)
+
 	return sess, decode([]byte(val), sess)
 }
 
-// Save saves the passed Session. This session must already exist. If it does
-// not exist, and error will be thrown.
-func (m Manager) Save(ctx context.Context, sess Session) error {
+// Touch updated the LastActivityAt field of the session identified by
+// sessionID. This session must already exist. If it does not exist, an error
+// will be thrown.
+//
+// NOTE: It is possible for another process to mutate the session after it is
+// retrieved by this process. This results in a race condition. This is not
+// ideal and should be addressed later using an optimistic locking mechanism.
+func (m Manager) Touch(
+	ctx context.Context,
+	sessionID string,
+	expiration time.Duration,
+) error {
+	sess, err := m.Retrieve(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	sess.LastActivityAt = time.Now()
+
 	val, err := encode(sess)
 	if err != nil {
 		return err
 	}
+
 	set, err := m.redis.SetXX(
 		ctx,
 		key(sess.ID),
 		val,
-		0,
+		expiration,
 	).Result()
 	if err != nil {
 		return err
@@ -81,6 +108,7 @@ func (m Manager) Save(ctx context.Context, sess Session) error {
 	if !set {
 		return ErrSessionDNE
 	}
+
 	return nil
 }
 
