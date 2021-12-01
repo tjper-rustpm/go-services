@@ -29,7 +29,7 @@ type IEmailer interface {
 }
 
 type ISessionManager interface {
-	Create(context.Context, session.Session) error
+	Create(context.Context, session.Session, time.Duration) error
 	Delete(context.Context, string) error
 }
 
@@ -55,6 +55,8 @@ func New(
 	store IStore,
 	emailer IEmailer,
 	admins IAdminSet,
+	activeSessionExpiration time.Duration,
+	absoluteSessionExpiration time.Duration,
 ) *Controller {
 	return &Controller{
 		sessionManager: sessionManager,
@@ -71,6 +73,9 @@ type Controller struct {
 	store          IStore
 	emailer        IEmailer
 	admins         IAdminSet
+
+	activeSessionExpiration   time.Duration
+	absoluteSessionExpiration time.Duration
 }
 
 // CreateUserInput is the input for the Controller.CreateUser method.
@@ -220,10 +225,12 @@ func (ctrl Controller) LoginUser(
 	if err := ctrl.sessionManager.Create(
 		ctx,
 		session.Session{
-			ID:             string(sessionID),
-			LastActivityAt: time.Now(),
-			User:           user.ToSessionUser(),
+			ID:                 sessionID,
+			LastActivityAt:     time.Now(),
+			AbsoluteExpiration: time.Now().Add(ctrl.absoluteSessionExpiration),
+			User:               user.ToSessionUser(),
 		},
+		ctrl.activeSessionExpiration,
 	); err != nil {
 		return nil, err
 	}
