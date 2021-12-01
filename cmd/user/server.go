@@ -101,12 +101,13 @@ func run() int {
 	api := rest.NewAPI(
 		logger,
 		ctrl,
-		sessionManager,
 		ihttp.CookieOptions{
 			Domain:   config.CookieDomain(),
 			Secure:   config.CookieSecure(),
 			SameSite: config.CookieSameSite(),
 		},
+		sessionManager,
+		48*time.Hour, // 2 days
 	)
 	logger.Info("[Startup] Created REST API.")
 
