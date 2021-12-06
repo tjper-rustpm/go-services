@@ -29,9 +29,9 @@ type Manager struct {
 	redis *redis.Client
 }
 
-// Creates creates a new Session. This session should not already exist. If
-// it does, an error will be thrown.
-func (m Manager) Create(
+// CreateSession creates a new Session. This session should not already exist.
+// If it does, an error will be thrown.
+func (m Manager) CreateSession(
 	ctx context.Context,
 	sess Session,
 	exp time.Duration,
@@ -43,14 +43,28 @@ func (m Manager) Create(
 	return m.setnx(ctx, keygen(lastActivityAtPrefix, sess.ID), sess.LastActivityAt, exp)
 }
 
-// Retrieve gets the Session related to the sessionID passed.
-func (m Manager) Retrieve(
+// RetrieveSession gets the Session related to the sessionID passed.
+func (m Manager) RetrieveSession(
 	ctx context.Context,
 	sessionID string,
 ) (*Session, error) {
 	var sess Session
 	if err := m.get(ctx, keygen(sessionPrefix, sessionID), &sess); err != nil {
 		return nil, err
+	}
+
+	res, err := m.redis.Get(ctx, keygen(invalidateUserSessionsPrefix, sessionID)).Result()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, err
+	}
+
+	var invalidAt time.Time
+	if err := decode([]byte(res), &invalidAt); err != nil {
+		return nil, err
+	}
+
+	if sess.CreatedAt.Before(invalidAt) {
+		return nil, m.DeleteSession(ctx, sess)
 	}
 
 	var lastActivityAt time.Time
@@ -63,10 +77,10 @@ func (m Manager) Retrieve(
 	return &sess, nil
 }
 
-// Touch updates the LastActivityAt field of the session identified by
+// TouchSession updates the LastActivityAt field of the session identified by
 // sessionID. This session must already exist. If it does not exist, an error
 // will be thrown.
-func (m Manager) Touch(
+func (m Manager) TouchSession(
 	ctx context.Context,
 	sessionID string,
 	exp time.Duration,
@@ -91,13 +105,30 @@ func (m Manager) Touch(
 	return nil
 }
 
-// Delete deletes the specified Session.
-func (m Manager) Delete(ctx context.Context, sessionID string) error {
-	if _, err := m.redis.Del(ctx, keygen(sessionPrefix, sessionID)).Result(); err != nil {
+// DeleteSession deletes the specified Session.
+func (m Manager) DeleteSession(ctx context.Context, sess Session) error {
+	if _, err := m.redis.Del(ctx, keygen(sessionPrefix, sess.ID)).Result(); err != nil {
 		return err
 	}
 
-	if _, err := m.redis.Del(ctx, keygen(lastActivityAtPrefix, sessionID)).Result(); err != nil {
+	if _, err := m.redis.Del(ctx, keygen(lastActivityAtPrefix, sess.ID)).Result(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m Manager) InvalidateUserSessionsBefore(
+	ctx context.Context,
+	userID fmt.Stringer,
+	dt time.Time,
+) error {
+	if _, err := m.redis.Set(
+		ctx,
+		keygen(invalidateUserSessionsPrefix, userID.String()),
+		time.Now(),
+		0,
+	).Result(); err != nil {
 		return err
 	}
 
@@ -162,8 +193,9 @@ func (m Manager) get(ctx context.Context, key string, dst interface{}) error {
 // --- helpers ---
 
 const (
-	sessionPrefix        = "rustpm-session-"
-	lastActivityAtPrefix = "last-activity-at-"
+	sessionPrefix                = "rustpm-session-"
+	lastActivityAtPrefix         = "last-activity-at-"
+	invalidateUserSessionsPrefix = "invalidate-user-sessions-"
 )
 
 func keygen(prefix, id string) string {

@@ -22,6 +22,9 @@ type Session struct {
 
 	// LastActivityAt is the last time the Session was interacted with.
 	LastActivityAt time.Time
+
+	// CreatedAt is the time the Session was created.
+	CreatedAt time.Time
 }
 
 // IsAuthorized ensures that the session is authorized to interact with the
