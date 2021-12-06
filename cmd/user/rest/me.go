@@ -11,14 +11,13 @@ import (
 type Me struct{ API }
 
 func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	sessionID := ihttp.SessionFromRequest(r)
 	if sessionID == "" {
 		ep.write(w, http.StatusNoContent, nil)
 		return
 	}
 
-	sess, err := ep.sessionManager.Retrieve(r.Context(), sessionID)
+	sess, err := ep.sessionManager.RetrieveSession(r.Context(), sessionID)
 	if errors.Is(err, session.ErrSessionDNE) {
 		ep.write(w, http.StatusNoContent, nil)
 	}

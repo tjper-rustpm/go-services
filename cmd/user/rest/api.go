@@ -8,6 +8,7 @@ import (
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/model"
 	ihttp "github.com/tjper/rustcron/internal/http"
+	"github.com/tjper/rustcron/internal/session"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -21,7 +22,8 @@ type IController interface {
 	UpdateUserPassword(context.Context, controller.UpdateUserPasswordInput) (*model.User, error)
 
 	LoginUser(context.Context, controller.LoginUserInput) (*controller.LoginUserOutput, error)
-	LogoutUser(context.Context, string) error
+	LogoutUserSession(context.Context, session.Session) error
+	LogoutAllUserSessions(context.Context, model.User) error
 
 	VerifyEmail(context.Context, string) (*model.User, error)
 	RequestPasswordReset(context.Context, string) error

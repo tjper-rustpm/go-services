@@ -33,5 +33,4 @@ func (ep ChangePassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ep.write(w, http.StatusCreated, nil)
-
 }

@@ -29,8 +29,9 @@ type IEmailer interface {
 }
 
 type ISessionManager interface {
-	Create(context.Context, session.Session, time.Duration) error
-	Delete(context.Context, string) error
+	CreateSession(context.Context, session.Session, time.Duration) error
+	DeleteSession(context.Context, session.Session) error
+	InvalidateUserSessionsBefore(context.Context, fmt.Stringer, time.Time) error
 }
 
 type IStore interface {
@@ -224,13 +225,14 @@ func (ctrl Controller) LoginUser(
 	if err != nil {
 		return nil, err
 	}
-	if err := ctrl.sessionManager.Create(
+	if err := ctrl.sessionManager.CreateSession(
 		ctx,
 		session.Session{
 			ID:                 sessionID,
+			User:               user.ToSessionUser(),
 			LastActivityAt:     time.Now(),
 			AbsoluteExpiration: time.Now().Add(ctrl.absoluteSessionExpiration),
-			User:               user.ToSessionUser(),
+			CreatedAt:          time.Now(),
 		},
 		ctrl.activeSessionExpiration,
 	); err != nil {
@@ -242,14 +244,20 @@ func (ctrl Controller) LoginUser(
 
 	return &LoginUserOutput{
 		User:      user,
-		SessionID: string(sessionID),
+		SessionID: sessionID,
 	}, nil
 }
 
-// LogoutUser invalidates the passed session ID, resulting in the user being
-// logged-out.
-func (ctrl Controller) LogoutUser(ctx context.Context, sessionID string) error {
-	return ctrl.sessionManager.Delete(ctx, sessionID)
+// LogoutUserSession invalidates the passed session, resulting in any user
+// using the session to be logged out.
+func (ctrl Controller) LogoutUserSession(ctx context.Context, sess session.Session) error {
+	return ctrl.sessionManager.DeleteSession(ctx, sess)
+}
+
+// LogoutAllUserSessions invalidates all existing sessions related to the user,
+// resulting in any user using these sessions to be logged out.
+func (ctrl Controller) LogoutAllUserSessions(ctx context.Context, user model.User) error {
+	return ctrl.sessionManager.InvalidateUserSessionsBefore(ctx, user.ID, time.Now())
 }
 
 // User retrieves the user associated with the passed ID.
@@ -404,12 +412,16 @@ func (ctrl Controller) ResetPassword(
 		return rpmerrors.AuthError("reset previously completed")
 	}
 
-	return ctrl.store.CompleteUserPasswordReset(
+	if err := ctrl.store.CompleteUserPasswordReset(
 		ctx,
 		user.ID,
 		reset.ID,
 		hash([]byte(password), []byte(user.Salt)),
-	)
+	); err != nil {
+		return err
+	}
+
+	return ctrl.LogoutAllUserSessions(ctx, *user)
 }
 
 // --- helpers ---

@@ -100,8 +100,7 @@ func (m Manager) TouchSession(
 
 			// Operation is committed only if the watched keys remain unchanged.
 			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-				pipe.Set(ctx, key, sess, exp)
-				return nil
+				return pipe.SetXX(ctx, key, sess, exp).Err()
 			})
 			return err
 		}

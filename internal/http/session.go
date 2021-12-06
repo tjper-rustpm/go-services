@@ -13,9 +13,9 @@ import (
 // ISessionManager encompasses all manners by which a session may be interacted
 // with.
 type ISessionManager interface {
-	Retrieve(context.Context, string) (*session.Session, error)
-	Touch(context.Context, string, time.Duration) error
-	Delete(context.Context, string) error
+	RetrieveSession(context.Context, string) (*session.Session, error)
+	TouchSession(context.Context, session.Session, time.Duration) error
+	DeleteSession(context.Context, session.Session) error
 }
 
 func Session(logger *zap.Logger, manager ISessionManager, exp time.Duration) func(http.Handler) http.Handler {
@@ -28,7 +28,7 @@ func Session(logger *zap.Logger, manager ISessionManager, exp time.Duration) fun
 					return
 				}
 
-				sess, err := manager.Retrieve(r.Context(), sessionID)
+				sess, err := manager.RetrieveSession(r.Context(), sessionID)
 				if errors.Is(err, session.ErrSessionDNE) {
 					ErrUnauthorized(w)
 					return
@@ -44,7 +44,7 @@ func Session(logger *zap.Logger, manager ISessionManager, exp time.Duration) fun
 						zap.Time("exp", sess.AbsoluteExpiration),
 						zap.Time("now", time.Now()),
 					)
-					if err := manager.Delete(r.Context(), sessionID); err != nil {
+					if err := manager.DeleteSession(r.Context(), *sess); err != nil {
 						logger.Error("error deleting session", zap.Error(err))
 					}
 
@@ -52,7 +52,7 @@ func Session(logger *zap.Logger, manager ISessionManager, exp time.Duration) fun
 					return
 				}
 
-				if err := manager.Touch(r.Context(), sessionID, exp); err != nil {
+				if err := manager.TouchSession(r.Context(), *sess, exp); err != nil {
 					ErrInternal(logger, w, err)
 					return
 				}
