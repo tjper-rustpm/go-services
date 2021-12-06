@@ -23,7 +23,7 @@ type IController interface {
 
 	LoginUser(context.Context, controller.LoginUserInput) (*controller.LoginUserOutput, error)
 	LogoutUserSession(context.Context, session.Session) error
-	LogoutAllUserSessions(context.Context, model.User) error
+	LogoutAllUserSessions(context.Context, session.User) error
 
 	VerifyEmail(context.Context, string) (*model.User, error)
 	RequestPasswordReset(context.Context, string) error
@@ -62,6 +62,7 @@ func NewAPI(
 			router.Use(ihttp.Session(logger, sessionManager, sessionExpiration))
 
 			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
+			router.Method(http.MethodPost, "/user/logout-all", LogoutAllUser{API: api})
 			router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})
 			router.Method(http.MethodPost, "/user/resend-verification-email", ResendEmailVerification{API: api})
 			router.Method(http.MethodGet, "/user", User{API: api})

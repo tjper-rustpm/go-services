@@ -256,7 +256,7 @@ func (ctrl Controller) LogoutUserSession(ctx context.Context, sess session.Sessi
 
 // LogoutAllUserSessions invalidates all existing sessions related to the user,
 // resulting in any user using these sessions to be logged out.
-func (ctrl Controller) LogoutAllUserSessions(ctx context.Context, user model.User) error {
+func (ctrl Controller) LogoutAllUserSessions(ctx context.Context, user session.User) error {
 	return ctrl.sessionManager.InvalidateUserSessionsBefore(ctx, user.ID, time.Now())
 }
 
