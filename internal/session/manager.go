@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/vmihailenco/msgpack/v5"
+	"go.uber.org/zap"
 )
 
 var (
@@ -18,6 +20,10 @@ var (
 	// ErrSessionDNE indicates that an interaction was attempted against a
 	// session that does not exist.
 	ErrSessionDNE = errors.New("session does not exist")
+
+	// ErrMaxAttemptsReached indicates that an operation was unable to complete
+	// despite having been attempted the maximum allowed number of times.
+	ErrMaxAttemptsReached = errors.New("maximum attempts reached")
 )
 
 func NewManager(redis *redis.Client) *Manager {
@@ -26,7 +32,8 @@ func NewManager(redis *redis.Client) *Manager {
 
 // Manager manages Session interactions.
 type Manager struct {
-	redis *redis.Client
+	logger *zap.Logger
+	redis  *redis.Client
 }
 
 // CreateSession creates a new Session. This session should not already exist.
@@ -36,11 +43,7 @@ func (m Manager) CreateSession(
 	sess Session,
 	exp time.Duration,
 ) error {
-	if err := m.setnx(ctx, keygen(sessionPrefix, sess.ID), sess, exp); err != nil {
-		return err
-	}
-
-	return m.setnx(ctx, keygen(lastActivityAtPrefix, sess.ID), sess.LastActivityAt, exp)
+	return m.setnx(ctx, keygen(sessionPrefix, sess.ID), sess, exp)
 }
 
 // RetrieveSession gets the Session related to the sessionID passed.
@@ -67,13 +70,6 @@ func (m Manager) RetrieveSession(
 		return nil, m.DeleteSession(ctx, sess)
 	}
 
-	var lastActivityAt time.Time
-	if err := m.get(ctx, keygen(lastActivityAtPrefix, sessionID), &lastActivityAt); err != nil {
-		return nil, err
-	}
-
-	sess.LastActivityAt = lastActivityAt
-
 	return &sess, nil
 }
 
@@ -82,25 +78,67 @@ func (m Manager) RetrieveSession(
 // will be thrown.
 func (m Manager) TouchSession(
 	ctx context.Context,
-	sessionID string,
+	sess Session,
 	exp time.Duration,
 ) error {
-	if err := m.setxx(
-		ctx,
-		keygen(lastActivityAtPrefix, sessionID),
-		time.Now(),
-		exp,
-	); err != nil {
-		return err
+	const maxRetries = 10
+
+	touch := func(key string) error {
+		// Transactional function.
+		fn := func(tx *redis.Tx) error {
+			res, err := tx.Get(ctx, key).Result()
+			if err != nil {
+				return err
+			}
+
+			var sess Session
+			if err := decode([]byte(res), &sess); err != nil {
+				return err
+			}
+
+			sess.LastActivityAt = time.Now()
+
+			// Operation is committed only if the watched keys remain unchanged.
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				pipe.Set(ctx, key, sess, exp)
+				return nil
+			})
+			return err
+		}
+
+		for i := 0; i < maxRetries; i++ {
+			err := m.redis.Watch(ctx, fn, key)
+			if err == nil {
+				// Success.
+				return nil
+			}
+			if err == redis.TxFailedErr {
+				// Optimistic lock lost. Retry.
+				continue
+			}
+			// Return any other error.
+			return err
+		}
+
+		return ErrMaxAttemptsReached
 	}
 
-	set, err := m.redis.Expire(ctx, keygen(sessionPrefix, sessionID), exp).Result()
-	if err != nil {
-		return err
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			err := touch(keygen(sessionPrefix, sess.ID))
+			if errors.Is(err, redis.Nil) {
+				return
+			}
+			if err != nil {
+				m.logger.Error("error touching session", zap.Error(err))
+			}
+		}()
 	}
-	if !set {
-		return ErrSessionDNE
-	}
+	wg.Wait()
 
 	return nil
 }
@@ -108,10 +146,6 @@ func (m Manager) TouchSession(
 // DeleteSession deletes the specified Session.
 func (m Manager) DeleteSession(ctx context.Context, sess Session) error {
 	if _, err := m.redis.Del(ctx, keygen(sessionPrefix, sess.ID)).Result(); err != nil {
-		return err
-	}
-
-	if _, err := m.redis.Del(ctx, keygen(lastActivityAtPrefix, sess.ID)).Result(); err != nil {
 		return err
 	}
 
