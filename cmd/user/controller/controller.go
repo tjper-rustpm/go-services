@@ -256,8 +256,8 @@ func (ctrl Controller) LogoutUserSession(ctx context.Context, sess session.Sessi
 
 // LogoutAllUserSessions invalidates all existing sessions related to the user,
 // resulting in any user using these sessions to be logged out.
-func (ctrl Controller) LogoutAllUserSessions(ctx context.Context, user session.User) error {
-	return ctrl.sessionManager.InvalidateUserSessionsBefore(ctx, user.ID, time.Now())
+func (ctrl Controller) LogoutAllUserSessions(ctx context.Context, userID fmt.Stringer) error {
+	return ctrl.sessionManager.InvalidateUserSessionsBefore(ctx, userID, time.Now())
 }
 
 // User retrieves the user associated with the passed ID.
@@ -421,7 +421,7 @@ func (ctrl Controller) ResetPassword(
 		return err
 	}
 
-	return ctrl.LogoutAllUserSessions(ctx, *user)
+	return ctrl.LogoutAllUserSessions(ctx, user.ID)
 }
 
 // --- helpers ---

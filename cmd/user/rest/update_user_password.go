@@ -55,7 +55,7 @@ func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ep.ctrl.LogoutAllUserSessions(r.Context(), *user); err != nil {
+	if err := ep.ctrl.LogoutAllUserSessions(r.Context(), sess.User.ID); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
