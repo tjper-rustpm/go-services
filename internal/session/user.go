@@ -11,10 +11,10 @@ import (
 // User is a session user. It is expected that this type is used across
 // applications to represent users via stateful sessions.
 type User struct {
-	ID         uuid.UUID
-	Email      string
-	Role       model.RoleKind
-	VerifiedAt *time.Time
-	UpdatedAt  time.Time
-	CreatedAt  time.Time
+	ID         uuid.UUID      `json:"id"`
+	Email      string         `json:"email"`
+	Role       model.RoleKind `json:"role"`
+	VerifiedAt *time.Time     `json:"verifiedAt"`
+	UpdatedAt  time.Time      `json:"updatedAt"`
+	CreatedAt  time.Time      `json:"createdAt"`
 }
