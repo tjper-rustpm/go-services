@@ -83,7 +83,7 @@ func run() int {
 	logger.Info("[Startup] Created emailer.")
 
 	logger.Info("[Startup] Creating session manager ...")
-	sessionManager := session.NewManager(rdb)
+	sessionManager := session.NewManager(logger, rdb)
 	logger.Info("[Startup] Created session manager.")
 
 	logger.Info("[Startup] Creating controller ...")
