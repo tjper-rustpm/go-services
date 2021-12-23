@@ -20,6 +20,7 @@ func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sess, err := ep.sessionManager.RetrieveSession(r.Context(), sessionID)
 	if errors.Is(err, session.ErrSessionDNE) {
 		ep.write(w, http.StatusNoContent, nil)
+		return
 	}
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
