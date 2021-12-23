@@ -3,7 +3,6 @@ package rest
 import (
 	http "net/http"
 
-	"github.com/google/uuid"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
 	ihttp "github.com/tjper/rustcron/internal/http"
@@ -14,7 +13,6 @@ type UpdateUserPassword struct{ API }
 
 func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		UserID          uuid.UUID
 		CurrentPassword string
 		NewPassword     string
 	}
@@ -29,15 +27,11 @@ func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ihttp.ErrUnauthorized(w)
 		return
 	}
-	if !sess.IsAuthorized(b.UserID) {
-		ihttp.ErrForbidden(w)
-		return
-	}
 
 	user, err := ep.ctrl.UpdateUserPassword(
 		r.Context(),
 		controller.UpdateUserPasswordInput{
-			ID:              b.UserID,
+			ID:              sess.User.ID,
 			CurrentPassword: b.CurrentPassword,
 			NewPassword:     b.NewPassword,
 		},
