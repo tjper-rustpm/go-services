@@ -8,9 +8,9 @@ import (
 	"github.com/tjper/rustcron/internal/session"
 )
 
-type Me struct{ API }
+type Session struct{ API }
 
-func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep Session) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sessionID := ihttp.SessionFromRequest(r)
 	if sessionID == "" {
 		ep.write(w, http.StatusNoContent, nil)
@@ -27,5 +27,5 @@ func (ep Me) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ep.write(w, http.StatusOK, sess.User)
+	ep.write(w, http.StatusOK, sess)
 }

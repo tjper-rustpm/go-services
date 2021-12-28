@@ -8,9 +8,9 @@ import (
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
-type ChangePassword struct{ API }
+type ResetPassword struct{ API }
 
-func (ep ChangePassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep ResetPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		Hash     string
 		Password string

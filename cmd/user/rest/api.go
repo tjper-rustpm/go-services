@@ -52,10 +52,10 @@ func NewAPI(
 	)
 
 	api.Mux.Route("/v1", func(router chi.Router) {
-		router.Method(http.MethodGet, "/user/me", Me{API: api})
+		router.Method(http.MethodGet, "/user/session", Session{API: api})
 		router.Method(http.MethodPost, "/user/forgot-password", ForgotPassword{API: api})
 		router.Method(http.MethodPost, "/user/verify-email", VerifyEmail{API: api})
-		router.Method(http.MethodPost, "/user/change-password", ChangePassword{API: api})
+		router.Method(http.MethodPost, "/user/reset-password", ChangePassword{API: api})
 
 		router.Group(func(router chi.Router) {
 			router.Use(ihttp.EnsureDuration(2 * time.Second))
