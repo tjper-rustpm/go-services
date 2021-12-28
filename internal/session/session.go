@@ -10,21 +10,21 @@ import (
 type Session struct {
 	// ID is the unique identifier of the Session. This identifier needs to be
 	// crytographically secure pseudo-random number.
-	ID string
+	ID string `json:"id"`
 
 	// User is the session User.
-	User User
+	User User `json:"user"`
 
 	// AbsoluteExpiration is the time at which the Session is considered expired
 	// regardless of recent activity. User must then re-authenticate with
 	// service.
-	AbsoluteExpiration time.Time
+	AbsoluteExpiration time.Time `json:"absoluteExpiration"`
 
 	// LastActivityAt is the last time the Session was interacted with.
-	LastActivityAt time.Time
+	LastActivityAt time.Time `json:"lastActivityAt"`
 
 	// CreatedAt is the time the Session was created.
-	CreatedAt time.Time
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // IsAuthorized ensures that the session is authorized to interact with the

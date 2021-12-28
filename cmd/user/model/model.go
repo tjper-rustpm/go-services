@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	graphmodel "github.com/tjper/rustcron/internal/graph/model"
@@ -25,6 +26,19 @@ type User struct {
 	PasswordResets []PasswordReset `json:"-"`
 }
 
+func (u User) MarshalJSON() ([]byte, error) {
+	kv := make(map[string]interface{})
+
+	kv["email"] = u.Email
+	kv["role"] = u.Role
+
+	if u.VerifiedAt.Valid {
+		kv["verifiedAt"] = u.VerifiedAt.Time
+	}
+
+	return json.Marshal(kv)
+}
+
 func (u User) IsVerified() bool {
 	return u.VerifiedAt.Valid
 }
@@ -34,17 +48,10 @@ func (u User) IsVerificationHashStale() bool {
 }
 
 func (u User) ToSessionUser() session.User {
-	var verifiedAt *time.Time
-	if u.VerifiedAt.Valid {
-		verifiedAt = &u.VerifiedAt.Time
-	}
 	return session.User{
-		ID:         u.ID,
-		Email:      u.Email,
-		Role:       u.Role,
-		VerifiedAt: verifiedAt,
-		UpdatedAt:  u.UpdatedAt,
-		CreatedAt:  u.CreatedAt,
+		ID:    u.ID,
+		Email: u.Email,
+		Role:  u.Role,
 	}
 }
 

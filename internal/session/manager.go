@@ -26,8 +26,8 @@ var (
 	ErrMaxAttemptsReached = errors.New("maximum attempts reached")
 )
 
-func NewManager(redis *redis.Client) *Manager {
-	return &Manager{redis: redis}
+func NewManager(logger *zap.Logger, redis *redis.Client) *Manager {
+	return &Manager{logger: logger, redis: redis}
 }
 
 // Manager manages Session interactions.
@@ -57,17 +57,18 @@ func (m Manager) RetrieveSession(
 	}
 
 	res, err := m.redis.Get(ctx, keygen(invalidateUserSessionsPrefix, sessionID)).Result()
+	if err == nil {
+		var invalidAt time.Time
+		if err := decode([]byte(res), &invalidAt); err != nil {
+			return nil, err
+		}
+
+		if sess.CreatedAt.Before(invalidAt) {
+			return nil, m.DeleteSession(ctx, sess)
+		}
+	}
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return nil, err
-	}
-
-	var invalidAt time.Time
-	if err := decode([]byte(res), &invalidAt); err != nil {
-		return nil, err
-	}
-
-	if sess.CreatedAt.Before(invalidAt) {
-		return nil, m.DeleteSession(ctx, sess)
 	}
 
 	return &sess, nil
@@ -168,28 +169,6 @@ func (m Manager) InvalidateUserSessionsBefore(
 	return nil
 }
 
-func (m Manager) setxx(
-	ctx context.Context,
-	key string,
-	val interface{},
-	exp time.Duration,
-) error {
-	b, err := encode(val)
-	if err != nil {
-		return err
-	}
-
-	set, err := m.redis.SetXX(ctx, key, b, exp).Result()
-	if err != nil {
-		return err
-	}
-	if !set {
-		return ErrSessionDNE
-	}
-
-	return nil
-}
-
 func (m Manager) setnx(
 	ctx context.Context,
 	key string,
@@ -227,7 +206,6 @@ func (m Manager) get(ctx context.Context, key string, dst interface{}) error {
 
 const (
 	sessionPrefix                = "rustpm-session-"
-	lastActivityAtPrefix         = "last-activity-at-"
 	invalidateUserSessionsPrefix = "invalidate-user-sessions-"
 )
 

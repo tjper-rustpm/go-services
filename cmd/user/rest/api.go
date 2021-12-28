@@ -55,7 +55,7 @@ func NewAPI(
 		router.Method(http.MethodGet, "/user/session", Session{API: api})
 		router.Method(http.MethodPost, "/user/forgot-password", ForgotPassword{API: api})
 		router.Method(http.MethodPost, "/user/verify-email", VerifyEmail{API: api})
-		router.Method(http.MethodPost, "/user/reset-password", ChangePassword{API: api})
+		router.Method(http.MethodPost, "/user/reset-password", ResetPassword{API: api})
 
 		router.Group(func(router chi.Router) {
 			router.Use(ihttp.EnsureDuration(2 * time.Second))
