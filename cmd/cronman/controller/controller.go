@@ -4,7 +4,6 @@ package controller
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -67,21 +66,17 @@ func (ctrl Controller) CreateServer(
 	if err != nil {
 		return nil, err
 	}
+
 	input.InstanceID = *instance.Instance.InstanceId
 	input.AllocationID = *instance.Address.AllocationId
 	input.ElasticIP = *instance.Address.PublicIp
 
-	// TODO: Merge CreateDefinition and Create DormantServer into single
-	// transaction.
-	definition, err := ctrl.store.CreateDefinition(ctx, input)
-	if err != nil {
+	if err := ctrl.store.Create(ctx, input); err != nil {
 		return nil, err
 	}
 
-	dormant := &model.DormantServer{
-		ServerID: definition.ID,
-	}
-	if err := ctrl.store.Create(ctx, dormant); err != nil {
+	server, err := ctrl.store.MakeServerDormant(ctx, input.ID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -89,7 +84,7 @@ func (ctrl Controller) CreateServer(
 		return nil, err
 	}
 
-	return ctrl.store.GetDormantServer(ctx, dormant.ID)
+	return server, nil
 }
 
 // ArchiveServer instruct the Controller to archive the server specified by id.
@@ -144,7 +139,7 @@ func (ctrl Controller) StartServer(
 	if err != nil {
 		return nil, fmt.Errorf("unable to make server instance available; %w", err)
 	}
-	defer func() { // make unavailable on func return
+	defer func() {
 		if err := ctrl.serverController.Region(server.Server.Region).MakeInstanceUnavailable(
 			ctx,
 			*association.AssociationId,
@@ -161,14 +156,6 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
 	}
 
-	if err := ctrl.removeModeratorsPendingRemoval(
-		ctx,
-		server.Server.ID,
-		server.Server.ElasticIP,
-		server.Server.RconPassword,
-	); err != nil {
-		return nil, fmt.Errorf("unable to remove moderators pending removal; %w", err)
-	}
 	if err := ctrl.rconAddServerModerators(
 		ctx,
 		server.Server.ElasticIP,
@@ -257,159 +244,6 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 	return dormantServer, nil
 }
 
-// UpdateServer reconfigures the server as specified by changes. On success,
-// the server has been reconfigured.
-func (ctrl *Controller) UpdateServer(
-	ctx context.Context,
-	id uuid.UUID,
-	changes map[string]interface{},
-) (*model.Server, error) {
-	definition, err := ctrl.store.UpdateServerDefinition(ctx, id, changes)
-	if err != nil {
-		return nil, err
-	}
-	return definition, ctrl.notifier.Notify(ctx)
-}
-
-// AddServerModerators adds the specified moderators to the passed server
-// definition. If the server is live, the moderators are add as part of this
-// call. Otherwise, the moderators will be added when the server goes live.
-func (ctrl *Controller) AddServerModerators(
-	ctx context.Context,
-	definitionID uuid.UUID,
-	moderators model.Moderators,
-) (*model.Server, error) {
-	definition, err := ctrl.store.GetDefinition(ctx, definitionID)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ctrl.store.Create(ctx, &moderators); err != nil {
-		return nil, err
-	}
-
-	isLive, err := ctrl.store.DefinitionIsLive(ctx, definitionID)
-	if err != nil {
-		return nil, err
-	}
-	if isLive {
-		if err := ctrl.rconAddServerModerators(
-			ctx,
-			definition.ElasticIP,
-			definition.RconPassword,
-			moderators,
-		); err != nil {
-			return nil, err
-		}
-	}
-
-	return ctrl.store.GetDefinition(ctx, definitionID)
-}
-
-// RemoveServerModerators removes the specified moderators from the passed
-// server definition. If the server is live, the moderators are removes as part
-// of this call. Otherwise, the moderators will be removed when the server goes
-// live.
-func (ctrl *Controller) RemoveServerModerators(
-	ctx context.Context,
-	definitionID uuid.UUID,
-	moderatorIDs []uuid.UUID,
-) (*model.Server, error) {
-
-	definition, err := ctrl.store.GetDefinition(ctx, definitionID)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ctrl.markServerModeratorsForRemoval(ctx, moderatorIDs); err != nil {
-		return nil, err
-	}
-
-	isLive, err := ctrl.store.DefinitionIsLive(ctx, definitionID)
-	if err != nil {
-		return nil, err
-	}
-	if isLive {
-		if err := ctrl.removeModeratorsPendingRemoval(
-			ctx,
-			definitionID,
-			definition.ElasticIP,
-			definition.RconPassword,
-		); err != nil {
-			return nil, err
-		}
-	}
-	return ctrl.store.GetDefinition(ctx, definitionID)
-}
-
-// AddServerTags adds the specified tags to the passed server definition.
-func (ctrl *Controller) AddServerTags(
-	ctx context.Context,
-	definitionID uuid.UUID,
-	tags model.Tags,
-) (*model.Server, error) {
-	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
-		return nil, err
-	}
-	if err := ctrl.store.Create(ctx, &tags); err != nil {
-		return nil, err
-	}
-	return ctrl.store.GetDefinition(ctx, definitionID)
-}
-
-// RemoveServerTags removes the specified tags from the passed server
-// definition.
-func (ctrl *Controller) RemoveServerTags(
-	ctx context.Context,
-	definitionID uuid.UUID,
-	tagIDs []uuid.UUID,
-) (*model.Server, error) {
-	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
-		return nil, err
-	}
-
-	for _, tagID := range tagIDs {
-		if err := ctrl.store.Delete(ctx, &model.Tag{}, tagID); err != nil {
-			return nil, err
-		}
-	}
-	return ctrl.store.GetDefinition(ctx, definitionID)
-}
-
-// AddServerEvents adds the specified events to the passed server definition.
-func (ctrl *Controller) AddServerEvents(
-	ctx context.Context,
-	definitionID uuid.UUID,
-	events model.Events,
-) (*model.Server, error) {
-	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
-		return nil, err
-	}
-	if err := ctrl.store.Create(ctx, &events); err != nil {
-		return nil, err
-	}
-	return ctrl.store.GetDefinition(ctx, definitionID)
-}
-
-// RemoveServerEvents removes the specified events from the passed server
-// definition.
-func (ctrl *Controller) RemoveServerEvents(
-	ctx context.Context,
-	definitionID uuid.UUID,
-	eventIDs []uuid.UUID,
-) (*model.Server, error) {
-	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
-		return nil, err
-	}
-
-	for _, eventID := range eventIDs {
-		if err := ctrl.store.Delete(ctx, &model.Event{}, eventID); err != nil {
-			return nil, err
-		}
-	}
-	return ctrl.store.GetDefinition(ctx, definitionID)
-}
-
 var errInvalidServerType = errors.New("invalid server type")
 
 // ListServers evaluates the dst and populates it with the related data. The
@@ -428,65 +262,6 @@ func (ctrl *Controller) ListServers(ctx context.Context, dst interface{}) error 
 }
 
 // --- private ---
-
-func (ctrl *Controller) markServerModeratorsForRemoval(
-	ctx context.Context,
-	moderatorsIDs []uuid.UUID,
-) error {
-	for _, moderatorID := range moderatorsIDs {
-		if err := ctrl.store.Update(
-			ctx,
-			&model.Moderator{Model: model.Model{ID: moderatorID}},
-			&model.Moderator{QueuedDeletionAt: sql.NullTime{Time: time.Now(), Valid: true}},
-		); err != nil {
-			ctrl.logger.Error(
-				"error marking moderator for removal",
-				zap.String("moderatorID", moderatorID.String()),
-			)
-			return err
-		}
-	}
-	return nil
-}
-
-func (ctrl *Controller) removeModeratorsPendingRemoval(
-	ctx context.Context,
-	definitionID uuid.UUID,
-	elasticIP string,
-	password string,
-) error {
-	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
-
-	// filter moderators that should be deleted
-	moderators, err := ctrl.store.ListModeratorsPendingRemoval(ctx, definitionID)
-	if err != nil {
-		return err
-	}
-
-	client, err := ctrl.hub.Dial(
-		ctx,
-		fmt.Sprintf("%s:28016", elasticIP),
-		password,
-	)
-	if err != nil {
-		return fmt.Errorf("error dialing rcon definition; %w", err)
-	}
-	defer client.Close()
-
-	for _, moderator := range moderators {
-		if err := client.RemoveModerator(
-			ctx,
-			moderator.SteamID,
-		); err != nil && !errors.Is(err, rcon.ErrModeratorDNE) {
-			logger.Error("unable to remove moderator from definition", zap.Error(err))
-		}
-		if err := ctrl.store.Delete(ctx, &model.Moderator{}, moderator.ID); err != nil {
-			logger.Error("unable to complete moderator removal", zap.Error(err))
-		}
-	}
-
-	return nil
-}
 
 func (ctrl *Controller) rconAddServerModerators(
 	ctx context.Context,

@@ -2,8 +2,6 @@ package db
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/model"
 
@@ -17,16 +15,9 @@ type IStore interface {
 
 	Create(context.Context, interface{}) error
 	Update(context.Context, interface{}, interface{}) error
-	Delete(context.Context, interface{}, uuid.UUID) error
-
-	CreateDefinition(context.Context, model.Server) (*model.Server, error)
-	GetDefinition(context.Context, uuid.UUID) (*model.Server, error)
-	UpdateServerDefinition(context.Context, uuid.UUID, map[string]interface{}) (*model.Server, error)
-	DefinitionIsLive(context.Context, uuid.UUID) (bool, error)
 
 	ListServers(context.Context, interface{}) error
 	ListActiveServerEvents(context.Context) (model.Events, error)
-	ListModeratorsPendingRemoval(context.Context, uuid.UUID) (model.Moderators, error)
 
 	GetLiveServer(context.Context, uuid.UUID) (*model.LiveServer, error)
 	GetDormantServer(context.Context, uuid.UUID) (*model.DormantServer, error)
@@ -59,95 +50,6 @@ func (s Store) Tx(fn func(IStore) error) error {
 	})
 }
 
-// CreateDefinition creates a new server definition in the store.
-func (s Store) CreateDefinition(
-	ctx context.Context,
-	definition model.Server,
-) (*model.Server, error) {
-	if res := s.db.WithContext(ctx).Create(&definition); res.Error != nil {
-		return nil, res.Error
-	}
-	return &definition, nil
-}
-
-func (s Store) GetDefinition(
-	ctx context.Context,
-	id uuid.UUID,
-) (*model.Server, error) {
-	definition := new(model.Server)
-	if res := s.db.
-		WithContext(ctx).
-		Preload("Tags").
-		Preload("Events").
-		Preload("Moderators").
-		First(definition, id); res.Error != nil {
-		return nil, res.Error
-	}
-	return definition, nil
-}
-
-func (s Store) UpdateServerDefinition(
-	ctx context.Context,
-	id uuid.UUID,
-	changes map[string]interface{},
-) (*model.Server, error) {
-
-	updates := make(map[string]interface{})
-	update := func(changeField, dbField string) {
-		val, ok := changes[changeField]
-		if !ok {
-			return
-		}
-		updates[dbField] = val
-	}
-	update("name", "name")
-	update("maxPlayers", "max_players")
-	update("mapSize", "map_size")
-	update("mapSeed", "map_seed")
-	update("mapSalt", "map_salt")
-	update("tickRate", "tick_rate")
-	update("rconPassword", "rcon_password")
-	update("description", "description")
-	update("url", "url")
-	update("background", "background")
-	update("bannerURL", "banner_url")
-	update("wipeDay", "wipe_day")
-	update("blueprintWipeFrequency", "blueprint_wipe_frequency")
-	update("mapWipeFrequency", "map_wipe_frequency")
-
-	if err := s.db.Transaction(func(tx *gorm.DB) error {
-		tx = tx.WithContext(ctx)
-
-		if res := tx.First(&model.Server{}, id); res.Error != nil {
-			return res.Error
-		}
-		if res := tx.Model(
-			&model.Server{Model: model.Model{ID: id}},
-		).Updates(updates); res.Error != nil {
-			return res.Error
-		}
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return s.GetDefinition(ctx, id)
-}
-
-func (s Store) DefinitionIsLive(ctx context.Context, id uuid.UUID) (bool, error) {
-	res := s.db.
-		WithContext(ctx).
-		Where("server_definition_id = ?", id).
-		First(&model.LiveServer{})
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return false, nil
-	}
-	if res.Error != nil {
-		return false, res.Error
-	}
-	return true, nil
-}
-
 func (s Store) Create(ctx context.Context, value interface{}) error {
 	if res := s.db.WithContext(ctx).Create(value); res.Error != nil {
 		return res.Error
@@ -157,13 +59,6 @@ func (s Store) Create(ctx context.Context, value interface{}) error {
 
 func (s Store) Update(ctx context.Context, model interface{}, changes interface{}) error {
 	if res := s.db.WithContext(ctx).Model(model).Updates(changes); res.Error != nil {
-		return res.Error
-	}
-	return nil
-}
-
-func (s Store) Delete(ctx context.Context, model interface{}, id uuid.UUID) error {
-	if res := s.db.WithContext(ctx).Delete(model, id); res.Error != nil {
 		return res.Error
 	}
 	return nil
@@ -209,21 +104,6 @@ func (s Store) ListActiveServerEvents(ctx context.Context) (model.Events, error)
 	return events, nil
 }
 
-// ListModeratorsPendingRemoval
-func (s Store) ListModeratorsPendingRemoval(ctx context.Context, id uuid.UUID) (model.Moderators, error) {
-	moderators := make(model.Moderators, 0)
-	if res := s.db.
-		Where(
-			"server_definition_id = ? AND queued_deletion_at IS NOT NULL",
-			id,
-			time.Time{},
-		).
-		Find(&moderators); res.Error != nil {
-		return nil, res.Error
-	}
-	return moderators, nil
-}
-
 func (s Store) GetLiveServer(ctx context.Context, id uuid.UUID) (*model.LiveServer, error) {
 	server := new(model.LiveServer)
 	return server, s.GetServer(ctx, id, server)
@@ -242,10 +122,10 @@ func (s Store) GetArchivedServer(ctx context.Context, id uuid.UUID) (*model.Arch
 func (s Store) GetServer(ctx context.Context, id uuid.UUID, dst interface{}) error {
 	if res := s.db.
 		WithContext(ctx).
-		Preload("ServerDefinition").
-		Preload("ServerDefinition.Tags").
-		Preload("ServerDefinition.Events").
-		Preload("ServerDefinition.Moderators").
+		Preload("Server").
+		Preload("Server.Tags").
+		Preload("Server.Events").
+		Preload("Server.Moderators").
 		First(dst, id); res.Error != nil {
 		return res.Error
 	}

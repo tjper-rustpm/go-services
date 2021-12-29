@@ -1,8 +1,6 @@
 package model
 
 import (
-	"database/sql"
-
 	"github.com/google/uuid"
 )
 
@@ -24,9 +22,8 @@ func (dts Moderators) Scrub() {
 
 type Moderator struct {
 	Model
-	SteamID          string `json:"steamID"`
-	QueuedDeletionAt sql.NullTime
-	ServerID         uuid.UUID
+	SteamID  string `json:"steamID"`
+	ServerID uuid.UUID
 }
 
 func (dm Moderator) Clone() Moderator {
@@ -35,6 +32,5 @@ func (dm Moderator) Clone() Moderator {
 
 func (dm *Moderator) Scrub() {
 	dm.Model.Scrub()
-	dm.QueuedDeletionAt = sql.NullTime{}
 	dm.ServerID = uuid.Nil
 }
