@@ -33,7 +33,7 @@ func NewAPI(
 
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Method(http.MethodPost, "/server", CreateServer{API: api})
-		router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
+		router.Method(http.MethodDelete, "/server", DeleteServer{API: api})
 		router.Method(http.MethodPost, "/server/start", StartServer{API: api})
 		router.Method(http.MethodPost, "/server/stop", StopServer{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})

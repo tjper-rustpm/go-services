@@ -8,9 +8,9 @@ import (
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
-type ArchiveServer struct{ API }
+type DeleteServer struct{ API }
 
-func (ep ArchiveServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep DeleteServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		ServerID uuid.UUID
 	}
