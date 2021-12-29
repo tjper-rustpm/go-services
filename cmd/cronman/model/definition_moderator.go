@@ -6,35 +6,35 @@ import (
 	"github.com/google/uuid"
 )
 
-type DefinitionModerators []DefinitionModerator
+type Moderators []Moderator
 
-func (dts DefinitionModerators) Clone() DefinitionModerators {
-	cloned := make(DefinitionModerators, 0, len(dts))
+func (dts Moderators) Clone() Moderators {
+	cloned := make(Moderators, 0, len(dts))
 	for _, dt := range dts {
 		cloned = append(cloned, dt.Clone())
 	}
 	return cloned
 }
 
-func (dts DefinitionModerators) Scrub() {
+func (dts Moderators) Scrub() {
 	for i := range dts {
 		dts[i].Scrub()
 	}
 }
 
-type DefinitionModerator struct {
+type Moderator struct {
 	Model
-	SteamID            string `json:"steamID"`
-	QueuedDeletionAt   sql.NullTime
-	ServerDefinitionID uuid.UUID
+	SteamID          string `json:"steamID"`
+	QueuedDeletionAt sql.NullTime
+	ServerID         uuid.UUID
 }
 
-func (dm DefinitionModerator) Clone() DefinitionModerator {
+func (dm Moderator) Clone() Moderator {
 	return dm
 }
 
-func (dm *DefinitionModerator) Scrub() {
+func (dm *Moderator) Scrub() {
 	dm.Model.Scrub()
 	dm.QueuedDeletionAt = sql.NullTime{}
-	dm.ServerDefinitionID = uuid.Nil
+	dm.ServerID = uuid.Nil
 }

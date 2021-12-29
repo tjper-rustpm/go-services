@@ -6,66 +6,66 @@ import (
 	"github.com/google/uuid"
 )
 
-type DefinitionEvents []DefinitionEvent
+type Events []Event
 
-func (dts DefinitionEvents) Clone() DefinitionEvents {
-	cloned := make(DefinitionEvents, 0, len(dts))
-	for _, dt := range dts {
-		cloned = append(cloned, dt.Clone())
+func (es Events) Clone() Events {
+	cloned := make(Events, 0, len(es))
+	for _, e := range es {
+		cloned = append(cloned, e.Clone())
 	}
 	return cloned
 }
 
-func (dts DefinitionEvents) Scrub() {
-	for i := range dts {
-		dts[i].Scrub()
+func (es Events) Scrub() {
+	for i := range es {
+		es[i].Scrub()
 	}
 }
 
-func (dts DefinitionEvents) NextOf(t time.Time, kind EventKind) DefinitionEvent {
-	var next DefinitionEvent
-	for _, dt := range dts {
-		if dt.EventKind != kind {
+func (es Events) NextOf(t time.Time, kind EventKind) Event {
+	var next Event
+	for _, e := range es {
+		if e.EventKind != kind {
 			continue
 		}
-		if (next == DefinitionEvent{}) {
-			next = dt
+		if (next == Event{}) {
+			next = e
 		}
 
-		futureTime := dt.NextOccurenceAfter(t)
+		futureTime := e.NextOccurenceAfter(t)
 		nextTime := next.NextOccurenceAfter(t)
 		if futureTime.Before(nextTime) {
-			next = dt
+			next = e
 		}
 	}
 	return next
 }
 
-type DefinitionEvent struct {
+type Event struct {
 	Model
-	Weekday            time.Weekday `json:"weekday"`
-	Hour               uint8        `json:"hour"`
-	EventKind          EventKind    `json:"kind"`
-	ServerDefinitionID uuid.UUID
+	Weekday   time.Weekday `json:"weekday"`
+	Hour      uint8        `json:"hour"`
+	EventKind EventKind    `json:"kind"`
+	ServerID  uuid.UUID
 }
 
-func (de DefinitionEvent) Clone() DefinitionEvent {
-	return de
+func (e Event) Clone() Event {
+	return e
 }
 
-func (de *DefinitionEvent) Scrub() {
-	de.Model.Scrub()
-	de.ServerDefinitionID = uuid.Nil
+func (e *Event) Scrub() {
+	e.Model.Scrub()
+	e.ServerID = uuid.Nil
 }
 
-func (de DefinitionEvent) NextOccurenceAfter(after time.Time) time.Time {
-	nextEventWeekday := de.Weekday
-	if (de.Weekday < after.Weekday()) || (de.Weekday == after.Weekday() && int(de.Hour) <= after.Hour()) {
+func (e Event) NextOccurenceAfter(after time.Time) time.Time {
+	nextEventWeekday := e.Weekday
+	if (e.Weekday < after.Weekday()) || (e.Weekday == after.Weekday() && int(e.Hour) <= after.Hour()) {
 		nextEventWeekday += 7
 	}
 	return after.Add(
 		time.Duration(nextEventWeekday-after.Weekday())*24*time.Hour +
-			time.Duration(int(de.Hour)-after.Hour())*time.Hour,
+			time.Duration(int(e.Hour)-after.Hour())*time.Hour,
 	).Truncate(time.Hour)
 }
 

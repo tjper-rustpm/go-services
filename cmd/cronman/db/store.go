@@ -19,14 +19,14 @@ type IStore interface {
 	Update(context.Context, interface{}, interface{}) error
 	Delete(context.Context, interface{}, uuid.UUID) error
 
-	CreateDefinition(context.Context, model.ServerDefinition) (*model.ServerDefinition, error)
-	GetDefinition(context.Context, uuid.UUID) (*model.ServerDefinition, error)
-	UpdateServerDefinition(context.Context, uuid.UUID, map[string]interface{}) (*model.ServerDefinition, error)
+	CreateDefinition(context.Context, model.Server) (*model.Server, error)
+	GetDefinition(context.Context, uuid.UUID) (*model.Server, error)
+	UpdateServerDefinition(context.Context, uuid.UUID, map[string]interface{}) (*model.Server, error)
 	DefinitionIsLive(context.Context, uuid.UUID) (bool, error)
 
 	ListServers(context.Context, interface{}) error
-	ListActiveServerEvents(context.Context) (model.DefinitionEvents, error)
-	ListModeratorsPendingRemoval(context.Context, uuid.UUID) (model.DefinitionModerators, error)
+	ListActiveServerEvents(context.Context) (model.Events, error)
+	ListModeratorsPendingRemoval(context.Context, uuid.UUID) (model.Moderators, error)
 
 	GetLiveServer(context.Context, uuid.UUID) (*model.LiveServer, error)
 	GetDormantServer(context.Context, uuid.UUID) (*model.DormantServer, error)
@@ -62,8 +62,8 @@ func (s Store) Tx(fn func(IStore) error) error {
 // CreateDefinition creates a new server definition in the store.
 func (s Store) CreateDefinition(
 	ctx context.Context,
-	definition model.ServerDefinition,
-) (*model.ServerDefinition, error) {
+	definition model.Server,
+) (*model.Server, error) {
 	if res := s.db.WithContext(ctx).Create(&definition); res.Error != nil {
 		return nil, res.Error
 	}
@@ -73,8 +73,8 @@ func (s Store) CreateDefinition(
 func (s Store) GetDefinition(
 	ctx context.Context,
 	id uuid.UUID,
-) (*model.ServerDefinition, error) {
-	definition := new(model.ServerDefinition)
+) (*model.Server, error) {
+	definition := new(model.Server)
 	if res := s.db.
 		WithContext(ctx).
 		Preload("Tags").
@@ -90,7 +90,7 @@ func (s Store) UpdateServerDefinition(
 	ctx context.Context,
 	id uuid.UUID,
 	changes map[string]interface{},
-) (*model.ServerDefinition, error) {
+) (*model.Server, error) {
 
 	updates := make(map[string]interface{})
 	update := func(changeField, dbField string) {
@@ -118,11 +118,11 @@ func (s Store) UpdateServerDefinition(
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
-		if res := tx.First(&model.ServerDefinition{}, id); res.Error != nil {
+		if res := tx.First(&model.Server{}, id); res.Error != nil {
 			return res.Error
 		}
 		if res := tx.Model(
-			&model.ServerDefinition{Model: model.Model{ID: id}},
+			&model.Server{Model: model.Model{ID: id}},
 		).Updates(updates); res.Error != nil {
 			return res.Error
 		}
@@ -185,10 +185,10 @@ func (s Store) ListServers(ctx context.Context, dst interface{}) error {
 }
 
 // ListActiveServerEvents
-func (s Store) ListActiveServerEvents(ctx context.Context) (model.DefinitionEvents, error) {
-	events := make(model.DefinitionEvents, 0)
+func (s Store) ListActiveServerEvents(ctx context.Context) (model.Events, error) {
+	events := make(model.Events, 0)
 	if res := s.db.
-		Model(&model.DefinitionEvent{}).
+		Model(&model.Event{}).
 		Where(
 			"EXISTS (?)",
 			s.db.
@@ -210,8 +210,8 @@ func (s Store) ListActiveServerEvents(ctx context.Context) (model.DefinitionEven
 }
 
 // ListModeratorsPendingRemoval
-func (s Store) ListModeratorsPendingRemoval(ctx context.Context, id uuid.UUID) (model.DefinitionModerators, error) {
-	moderators := make(model.DefinitionModerators, 0)
+func (s Store) ListModeratorsPendingRemoval(ctx context.Context, id uuid.UUID) (model.Moderators, error) {
+	moderators := make(model.Moderators, 0)
 	if res := s.db.
 		Where(
 			"server_definition_id = ? AND queued_deletion_at IS NOT NULL",
@@ -271,8 +271,8 @@ func (s Store) MakeServerLive(ctx context.Context, input MakeServerLiveInput) (*
 		}
 
 		server = &model.LiveServer{
-			ServerDefinitionID: dormant.ServerDefinitionID,
-			AssociationID:      input.AssociationID,
+			ServerID:      dormant.ServerID,
+			AssociationID: input.AssociationID,
 		}
 		if res := tx.Create(server); res.Error != nil {
 			return res.Error
@@ -298,7 +298,7 @@ func (s Store) MakeServerDormant(ctx context.Context, id uuid.UUID) (*model.Dorm
 		}
 
 		server = &model.DormantServer{
-			ServerDefinitionID: live.ServerDefinitionID,
+			ServerID: live.ServerID,
 		}
 		if res := tx.Create(server); res.Error != nil {
 			return res.Error
@@ -324,7 +324,7 @@ func (s Store) MakeServerArchived(ctx context.Context, id uuid.UUID) (*model.Arc
 		}
 
 		server = &model.ArchivedServer{
-			ServerDefinitionID: dormant.ServerDefinitionID,
+			ServerID: dormant.ServerID,
 		}
 		if res := tx.Create(server); res.Error != nil {
 			return res.Error

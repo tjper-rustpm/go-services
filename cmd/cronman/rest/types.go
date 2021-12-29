@@ -18,7 +18,7 @@ type CreateServerBody struct {
 	Description            string               `json:"description"`
 	URL                    string               `json:"url"`
 	Background             model.BackgroundKind `json:"background"`
-	BannerURL              string               `json:"bannerURL"`
+	BannerURL              string               `json:"bannerUrl"`
 	WipeDay                model.WipeDay        `json:"wipeDay"`
 	BlueprintWipeFrequency model.WipeFrequency  `json:"blueprintWipeFrequency"`
 	MapWipeFrequency       model.WipeFrequency  `json:"mapWipeFrequency"`
@@ -31,7 +31,7 @@ type CreateServerBody struct {
 	} `json:"events"`
 
 	Moderators []struct {
-		SteamID string `json:"steamID"`
+		SteamID string `json:"steamId"`
 	} `json:"moderators"`
 
 	Tags []struct {
@@ -41,10 +41,11 @@ type CreateServerBody struct {
 	} `json:"tags"`
 }
 
-func (body CreateServerBody) ToModelServerDefinition() (*model.ServerDefinition, error) {
-	sd := &model.ServerDefinition{}
-	if err := jsonConversion(body, sd); err != nil {
+func (body CreateServerBody) ToModelServerDefinition() (*model.Server, error) {
+	var sd model.Server
+	if err := jsonConversion(body, &sd); err != nil {
 		return nil, err
 	}
-	return sd, nil
+
+	return &sd, nil
 }

@@ -4,37 +4,35 @@ import (
 	"github.com/google/uuid"
 )
 
-type DefinitionTags []DefinitionTag
+type Tags []Tag
 
-func (dts DefinitionTags) Clone() DefinitionTags {
-	cloned := make(DefinitionTags, 0, len(dts))
-	for _, dt := range dts {
-		cloned = append(cloned, dt.Clone())
+func (ts Tags) Clone() Tags {
+	cloned := make(Tags, 0, len(ts))
+	for _, t := range ts {
+		cloned = append(cloned, t.Clone())
 	}
 	return cloned
 }
 
-func (dts DefinitionTags) Scrub() {
-	for i := range dts {
-		dts[i].Scrub()
+func (ts Tags) Scrub() {
+	for i := range ts {
+		ts[i].Scrub()
 	}
 }
 
-type DefinitionTag struct {
+type Tag struct {
 	Model
-	Description        string   `json:"description"`
-	Icon               IconKind `json:"icon"`
-	Value              string   `json:"value"`
-	ServerDefinitionID uuid.UUID
+	Description string   `json:"description"`
+	Icon        IconKind `json:"icon"`
+	Value       string   `json:"value"`
+	ServerID    uuid.UUID
 }
 
-func (dt DefinitionTag) Clone() DefinitionTag {
-	return dt
-}
+func (t Tag) Clone() Tag { return t }
 
-func (dt *DefinitionTag) Scrub() {
-	dt.Model.Scrub()
-	dt.ServerDefinitionID = uuid.Nil
+func (t *Tag) Scrub() {
+	t.Model.Scrub()
+	t.ServerID = uuid.Nil
 }
 
 type IconKind string

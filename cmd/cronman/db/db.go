@@ -49,10 +49,10 @@ func Migrate(db *gorm.DB, migrations string) error {
 	}
 
 	return db.AutoMigrate(
-		model.ServerDefinition{},
-		model.DefinitionTag{},
-		model.DefinitionModerator{},
-		model.DefinitionEvent{},
+		model.Server{},
+		model.Tag{},
+		model.Moderator{},
+		model.Event{},
 		model.LiveServer{},
 		model.DormantServer{},
 		model.ArchivedServer{},

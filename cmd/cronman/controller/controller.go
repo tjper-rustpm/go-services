@@ -58,7 +58,7 @@ func (ctrl Controller) WatchAndDirect(ctx context.Context) error {
 // state.
 func (ctrl Controller) CreateServer(
 	ctx context.Context,
-	input model.ServerDefinition,
+	input model.Server,
 ) (*model.DormantServer, error) {
 	instance, err := ctrl.serverController.Region(input.Region).CreateInstance(
 		ctx,
@@ -79,7 +79,7 @@ func (ctrl Controller) CreateServer(
 	}
 
 	dormant := &model.DormantServer{
-		ServerDefinitionID: definition.ID,
+		ServerID: definition.ID,
 	}
 	if err := ctrl.store.Create(ctx, dormant); err != nil {
 		return nil, err
@@ -124,28 +124,28 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("unable to get dormant server; %w", err)
 	}
 
-	userdata, err := generateUserData(server.ServerDefinition)
+	userdata, err := generateUserData(server.Server)
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate server userdata; %w", err)
 	}
-	if err := ctrl.serverController.Region(server.ServerDefinition.Region).StartInstance(
+	if err := ctrl.serverController.Region(server.Server.Region).StartInstance(
 		ctx,
-		server.ServerDefinition.InstanceID,
+		server.Server.InstanceID,
 		userdata,
 	); err != nil {
 		return nil, fmt.Errorf("unable to start server instance; %w", err)
 	}
 
-	association, err := ctrl.serverController.Region(server.ServerDefinition.Region).MakeInstanceAvailable(
+	association, err := ctrl.serverController.Region(server.Server.Region).MakeInstanceAvailable(
 		ctx,
-		server.ServerDefinition.InstanceID,
-		server.ServerDefinition.AllocationID,
+		server.Server.InstanceID,
+		server.Server.AllocationID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make server instance available; %w", err)
 	}
 	defer func() { // make unavailable on func return
-		if err := ctrl.serverController.Region(server.ServerDefinition.Region).MakeInstanceUnavailable(
+		if err := ctrl.serverController.Region(server.Server.Region).MakeInstanceUnavailable(
 			ctx,
 			*association.AssociationId,
 		); err != nil {
@@ -155,25 +155,25 @@ func (ctrl Controller) StartServer(
 
 	if err := ctrl.pingUntilReady(
 		ctx,
-		server.ServerDefinition.ElasticIP,
-		server.ServerDefinition.RconPassword,
+		server.Server.ElasticIP,
+		server.Server.RconPassword,
 	); err != nil {
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
 	}
 
 	if err := ctrl.removeModeratorsPendingRemoval(
 		ctx,
-		server.ServerDefinition.ID,
-		server.ServerDefinition.ElasticIP,
-		server.ServerDefinition.RconPassword,
+		server.Server.ID,
+		server.Server.ElasticIP,
+		server.Server.RconPassword,
 	); err != nil {
 		return nil, fmt.Errorf("unable to remove moderators pending removal; %w", err)
 	}
 	if err := ctrl.rconAddServerModerators(
 		ctx,
-		server.ServerDefinition.ElasticIP,
-		server.ServerDefinition.RconPassword,
-		server.ServerDefinition.Moderators,
+		server.Server.ElasticIP,
+		server.Server.RconPassword,
+		server.Server.Moderators,
 	); err != nil {
 		return nil, fmt.Errorf("unable to add moderators; %w", err)
 	}
@@ -191,18 +191,18 @@ func (ctrl Controller) MakeServerLive(
 		return nil, fmt.Errorf("unable to get dormant server; %w", err)
 	}
 
-	instance, err := ctrl.serverController.Region(server.ServerDefinition.Region).MakeInstanceAvailable(
+	instance, err := ctrl.serverController.Region(server.Server.Region).MakeInstanceAvailable(
 		ctx,
-		server.ServerDefinition.InstanceID,
-		server.ServerDefinition.AllocationID,
+		server.Server.InstanceID,
+		server.Server.AllocationID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make server instance available; %w", err)
 	}
 	if err := ctrl.pingUntilReady(
 		ctx,
-		server.ServerDefinition.ElasticIP,
-		server.ServerDefinition.RconPassword,
+		server.Server.ElasticIP,
+		server.Server.RconPassword,
 	); err != nil {
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
 	}
@@ -230,8 +230,8 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 
 	client, err := ctrl.hub.Dial(
 		ctx,
-		fmt.Sprintf("%s:28016", server.ServerDefinition.ElasticIP),
-		server.ServerDefinition.RconPassword,
+		fmt.Sprintf("%s:28016", server.Server.ElasticIP),
+		server.Server.RconPassword,
 	)
 	if err != nil {
 		return nil, err
@@ -242,15 +242,15 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 		return nil, err
 	}
 
-	if err := ctrl.serverController.Region(server.ServerDefinition.Region).MakeInstanceUnavailable(
+	if err := ctrl.serverController.Region(server.Server.Region).MakeInstanceUnavailable(
 		ctx,
 		server.AssociationID,
 	); err != nil {
 		return nil, err
 	}
-	if err := ctrl.serverController.Region(server.ServerDefinition.Region).StopInstance(
+	if err := ctrl.serverController.Region(server.Server.Region).StopInstance(
 		ctx,
-		server.ServerDefinition.InstanceID,
+		server.Server.InstanceID,
 	); err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func (ctrl *Controller) UpdateServer(
 	ctx context.Context,
 	id uuid.UUID,
 	changes map[string]interface{},
-) (*model.ServerDefinition, error) {
+) (*model.Server, error) {
 	definition, err := ctrl.store.UpdateServerDefinition(ctx, id, changes)
 	if err != nil {
 		return nil, err
@@ -277,8 +277,8 @@ func (ctrl *Controller) UpdateServer(
 func (ctrl *Controller) AddServerModerators(
 	ctx context.Context,
 	definitionID uuid.UUID,
-	moderators model.DefinitionModerators,
-) (*model.ServerDefinition, error) {
+	moderators model.Moderators,
+) (*model.Server, error) {
 	definition, err := ctrl.store.GetDefinition(ctx, definitionID)
 	if err != nil {
 		return nil, err
@@ -314,7 +314,7 @@ func (ctrl *Controller) RemoveServerModerators(
 	ctx context.Context,
 	definitionID uuid.UUID,
 	moderatorIDs []uuid.UUID,
-) (*model.ServerDefinition, error) {
+) (*model.Server, error) {
 
 	definition, err := ctrl.store.GetDefinition(ctx, definitionID)
 	if err != nil {
@@ -346,8 +346,8 @@ func (ctrl *Controller) RemoveServerModerators(
 func (ctrl *Controller) AddServerTags(
 	ctx context.Context,
 	definitionID uuid.UUID,
-	tags model.DefinitionTags,
-) (*model.ServerDefinition, error) {
+	tags model.Tags,
+) (*model.Server, error) {
 	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
 		return nil, err
 	}
@@ -363,13 +363,13 @@ func (ctrl *Controller) RemoveServerTags(
 	ctx context.Context,
 	definitionID uuid.UUID,
 	tagIDs []uuid.UUID,
-) (*model.ServerDefinition, error) {
+) (*model.Server, error) {
 	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
 		return nil, err
 	}
 
 	for _, tagID := range tagIDs {
-		if err := ctrl.store.Delete(ctx, &model.DefinitionTag{}, tagID); err != nil {
+		if err := ctrl.store.Delete(ctx, &model.Tag{}, tagID); err != nil {
 			return nil, err
 		}
 	}
@@ -380,8 +380,8 @@ func (ctrl *Controller) RemoveServerTags(
 func (ctrl *Controller) AddServerEvents(
 	ctx context.Context,
 	definitionID uuid.UUID,
-	events model.DefinitionEvents,
-) (*model.ServerDefinition, error) {
+	events model.Events,
+) (*model.Server, error) {
 	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
 		return nil, err
 	}
@@ -397,13 +397,13 @@ func (ctrl *Controller) RemoveServerEvents(
 	ctx context.Context,
 	definitionID uuid.UUID,
 	eventIDs []uuid.UUID,
-) (*model.ServerDefinition, error) {
+) (*model.Server, error) {
 	if _, err := ctrl.store.GetDefinition(ctx, definitionID); err != nil {
 		return nil, err
 	}
 
 	for _, eventID := range eventIDs {
-		if err := ctrl.store.Delete(ctx, &model.DefinitionEvent{}, eventID); err != nil {
+		if err := ctrl.store.Delete(ctx, &model.Event{}, eventID); err != nil {
 			return nil, err
 		}
 	}
@@ -436,8 +436,8 @@ func (ctrl *Controller) markServerModeratorsForRemoval(
 	for _, moderatorID := range moderatorsIDs {
 		if err := ctrl.store.Update(
 			ctx,
-			&model.DefinitionModerator{Model: model.Model{ID: moderatorID}},
-			&model.DefinitionModerator{QueuedDeletionAt: sql.NullTime{Time: time.Now(), Valid: true}},
+			&model.Moderator{Model: model.Model{ID: moderatorID}},
+			&model.Moderator{QueuedDeletionAt: sql.NullTime{Time: time.Now(), Valid: true}},
 		); err != nil {
 			ctrl.logger.Error(
 				"error marking moderator for removal",
@@ -480,7 +480,7 @@ func (ctrl *Controller) removeModeratorsPendingRemoval(
 		); err != nil && !errors.Is(err, rcon.ErrModeratorDNE) {
 			logger.Error("unable to remove moderator from definition", zap.Error(err))
 		}
-		if err := ctrl.store.Delete(ctx, &model.DefinitionModerator{}, moderator.ID); err != nil {
+		if err := ctrl.store.Delete(ctx, &model.Moderator{}, moderator.ID); err != nil {
 			logger.Error("unable to complete moderator removal", zap.Error(err))
 		}
 	}
@@ -492,7 +492,7 @@ func (ctrl *Controller) rconAddServerModerators(
 	ctx context.Context,
 	elasticIP string,
 	password string,
-	moderators model.DefinitionModerators,
+	moderators model.Moderators,
 ) error {
 
 	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
@@ -537,7 +537,7 @@ func (ctrl *Controller) pingUntilReady(ctx context.Context, ip, password string)
 
 // --- helpers ---
 
-func generateUserData(server model.ServerDefinition) (string, error) {
+func generateUserData(server model.Server) (string, error) {
 	fullWipe, err := schedule.IsFullWipe(
 		server.BlueprintWipeFrequency,
 		schedule.WipeDayToWeekDay(server.WipeDay),

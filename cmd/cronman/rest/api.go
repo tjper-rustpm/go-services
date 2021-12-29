@@ -12,7 +12,7 @@ import (
 )
 
 type IController interface {
-	CreateServer(context.Context, model.ServerDefinition) (*model.DormantServer, error)
+	CreateServer(context.Context, model.Server) (*model.DormantServer, error)
 	ArchiveServer(context.Context, uuid.UUID) (*model.ArchivedServer, error)
 	StartServer(context.Context, uuid.UUID) (*model.DormantServer, error)
 	MakeServerLive(context.Context, uuid.UUID) (*model.LiveServer, error)
