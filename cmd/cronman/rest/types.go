@@ -192,13 +192,19 @@ func TagsFromModel(modelTags model.Tags) []Tag {
 	for _, tag := range modelTags {
 		tags = append(
 			tags,
-			Tag{Description: tag.Description, Icon: tag.Icon, Value: tag.Value},
+			Tag{
+				ID:          tag.ID,
+				Description: tag.Description,
+				Icon:        tag.Icon,
+				Value:       tag.Value,
+			},
 		)
 	}
 	return tags
 }
 
 type Tag struct {
+	ID          uuid.UUID      `json:"id"`
 	Description string         `json:"description"`
 	Icon        model.IconKind `json:"icon"`
 	Value       string         `json:"value"`
@@ -209,13 +215,19 @@ func EventsFromModel(modelEvents model.Events) []Event {
 	for _, event := range modelEvents {
 		events = append(
 			events,
-			Event{Weekday: event.Weekday, Hour: event.Hour, Kind: event.Kind},
+			Event{
+				ID:      event.ID,
+				Weekday: event.Weekday,
+				Hour:    event.Hour,
+				Kind:    event.Kind,
+			},
 		)
 	}
 	return events
 }
 
 type Event struct {
+	ID      uuid.UUID       `json:"id"`
 	Weekday time.Weekday    `json:"weekday"`
 	Hour    uint8           `json:"hour"`
 	Kind    model.EventKind `json:"kind"`
