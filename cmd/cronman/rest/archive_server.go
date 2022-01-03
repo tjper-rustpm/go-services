@@ -8,9 +8,9 @@ import (
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
-type DeleteServer struct{ API }
+type ArchiveServer struct{ API }
 
-func (ep DeleteServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep ArchiveServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		ServerID uuid.UUID
 	}
@@ -28,7 +28,9 @@ func (ep DeleteServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(server); err != nil {
+
+	archived := ArchivedServerFromModel(*server)
+	if err := json.NewEncoder(w).Encode(archived); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

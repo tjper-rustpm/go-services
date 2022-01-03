@@ -25,7 +25,7 @@ func (es Events) Scrub() {
 func (es Events) NextOf(t time.Time, kind EventKind) Event {
 	var next Event
 	for _, e := range es {
-		if e.EventKind != kind {
+		if e.Kind != kind {
 			continue
 		}
 		if (next == Event{}) {
@@ -43,10 +43,10 @@ func (es Events) NextOf(t time.Time, kind EventKind) Event {
 
 type Event struct {
 	Model
-	Weekday   time.Weekday `json:"weekday"`
-	Hour      uint8        `json:"hour"`
-	EventKind EventKind    `json:"kind"`
-	ServerID  uuid.UUID
+	Weekday  time.Weekday
+	Hour     uint8
+	Kind     EventKind
+	ServerID uuid.UUID
 }
 
 func (e Event) Clone() Event {

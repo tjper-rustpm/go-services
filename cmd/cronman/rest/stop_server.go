@@ -21,14 +21,16 @@ func (ep StopServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dormantServer, err := ep.ctrl.StopServer(r.Context(), b.ServerID)
+	server, err := ep.ctrl.StopServer(r.Context(), b.ServerID)
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(dormantServer); err != nil {
+
+	dormant := DormantServerFromModel(*server)
+	if err := json.NewEncoder(w).Encode(dormant); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

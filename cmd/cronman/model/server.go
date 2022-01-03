@@ -1,31 +1,39 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Server struct {
 	Model
-	Name                   string         `json:"name"`
-	InstanceID             string         `json:"instanceID"`
-	InstanceKind           InstanceKind   `json:"instanceKind"`
-	AllocationID           string         `json:"allocationID"`
-	ElasticIP              string         `json:"elasticIP"`
-	MaxPlayers             uint16         `json:"maxPlayers"`
-	MapSize                uint16         `json:"mapSize"`
-	MapSeed                uint16         `json:"mapSeed"`
-	MapSalt                uint16         `json:"mapSalt"`
-	TickRate               uint8          `json:"tickRate"`
-	RconPassword           string         `json:"rconPassword"`
-	Description            string         `json:"description"`
-	Background             BackgroundKind `json:"background"`
-	Url                    string         `json:"url"`
-	BannerUrl              string         `json:"bannerURL"`
-	WipeDay                WipeDay        `json:"wipeDay"`
-	BlueprintWipeFrequency WipeFrequency  `json:"blueprintWipeFrequency"`
-	MapWipeFrequency       WipeFrequency  `json:"mapWipeFrequency"`
-	Region                 Region         `json:"region"`
-	Tags                   Tags           `json:"tags"`
-	Events                 Events         `json:"events"`
-	Moderators             Moderators     `json:"moderators"`
+
+	StateID   uuid.UUID
+	StateType string
+
+	Name                   string
+	InstanceID             string
+	InstanceKind           InstanceKind
+	AllocationID           string
+	ElasticIP              string
+	MaxPlayers             uint16
+	MapSize                uint16
+	MapSeed                uint16
+	MapSalt                uint16
+	TickRate               uint8
+	RconPassword           string
+	Description            string
+	Background             BackgroundKind
+	Url                    string
+	BannerUrl              string
+	WipeDay                WipeDay
+	BlueprintWipeFrequency WipeFrequency
+	MapWipeFrequency       WipeFrequency
+	Region                 Region
+	Tags                   Tags
+	Events                 Events
+	Moderators             Moderators
 }
 
 func (s Server) Clone() *Server {
@@ -64,12 +72,11 @@ func (s LiveServers) Scrub() {
 type LiveServer struct {
 	Model
 
-	ServerID uuid.UUID
-	Server
+	Server Server `json:"server" gorm:"polymorphic:State"`
 
-	AssociationID string
-	ActivePlayers uint8
-	QueuedPlayers uint8
+	AssociationID string `json:"-"`
+	ActivePlayers uint8  `json:"activePlayers"`
+	QueuedPlayers uint8  `json:"queuedPlayers"`
 }
 
 func (s LiveServer) Clone() LiveServer {
@@ -99,8 +106,9 @@ func (s DormantServers) Scrub() {
 type DormantServer struct {
 	Model
 
-	ServerID uuid.UUID
-	Server
+	Server Server `json:"server" gorm:"polymorphic:State"`
+
+	StartsAt time.Time `json:"startsAt" gorm:"-"`
 }
 
 func (s DormantServer) Clone() DormantServer {
@@ -129,8 +137,7 @@ func (s ArchivedServers) Scrub() {
 type ArchivedServer struct {
 	Model
 
-	ServerID uuid.UUID
-	Server
+	Server Server `json:"server" gorm:"polymorphic:State"`
 }
 
 func (s ArchivedServer) Clone() ArchivedServer {

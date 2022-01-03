@@ -22,7 +22,7 @@ func (dts Moderators) Scrub() {
 
 type Moderator struct {
 	Model
-	SteamID  string `json:"steamID"`
+	SteamID  string
 	ServerID uuid.UUID
 }
 

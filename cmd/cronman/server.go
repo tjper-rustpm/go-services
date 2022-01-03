@@ -34,6 +34,7 @@ const (
 	ecMigration
 	ecRedisConnection
 	ecAwsConfig
+	ecServerAPI
 )
 
 func run() int {
@@ -125,6 +126,7 @@ func run() int {
 	if config.DirectorEnabled() {
 		logger.Info("[Startup] Creating director ...")
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
 			logger.Info("[Startup] Created director.")
@@ -148,7 +150,16 @@ func run() int {
 	logger.Info("[Startup] Created REST API.")
 
 	logger.Info("[Startup] Launching server ...")
+	srv := http.Server{
+		Handler:      api.Mux,
+		Addr:         fmt.Sprintf(":%d", config.Port()),
+		ReadTimeout:  config.HttpReadTimeout(),
+		WriteTimeout: config.HttpWriteTimeout(),
+	}
 	logger.Sugar().Infof("[Startup] cronman API listening at :%d", config.Port())
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port()), api.Mux))
+	if err := srv.ListenAndServe(); err != nil {
+		logger.Error("[Startup] Failed to listen and serve server API.", zap.Error(err))
+		return ecServerAPI
+	}
 	return ecExit
 }

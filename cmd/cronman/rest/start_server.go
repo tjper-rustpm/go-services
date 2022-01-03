@@ -26,14 +26,16 @@ func (ep StartServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	liveServer, err := ep.ctrl.MakeServerLive(r.Context(), b.ServerID)
+	server, err := ep.ctrl.MakeServerLive(r.Context(), b.ServerID)
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(liveServer); err != nil {
+
+	live := LiveServerFromModel(*server)
+	if err := json.NewEncoder(w).Encode(live); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

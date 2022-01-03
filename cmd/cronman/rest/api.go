@@ -3,10 +3,12 @@ package rest
 import (
 	"context"
 	"net/http"
+	"time"
 
-	"github.com/go-chi/chi"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -32,10 +34,24 @@ func NewAPI(
 	}
 
 	api.Mux.Route("/v1", func(router chi.Router) {
-		router.Method(http.MethodPost, "/server", CreateServer{API: api})
-		router.Method(http.MethodDelete, "/server", DeleteServer{API: api})
-		router.Method(http.MethodPost, "/server/start", StartServer{API: api})
-		router.Method(http.MethodPost, "/server/stop", StopServer{API: api})
+		router.Group(func(router chi.Router) {
+			router.Use(
+				middleware.Timeout(30 * time.Minute),
+			)
+
+			router.Method(http.MethodPost, "/server/start", StartServer{API: api})
+		})
+
+		router.Group(func(router chi.Router) {
+			router.Use(
+				middleware.Timeout(10 * time.Minute),
+			)
+
+			router.Method(http.MethodPost, "/server", CreateServer{API: api})
+			router.Method(http.MethodPost, "/server/stop", StopServer{API: api})
+		})
+
+		router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
 	})
 

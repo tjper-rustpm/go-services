@@ -23,7 +23,16 @@ func (ep Servers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	enc := json.NewEncoder(w)
-	enc.Encode(liveServers)
-	enc.Encode(dormantServers)
+	servers := make([]interface{}, 0, len(liveServers)+len(dormantServers))
+	for _, server := range liveServers {
+		servers = append(servers, LiveServerFromModel(server))
+	}
+	for _, server := range dormantServers {
+		servers = append(servers, DormantServerFromModel(server))
+	}
+
+	if err := json.NewEncoder(w).Encode(servers); err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
 }

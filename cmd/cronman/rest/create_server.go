@@ -16,20 +16,17 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sd, err := b.ToModelServerDefinition()
-	if err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
-		return
-	}
-
-	server, err := ep.ctrl.CreateServer(r.Context(), *sd)
+	server, err := ep.ctrl.CreateServer(r.Context(), b.ToModelServer())
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(server); err != nil {
+
+	dormant := DormantServerFromModel(*server)
+
+	if err := json.NewEncoder(w).Encode(dormant); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

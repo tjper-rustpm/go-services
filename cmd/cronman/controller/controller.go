@@ -64,27 +64,23 @@ func (ctrl Controller) CreateServer(
 		input.InstanceKind,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating instance; %w", err)
 	}
 
 	input.InstanceID = *instance.Instance.InstanceId
 	input.AllocationID = *instance.Address.AllocationId
 	input.ElasticIP = *instance.Address.PublicIp
 
-	if err := ctrl.store.Create(ctx, input); err != nil {
-		return nil, err
-	}
-
-	server, err := ctrl.store.MakeServerDormant(ctx, input.ID)
+	dormant, err := ctrl.store.CreateServer(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating server; %w", err)
 	}
 
 	if err := ctrl.notifier.Notify(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("notifying director; %w", err)
 	}
 
-	return server, nil
+	return dormant, nil
 }
 
 // ArchiveServer instruct the Controller to archive the server specified by id.
@@ -116,19 +112,19 @@ func (ctrl Controller) StartServer(
 
 	server, err := ctrl.store.GetDormantServer(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get dormant server; %w", err)
+		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
 	userdata, err := generateUserData(server.Server)
 	if err != nil {
-		return nil, fmt.Errorf("unable to generate server userdata; %w", err)
+		return nil, fmt.Errorf("generate server userdata; %w", err)
 	}
 	if err := ctrl.serverController.Region(server.Server.Region).StartInstance(
 		ctx,
 		server.Server.InstanceID,
 		userdata,
 	); err != nil {
-		return nil, fmt.Errorf("unable to start server instance; %w", err)
+		return nil, fmt.Errorf("start server instance; %w", err)
 	}
 
 	association, err := ctrl.serverController.Region(server.Server.Region).MakeInstanceAvailable(
@@ -175,7 +171,7 @@ func (ctrl Controller) MakeServerLive(
 ) (*model.LiveServer, error) {
 	server, err := ctrl.store.GetDormantServer(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get dormant server; %w", err)
+		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
 	instance, err := ctrl.serverController.Region(server.Server.Region).MakeInstanceAvailable(
@@ -184,14 +180,14 @@ func (ctrl Controller) MakeServerLive(
 		server.Server.AllocationID,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("unable to make server instance available; %w", err)
+		return nil, fmt.Errorf("make server instance available; %w", err)
 	}
 	if err := ctrl.pingUntilReady(
 		ctx,
 		server.Server.ElasticIP,
 		server.Server.RconPassword,
 	); err != nil {
-		return nil, fmt.Errorf("unable to ping server instance; %w", err)
+		return nil, fmt.Errorf("ping until ready; %w", err)
 	}
 
 	return ctrl.store.MakeServerLive(
@@ -258,7 +254,9 @@ func (ctrl *Controller) ListServers(ctx context.Context, dst interface{}) error 
 	default:
 		return errInvalidServerType
 	}
+
 	return ctrl.store.ListServers(ctx, dst)
+
 }
 
 // --- private ---

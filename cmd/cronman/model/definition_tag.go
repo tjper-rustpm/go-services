@@ -22,9 +22,9 @@ func (ts Tags) Scrub() {
 
 type Tag struct {
 	Model
-	Description string   `json:"description"`
-	Icon        IconKind `json:"icon"`
-	Value       string   `json:"value"`
+	Description string
+	Icon        IconKind
+	Value       string
 	ServerID    uuid.UUID
 }
 
