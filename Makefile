@@ -6,13 +6,18 @@ help: ## This help.
 
 .DEFAULT_GOAL := help
 
+
 .PHONY: build
 build: ## Build an app's binary.
-	go build -o /dev/null cmd/$(APP_NAME)/server.go
+	@go build -o /dev/null cmd/$(APP_NAME)/server.go
 
 .PHONY: build-image
 build-image: ## Build an app's docker image.
 	@docker build -t $(APP_NAME) -f deploy/Dockerfile.$(APP_NAME) .
+
+.PHONY: build-all
+build-all: ## Build binaries of all apps in cmd/.
+	@ls -d cmd/* | xargs -I %d go build -o /dev/null %d/main.go
 
 .PHONY: build-image-nc
 build-nc: ## Build an app's docker image without caching.
