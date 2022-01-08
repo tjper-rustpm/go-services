@@ -4,71 +4,69 @@ import (
 	"testing"
 	"time"
 
-	graphmodel "github.com/tjper/rustcron/cmd/cronman/graph/model"
-
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDefinitionEventsNextOf(t *testing.T) {
+func TestEventsNextOf(t *testing.T) {
 	type expected struct {
-		event DefinitionEvent
+		event Event
 	}
 	tests := map[string]struct {
 		dt     time.Time
-		kind   graphmodel.EventKind
-		events DefinitionEvents
+		kind   EventKind
+		events Events
 		exp    expected
 	}{
 		"single": {
 			dt:   time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
-			kind: graphmodel.EventKindStart,
-			events: DefinitionEvents{
-				event(1, 22, graphmodel.EventKindStart),
+			kind: EventKindStart,
+			events: Events{
+				event(1, 22, EventKindStart),
 			},
 			exp: expected{
-				event: event(1, 22, graphmodel.EventKindStart),
+				event: event(1, 22, EventKindStart),
 			},
 		},
 		"twelve-ordered": {
 			dt:   time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
-			kind: graphmodel.EventKindStart,
-			events: DefinitionEvents{
-				event(0, 22, graphmodel.EventKindStart),
-				event(1, 4, graphmodel.EventKindStop),
-				event(1, 22, graphmodel.EventKindStart),
-				event(2, 4, graphmodel.EventKindStop),
-				event(2, 22, graphmodel.EventKindStart),
-				event(3, 4, graphmodel.EventKindStop),
-				event(3, 22, graphmodel.EventKindStart),
-				event(4, 4, graphmodel.EventKindStop),
-				event(4, 22, graphmodel.EventKindStart),
-				event(5, 4, graphmodel.EventKindStop),
-				event(5, 22, graphmodel.EventKindStart),
-				event(6, 4, graphmodel.EventKindStop),
+			kind: EventKindStart,
+			events: Events{
+				event(0, 22, EventKindStart),
+				event(1, 4, EventKindStop),
+				event(1, 22, EventKindStart),
+				event(2, 4, EventKindStop),
+				event(2, 22, EventKindStart),
+				event(3, 4, EventKindStop),
+				event(3, 22, EventKindStart),
+				event(4, 4, EventKindStop),
+				event(4, 22, EventKindStart),
+				event(5, 4, EventKindStop),
+				event(5, 22, EventKindStart),
+				event(6, 4, EventKindStop),
 			},
 			exp: expected{
-				event: event(3, 22, graphmodel.EventKindStart),
+				event: event(3, 22, EventKindStart),
 			},
 		},
 		"twelve-unordered": {
 			dt:   time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
-			kind: graphmodel.EventKindStart,
-			events: DefinitionEvents{
-				event(1, 22, graphmodel.EventKindStart),
-				event(2, 22, graphmodel.EventKindStart),
-				event(3, 4, graphmodel.EventKindStop),
-				event(2, 4, graphmodel.EventKindStop),
-				event(3, 22, graphmodel.EventKindStart),
-				event(4, 4, graphmodel.EventKindStop),
-				event(5, 22, graphmodel.EventKindStart),
-				event(1, 4, graphmodel.EventKindStop),
-				event(4, 22, graphmodel.EventKindStart),
-				event(5, 4, graphmodel.EventKindStop),
-				event(0, 22, graphmodel.EventKindStart),
-				event(6, 4, graphmodel.EventKindStop),
+			kind: EventKindStart,
+			events: Events{
+				event(1, 22, EventKindStart),
+				event(2, 22, EventKindStart),
+				event(3, 4, EventKindStop),
+				event(2, 4, EventKindStop),
+				event(3, 22, EventKindStart),
+				event(4, 4, EventKindStop),
+				event(5, 22, EventKindStart),
+				event(1, 4, EventKindStop),
+				event(4, 22, EventKindStart),
+				event(5, 4, EventKindStop),
+				event(0, 22, EventKindStart),
+				event(6, 4, EventKindStop),
 			},
 			exp: expected{
-				event: event(3, 22, graphmodel.EventKindStart),
+				event: event(3, 22, EventKindStart),
 			},
 		},
 	}
@@ -80,73 +78,73 @@ func TestDefinitionEventsNextOf(t *testing.T) {
 	}
 }
 
-func TestDefinitionEventNextOccurenceAfter(t *testing.T) {
+func TestEventNextOccurenceAfter(t *testing.T) {
 	type expected struct {
 		next time.Time
 	}
 	tests := map[string]struct {
-		event DefinitionEvent
+		event Event
 		after time.Time
 		exp   expected
 	}{
 		"+day,+hour": {
-			event: event(4, 22, graphmodel.EventKindStart),
+			event: event(4, 22, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 17, 22, 0, 0, 0, time.UTC),
 			},
 		},
 		"++day,+hour": {
-			event: event(6, 22, graphmodel.EventKindStart),
+			event: event(6, 22, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 19, 22, 0, 0, 0, time.UTC),
 			},
 		},
 		"++day,-hour": {
-			event: event(6, 16, graphmodel.EventKindStart),
+			event: event(6, 16, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 19, 16, 0, 0, 0, time.UTC),
 			},
 		},
 		"day,+hour": {
-			event: event(3, 22, graphmodel.EventKindStart),
+			event: event(3, 22, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 16, 22, 0, 0, 0, time.UTC),
 			},
 		},
 		"-day,+hour": {
-			event: event(2, 22, graphmodel.EventKindStart),
+			event: event(2, 22, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 22, 22, 0, 0, 0, time.UTC),
 			},
 		},
 		"--day,+hour": {
-			event: event(0, 22, graphmodel.EventKindStart),
+			event: event(0, 22, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 20, 22, 0, 0, 0, time.UTC),
 			},
 		},
 		"--day,-hour": {
-			event: event(0, 16, graphmodel.EventKindStart),
+			event: event(0, 16, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 20, 16, 0, 0, 0, time.UTC),
 			},
 		},
 		"day,hour": {
-			event: event(3, 19, graphmodel.EventKindStart),
+			event: event(3, 19, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 23, 19, 0, 0, 0, time.UTC),
 			},
 		},
 		"+day,-hour,+minute": {
-			event: event(4, 16, graphmodel.EventKindStart),
+			event: event(4, 16, EventKindStart),
 			after: time.Date(2020, time.September, 16, 19, 30, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 17, 16, 0, 0, 0, time.UTC),
@@ -163,10 +161,10 @@ func TestDefinitionEventNextOccurenceAfter(t *testing.T) {
 
 // --- helpers ---
 
-func event(day time.Weekday, hour uint8, kind graphmodel.EventKind) DefinitionEvent {
-	return DefinitionEvent{
-		Weekday:   day,
-		Hour:      hour,
-		EventKind: kind,
+func event(day time.Weekday, hour uint8, kind EventKind) Event {
+	return Event{
+		Weekday: day,
+		Hour:    hour,
+		Kind:    kind,
 	}
 }
