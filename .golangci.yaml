@@ -96,6 +96,7 @@ linters:
     - tagliatelle
     - testpackage
     - scopelint
+    - durationcheck
 
   # presets:
   #   - bugs
