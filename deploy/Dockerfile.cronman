@@ -9,7 +9,7 @@ COPY go.* ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -o cronman cmd/cronman/server.go
+RUN CGO_ENABLED=0 go build -o cronman cmd/cronman/main.go
 
 FROM scratch
 

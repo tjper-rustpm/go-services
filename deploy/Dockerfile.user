@@ -9,7 +9,7 @@ COPY go.* ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -o user cmd/user/server.go
+RUN CGO_ENABLED=0 go build -o user cmd/user/main.go
 
 FROM scratch
 
