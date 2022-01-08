@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	graphmodel "github.com/tjper/rustcron/internal/graph/model"
 	"github.com/tjper/rustcron/internal/session"
 
 	"github.com/google/uuid"
@@ -14,10 +13,10 @@ import (
 
 type User struct {
 	Model
-	Email    string              `json:"email" gorm:"uniqueIndex"`
-	Password []byte              `json:"-"`
-	Salt     string              `json:"-"`
-	Role     graphmodel.RoleKind `json:"role"`
+	Email    string       `json:"email" gorm:"uniqueIndex"`
+	Password []byte       `json:"-"`
+	Salt     string       `json:"-"`
+	Role     session.Role `json:"role"`
 
 	VerificationHash   string       `json:"-" gorm:"uniqueIndex"`
 	VerificationSentAt time.Time    `json:"-"`

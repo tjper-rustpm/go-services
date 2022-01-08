@@ -10,7 +10,6 @@ import (
 
 	rpmerrors "github.com/tjper/rustcron/cmd/user/errors"
 	"github.com/tjper/rustcron/cmd/user/model"
-	graphmodel "github.com/tjper/rustcron/internal/graph/model"
 	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/session"
 
@@ -106,9 +105,9 @@ func (ctrl Controller) CreateUser(
 		return nil, err
 	}
 
-	role := graphmodel.RoleKindStandard
+	role := session.RoleStandard
 	if ctrl.admins.Contains(input.Email) {
-		role = graphmodel.RoleKindAdmin
+		role = session.RoleAdmin
 	}
 	verificationHash, err := rand.GenerateString(32)
 	if err != nil {
