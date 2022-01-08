@@ -7,10 +7,14 @@ help: ## This help.
 .DEFAULT_GOAL := help
 
 .PHONY: build
-build: ## Build an app's docker image.
+build: ## Build an app's binary.
+	go build -o /dev/null cmd/$(APP_NAME)/server.go
+
+.PHONY: build-image
+build-image: ## Build an app's docker image.
 	@docker build -t $(APP_NAME) -f deploy/Dockerfile.$(APP_NAME) .
 
-.PHONY: build-nc
+.PHONY: build-image-nc
 build-nc: ## Build an app's docker image without caching.
 	@docker build --no-cache -t $(APP_NAME) -f deploy/Dockerfile.$(APP_NAME) .
 
