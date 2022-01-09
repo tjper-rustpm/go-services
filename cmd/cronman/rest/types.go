@@ -90,6 +90,20 @@ func (body CreateServerBody) ToModelServer() model.Server {
 	}
 }
 
+type PutServerBody struct {
+	ID uuid.UUID `json:"id"`
+	CreateServerBody
+}
+
+func (body PutServerBody) ToModelDormantServer() model.DormantServer {
+	return model.DormantServer{
+		Model: model.Model{
+			ID: body.ID,
+		},
+		Server: body.CreateServerBody.ToModelServer(),
+	}
+}
+
 func ServerFromModel(server model.Server) Server {
 	return Server{
 		Name:         server.Name,

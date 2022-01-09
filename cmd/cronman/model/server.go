@@ -1,8 +1,6 @@
 package model
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 )
 
@@ -107,8 +105,6 @@ type DormantServer struct {
 	Model
 
 	Server Server `json:"server" gorm:"polymorphic:State"`
-
-	StartsAt time.Time `json:"startsAt" gorm:"-"`
 }
 
 func (s DormantServer) Clone() DormantServer {

@@ -17,7 +17,7 @@ type IStore interface {
 	Tx(func(IStore) error) error
 
 	CreateServer(context.Context, model.Server) (*model.DormantServer, error)
-	UpdateServer(context.Context, model.Server) (*model.DormantServer, error)
+	UpdateServer(context.Context, model.DormantServer) (*model.DormantServer, error)
 
 	ListServers(context.Context, interface{}) error
 	ListActiveServerEvents(context.Context) (model.Events, error)
@@ -64,22 +64,14 @@ func (s Store) CreateServer(ctx context.Context, srv model.Server) (*model.Dorma
 	return &dormant, nil
 }
 
-func (s Store) UpdateServer(ctx context.Context, srv model.Server) (*model.DormantServer, error) {
+func (s Store) UpdateServer(ctx context.Context, srv model.DormantServer) (*model.DormantServer, error) {
+	current, err := s.GetDormantServer(ctx, srv.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
-
-		var current model.Server
-		res := tx.
-			Preload("Tags").
-			Preload("Events").
-			Preload("Moderators").
-			First(&current, srv.ID)
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("get server; id: %s, error: %w", srv.ID, cronmanerrors.ErrServerDNE)
-		}
-		if res.Error != nil {
-			return fmt.Errorf("get server; id: %s, error: %w", srv.ID, res.Error)
-		}
 
 		if res := tx.Model(&current).Updates(srv); res.Error != nil {
 			return fmt.Errorf("update server; id: %s, error: %w", srv.ID, res.Error)

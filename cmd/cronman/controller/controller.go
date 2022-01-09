@@ -87,7 +87,7 @@ func (ctrl Controller) CreateServer(
 // associated data.
 func (ctrl Controller) UpdateServer(
 	ctx context.Context,
-	input model.Server,
+	input model.DormantServer,
 ) (*model.DormantServer, error) {
 	dormant, err := ctrl.store.UpdateServer(ctx, input)
 	if err != nil {

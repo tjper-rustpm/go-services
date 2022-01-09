@@ -15,6 +15,7 @@ import (
 
 type IController interface {
 	CreateServer(context.Context, model.Server) (*model.DormantServer, error)
+	UpdateServer(context.Context, model.DormantServer) (*model.DormantServer, error)
 	ArchiveServer(context.Context, uuid.UUID) (*model.ArchivedServer, error)
 	StartServer(context.Context, uuid.UUID) (*model.DormantServer, error)
 	MakeServerLive(context.Context, uuid.UUID) (*model.LiveServer, error)
@@ -51,6 +52,7 @@ func NewAPI(
 			router.Method(http.MethodPost, "/server/stop", StopServer{API: api})
 		})
 
+		router.Method(http.MethodPut, "/server", PutServer{API: api})
 		router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
 	})
