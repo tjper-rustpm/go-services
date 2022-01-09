@@ -2,8 +2,10 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	cronmanerrors "github.com/tjper/rustcron/cmd/cronman/errors"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 
 	"github.com/google/uuid"
@@ -116,14 +118,18 @@ func (s Store) GetArchivedServer(ctx context.Context, id uuid.UUID) (*model.Arch
 }
 
 func (s Store) GetServer(ctx context.Context, id uuid.UUID, dst interface{}) error {
-	if res := s.db.
+	res := s.db.
 		WithContext(ctx).
 		Preload("Server").
 		Preload("Server.Tags").
 		Preload("Server.Events").
 		Preload("Server.Moderators").
-		First(dst, id); res.Error != nil {
-		return res.Error
+		First(dst, id)
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("get server; id: %s, error: %w", id, cronmanerrors.ErrServerDNE)
+	}
+	if res.Error != nil {
+		return fmt.Errorf("get server; id: %s, error: %w", id, res.Error)
 	}
 	return nil
 }
