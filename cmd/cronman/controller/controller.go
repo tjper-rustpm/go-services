@@ -83,13 +83,18 @@ func (ctrl Controller) CreateServer(
 	return dormant, nil
 }
 
+type UpdateServerInput struct {
+	ID      uuid.UUID
+	Changes map[string]interface{}
+}
+
 // UpdateServer instructs the Controller to updates the server passed with the
 // associated data.
 func (ctrl Controller) UpdateServer(
 	ctx context.Context,
-	input model.DormantServer,
+	input UpdateServerInput,
 ) (*model.DormantServer, error) {
-	dormant, err := ctrl.store.UpdateServer(ctx, input)
+	dormant, err := ctrl.store.UpdateServer(ctx, input.ID, input.Changes)
 	if err != nil {
 		return nil, fmt.Errorf("update server; %w", err)
 	}

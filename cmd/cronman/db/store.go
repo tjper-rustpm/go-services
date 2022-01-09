@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/iancoleman/strcase"
 	cronmanerrors "github.com/tjper/rustcron/cmd/cronman/errors"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 
@@ -17,7 +18,7 @@ type IStore interface {
 	Tx(func(IStore) error) error
 
 	CreateServer(context.Context, model.Server) (*model.DormantServer, error)
-	UpdateServer(context.Context, model.DormantServer) (*model.DormantServer, error)
+	UpdateServer(context.Context, uuid.UUID, map[string]interface{}) (*model.DormantServer, error)
 
 	ListServers(context.Context, interface{}) error
 	ListActiveServerEvents(context.Context) (model.Events, error)
@@ -64,17 +65,26 @@ func (s Store) CreateServer(ctx context.Context, srv model.Server) (*model.Dorma
 	return &dormant, nil
 }
 
-func (s Store) UpdateServer(ctx context.Context, srv model.DormantServer) (*model.DormantServer, error) {
-	current, err := s.GetDormantServer(ctx, srv.ID)
+func (s Store) UpdateServer(
+	ctx context.Context,
+	id uuid.UUID,
+	changes map[string]interface{},
+) (*model.DormantServer, error) {
+	current, err := s.GetDormantServer(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+
+	snakeCaseChanges := make(map[string]interface{})
+	for field, value := range changes {
+		snakeCaseChanges[strcase.ToSnake(field)] = value
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
-		if res := tx.Model(&current).Updates(srv); res.Error != nil {
-			return fmt.Errorf("update server; id: %s, error: %w", srv.ID, res.Error)
+		if res := tx.Model(&current.Server).Updates(snakeCaseChanges); res.Error != nil {
+			return fmt.Errorf("update server; id: %s, error: %w", id, res.Error)
 		}
 
 		return nil
@@ -82,7 +92,7 @@ func (s Store) UpdateServer(ctx context.Context, srv model.DormantServer) (*mode
 		return nil, err
 	}
 
-	return s.GetDormantServer(ctx, srv.ID)
+	return s.GetDormantServer(ctx, id)
 }
 
 func (s Store) ListServers(ctx context.Context, dst interface{}) error {

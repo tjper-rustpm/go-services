@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 )
 
@@ -91,17 +92,12 @@ func (body CreateServerBody) ToModelServer() model.Server {
 }
 
 type PutServerBody struct {
-	ID uuid.UUID `json:"id"`
-	CreateServerBody
+	ID      uuid.UUID              `json:"id"`
+	Changes map[string]interface{} `json:"changes"`
 }
 
-func (body PutServerBody) ToModelDormantServer() model.DormantServer {
-	return model.DormantServer{
-		Model: model.Model{
-			ID: body.ID,
-		},
-		Server: body.CreateServerBody.ToModelServer(),
-	}
+func (body PutServerBody) ToUpdateServerInput() controller.UpdateServerInput {
+	return controller.UpdateServerInput{ID: body.ID, Changes: body.Changes}
 }
 
 func ServerFromModel(server model.Server) Server {

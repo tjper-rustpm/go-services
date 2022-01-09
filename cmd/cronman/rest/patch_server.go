@@ -9,16 +9,16 @@ import (
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
-type PutServer struct{ API }
+type PatchServer struct{ API }
 
-func (ep PutServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep PatchServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var b PutServerBody
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
-	server, err := ep.ctrl.UpdateServer(r.Context(), b.ToModelDormantServer())
+	server, err := ep.ctrl.UpdateServer(r.Context(), b.ToUpdateServerInput())
 	if errors.Is(err, cronmanerrors.ErrServerDNE) {
 		ihttp.ErrConflict(w)
 		return
