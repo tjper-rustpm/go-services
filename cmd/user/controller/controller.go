@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"time"
 
-	rpmerrors "github.com/tjper/rustcron/cmd/user/errors"
+	usererrors "github.com/tjper/rustcron/cmd/user/errors"
 	"github.com/tjper/rustcron/cmd/user/model"
 	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/session"
@@ -92,16 +92,16 @@ func (ctrl Controller) CreateUser(
 	input CreateUserInput,
 ) (*model.User, error) {
 	if !isEmail(input.Email) {
-		return nil, rpmerrors.EmailError("unknown characters")
+		return nil, usererrors.EmailError("unknown characters")
 	}
 	if err := validatePassword(input.Password); err != nil {
 		return nil, err
 	}
 	_, err := ctrl.store.UserByEmail(ctx, input.Email)
 	if err == nil {
-		return nil, rpmerrors.EmailError("invalid; please use another email")
+		return nil, usererrors.EmailError("invalid; please use another email")
 	}
-	if err != nil && !errors.Is(err, rpmerrors.UserDNE) {
+	if err != nil && !errors.Is(err, usererrors.UserDNE) {
 		return nil, err
 	}
 
@@ -169,7 +169,7 @@ func (ctrl Controller) UpdateUserPassword(ctx context.Context, input UpdateUserP
 		user.Password,
 		hash([]byte(input.CurrentPassword), []byte(user.Salt)),
 	) {
-		return nil, rpmerrors.AuthError("invalid credentials")
+		return nil, usererrors.AuthError("invalid credentials")
 	}
 
 	password := hash([]byte(input.NewPassword), []byte(user.Salt))
@@ -195,15 +195,15 @@ func (ctrl Controller) LoginUser(
 	input LoginUserInput,
 ) (*LoginUserOutput, error) {
 	if !isEmail(input.Email) {
-		return nil, rpmerrors.EmailError("unknown characters")
+		return nil, usererrors.EmailError("unknown characters")
 	}
 	if err := validatePassword(input.Password); err != nil {
 		return nil, err
 	}
 
 	user, err := ctrl.store.UserByEmail(ctx, input.Email)
-	if errors.Is(err, rpmerrors.UserDNE) {
-		return nil, rpmerrors.AuthError("invalid credentials")
+	if errors.Is(err, usererrors.UserDNE) {
+		return nil, usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
 		return nil, err
@@ -213,7 +213,7 @@ func (ctrl Controller) LoginUser(
 		user.Password,
 		hash([]byte(input.Password), []byte(user.Salt)),
 	) {
-		return nil, rpmerrors.AuthError("invalid credentials")
+		return nil, usererrors.AuthError("invalid credentials")
 	}
 
 	sessionID, err := rand.GenerateString(32)
@@ -261,20 +261,20 @@ func (ctrl Controller) User(ctx context.Context, id uuid.UUID) (*model.User, err
 // cryptographically-secure pseudorandom number.
 func (ctrl Controller) VerifyEmail(ctx context.Context, hash string) (*model.User, error) {
 	user, err := ctrl.store.UserByVerificationHash(ctx, hash)
-	if errors.Is(err, rpmerrors.UserDNE) {
-		return nil, rpmerrors.HashError("invalid hash")
+	if errors.Is(err, usererrors.UserDNE) {
+		return nil, usererrors.HashError("invalid hash")
 	}
 	if err != nil {
 		return nil, err
 	}
 	if user.IsVerified() {
-		return nil, rpmerrors.HashError("already verified")
+		return nil, usererrors.HashError("already verified")
 	}
 	if user.IsVerificationHashStale() {
-		return nil, rpmerrors.AuthError("invalid credentials")
+		return nil, usererrors.AuthError("invalid credentials")
 	}
 	if user.VerificationHash != hash {
-		return nil, rpmerrors.AuthError("invalid credentials")
+		return nil, usererrors.AuthError("invalid credentials")
 	}
 	return ctrl.store.VerifyEmail(ctx, user.ID, hash)
 }
@@ -285,14 +285,14 @@ func (ctrl Controller) ValidateResetPasswordHash(
 	hash string,
 ) error {
 	reset, err := ctrl.store.PasswordResetByHash(ctx, hash)
-	if errors.Is(err, rpmerrors.PasswordResetDNE) {
-		return rpmerrors.AuthError("invalid credentials")
+	if errors.Is(err, usererrors.PasswordResetDNE) {
+		return usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
 		return err
 	}
 	if reset.IsRequestStale() {
-		return rpmerrors.AuthError("stale hash")
+		return usererrors.AuthError("stale hash")
 	}
 	return nil
 }
@@ -305,7 +305,7 @@ func (ctrl Controller) ResendEmailVerification(ctx context.Context, id uuid.UUID
 		return nil, err
 	}
 	if user.IsVerified() {
-		return nil, rpmerrors.EmailAlreadyVerified
+		return nil, usererrors.EmailAlreadyVerified
 	}
 
 	verificationHash, err := rand.GenerateString(32)
@@ -336,12 +336,12 @@ func (ctrl Controller) ResendEmailVerification(ctx context.Context, id uuid.UUID
 // that email address will receive a "reset password" email.
 func (ctrl Controller) RequestPasswordReset(ctx context.Context, email string) error {
 	if !isEmail(email) {
-		return rpmerrors.EmailError("unknown characters")
+		return usererrors.EmailError("unknown characters")
 	}
 
 	_, err := ctrl.store.UserByEmail(ctx, email)
-	if errors.Is(err, rpmerrors.UserDNE) {
-		return rpmerrors.EmailAddressNotRecognized
+	if errors.Is(err, usererrors.UserDNE) {
+		return usererrors.EmailAddressNotRecognized
 	}
 	if err != nil {
 		return err
@@ -383,25 +383,25 @@ func (ctrl Controller) ResetPassword(
 	}
 
 	user, err := ctrl.store.UserByResetPasswordHash(ctx, resetPasswordHash)
-	if errors.Is(err, rpmerrors.UserDNE) {
-		return rpmerrors.AuthError("invalid credentials")
+	if errors.Is(err, usererrors.UserDNE) {
+		return usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
 		return err
 	}
 
 	reset, err := ctrl.store.PasswordResetByHash(ctx, resetPasswordHash)
-	if errors.Is(err, rpmerrors.PasswordResetDNE) {
-		return rpmerrors.AuthError("invalid credentials")
+	if errors.Is(err, usererrors.PasswordResetDNE) {
+		return usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
 		return err
 	}
 	if reset.IsRequestStale() {
-		return rpmerrors.AuthError("stale hash")
+		return usererrors.AuthError("stale hash")
 	}
 	if reset.IsCompleted() {
-		return rpmerrors.AuthError("reset previously completed")
+		return usererrors.AuthError("reset previously completed")
 	}
 
 	if err := ctrl.store.CompleteUserPasswordReset(
@@ -456,17 +456,17 @@ func validatePassword(s string) error {
 	)
 	switch {
 	case len(s) < minLength:
-		return rpmerrors.PasswordError(fmt.Sprintf("minimum of %d characters", minLength))
+		return usererrors.PasswordError(fmt.Sprintf("minimum of %d characters", minLength))
 	case len(s) > maxLength:
-		return rpmerrors.PasswordError(fmt.Sprintf("maximum of %d characters", maxLength))
+		return usererrors.PasswordError(fmt.Sprintf("maximum of %d characters", maxLength))
 	case !passwordRE.MatchString(s):
-		return rpmerrors.PasswordError("unknown characters")
+		return usererrors.PasswordError("unknown characters")
 	case !atLeastOneLowerCaseRE.MatchString(s):
-		return rpmerrors.PasswordError("at least one lower-case letter required")
+		return usererrors.PasswordError("at least one lower-case letter required")
 	case !atLeastOneUpperCaseRE.MatchString(s):
-		return rpmerrors.PasswordError("at least one upper-case letter required")
+		return usererrors.PasswordError("at least one upper-case letter required")
 	case !atLeastOneNumberRE.MatchString(s):
-		return rpmerrors.PasswordError("at least one number required")
+		return usererrors.PasswordError("at least one number required")
 	}
 	return nil
 }
