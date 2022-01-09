@@ -22,7 +22,7 @@ func (es Events) Scrub() {
 	}
 }
 
-func (es Events) NextOf(t time.Time, kind EventKind) Event {
+func (es Events) NextEventAfter(t time.Time, kind EventKind) Event {
 	var next Event
 	for _, e := range es {
 		if e.Kind != kind {
@@ -30,11 +30,13 @@ func (es Events) NextOf(t time.Time, kind EventKind) Event {
 		}
 		if (next == Event{}) {
 			next = e
+			continue
 		}
 
-		futureTime := e.NextOccurenceAfter(t)
-		nextTime := next.NextOccurenceAfter(t)
-		if futureTime.Before(nextTime) {
+		potential := e.NextTimeAfter(t)
+		current := next.NextTimeAfter(t)
+
+		if potential.Before(current) {
 			next = e
 		}
 	}
@@ -58,20 +60,25 @@ func (e *Event) Scrub() {
 	e.ServerID = uuid.Nil
 }
 
-func (e Event) NextOccurenceAfter(after time.Time) time.Time {
+func (e Event) NextTime() time.Time {
+	return e.NextTimeAfter(time.Now().UTC())
+}
+
+func (e Event) NextTimeAfter(t time.Time) time.Time {
 	nextEventWeekday := e.Weekday
-	if (e.Weekday < after.Weekday()) || (e.Weekday == after.Weekday() && int(e.Hour) <= after.Hour()) {
+	if (e.Weekday < t.Weekday()) || (e.Weekday == t.Weekday() && int(e.Hour) <= t.Hour()) {
 		nextEventWeekday += 7
 	}
-	return after.Add(
-		time.Duration(nextEventWeekday-after.Weekday())*24*time.Hour +
-			time.Duration(int(e.Hour)-after.Hour())*time.Hour,
-	).Truncate(time.Hour)
+
+	days := time.Duration(nextEventWeekday-t.Weekday()) * 24 * time.Hour
+	hours := time.Duration(int(e.Hour)-t.Hour()) * time.Hour
+
+	return t.Add(days + hours).Truncate(time.Hour)
 }
 
 type EventKind string
 
 const (
-	EventKindStart EventKind = "START"
-	EventKindStop  EventKind = "STOP"
+	EventKindStart EventKind = "start"
+	EventKindStop  EventKind = "stop"
 )

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEventsNextOf(t *testing.T) {
+func TestEventsNextEventAfter(t *testing.T) {
 	type expected struct {
 		event Event
 	}
@@ -69,16 +69,39 @@ func TestEventsNextOf(t *testing.T) {
 				event: event(3, 22, EventKindStart),
 			},
 		},
+		"1/8/2022": {
+			dt:   time.Date(2022, time.January, 8, 22, 0, 0, 0, time.UTC),
+			kind: EventKindStart,
+			events: Events{
+				event(0, 20, EventKindStart),
+				event(1, 6, EventKindStop),
+				event(1, 20, EventKindStart),
+				event(2, 6, EventKindStop),
+				event(2, 20, EventKindStart),
+				event(3, 6, EventKindStop),
+				event(3, 20, EventKindStart),
+				event(4, 6, EventKindStop),
+				event(4, 20, EventKindStart),
+				event(5, 6, EventKindStop),
+				event(5, 20, EventKindStart),
+				event(6, 6, EventKindStop),
+				event(6, 20, EventKindStart),
+				event(0, 6, EventKindStop),
+			},
+			exp: expected{
+				event: event(0, 20, EventKindStart),
+			},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			event := test.events.NextOf(test.dt, test.kind)
+			event := test.events.NextEventAfter(test.dt, test.kind)
 			assert.Equal(t, test.exp.event, event)
 		})
 	}
 }
 
-func TestEventNextOccurenceAfter(t *testing.T) {
+func TestEventNextTimeAfter(t *testing.T) {
 	type expected struct {
 		next time.Time
 	}
@@ -150,11 +173,24 @@ func TestEventNextOccurenceAfter(t *testing.T) {
 				next: time.Date(2020, time.September, 17, 16, 0, 0, 0, time.UTC),
 			},
 		},
+		"1/8/2022 22:00:00": {
+			event: event(0, 20, EventKindStart),
+			after: time.Date(2022, time.January, 8, 22, 0, 0, 0, time.UTC),
+			exp: expected{
+				next: time.Date(2022, time.January, 9, 20, 0, 0, 0, time.UTC),
+			},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			next := test.event.NextOccurenceAfter(test.after)
-			assert.Equal(t, test.exp.next, next)
+			next := test.event.NextTimeAfter(test.after)
+			assert.True(
+				t,
+				test.exp.next.Equal(next),
+				"exp: %s\nnext: %s",
+				test.exp.next.Format(time.RFC822),
+				next.Format(time.RFC822),
+			)
 		})
 	}
 }

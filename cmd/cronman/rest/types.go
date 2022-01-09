@@ -137,10 +137,10 @@ func DormantServerFromModel(dormant model.DormantServer) *DormantServer {
 			Kind: "dormant",
 		},
 		Server: ServerFromModel(dormant.Server),
-		StartsAt: dormant.Server.Events.NextOf(
+		StartsAt: dormant.Server.Events.NextEventAfter(
 			time.Now().UTC(),
 			model.EventKindStart,
-		).NextOccurenceAfter(time.Now().UTC()),
+		).NextTime(),
 		CreatedAt: dormant.CreatedAt,
 	}
 }
