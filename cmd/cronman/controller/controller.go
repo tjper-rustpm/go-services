@@ -83,6 +83,24 @@ func (ctrl Controller) CreateServer(
 	return dormant, nil
 }
 
+// UpdateServer instructs the Controller to updates the server passed with the
+// associated data.
+func (ctrl Controller) UpdateServer(
+	ctx context.Context,
+	input model.Server,
+) (*model.DormantServer, error) {
+	dormant, err := ctrl.store.UpdateServer(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("update server; %w", err)
+	}
+
+	if err := ctrl.notifier.Notify(ctx); err != nil {
+		return nil, fmt.Errorf("notifying director; %w", err)
+	}
+
+	return dormant, nil
+}
+
 // ArchiveServer instruct the Controller to archive the server specified by id.
 // On success, the server has been moved to the archived state. It will
 // no longer show in active server lists.
