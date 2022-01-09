@@ -97,6 +97,7 @@ linters:
     - testpackage
     - scopelint
     - durationcheck
+    - wrapcheck
 
   # presets:
   #   - bugs
