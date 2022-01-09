@@ -216,10 +216,9 @@ func EventsFromModel(modelEvents model.Events) []Event {
 		events = append(
 			events,
 			Event{
-				ID:      event.ID,
-				Weekday: event.Weekday,
-				Hour:    event.Hour,
-				Kind:    event.Kind,
+				ID:   event.ID,
+				At:   event.NextTime(),
+				Kind: event.Kind,
 			},
 		)
 	}
@@ -227,8 +226,7 @@ func EventsFromModel(modelEvents model.Events) []Event {
 }
 
 type Event struct {
-	ID      uuid.UUID       `json:"id"`
-	Weekday time.Weekday    `json:"weekday"`
-	Hour    uint8           `json:"hour"`
-	Kind    model.EventKind `json:"kind"`
+	ID   uuid.UUID       `json:"id"`
+	Kind model.EventKind `json:"kind"`
+	At   time.Time       `json:"at"`
 }
