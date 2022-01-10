@@ -47,3 +47,11 @@ func ErrConflict(w http.ResponseWriter) {
 		http.StatusConflict,
 	)
 }
+
+func ErrNotFound(w http.ResponseWriter) {
+	http.Error(
+		w,
+		"Resource not found. If this is unexpected, please contact support.",
+		http.StatusNotFound,
+	)
+}

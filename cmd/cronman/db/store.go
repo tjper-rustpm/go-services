@@ -17,7 +17,9 @@ import (
 type IStore interface {
 	Tx(func(IStore) error) error
 
-	CreateServer(context.Context, model.Server) (*model.DormantServer, error)
+	Create(context.Context, interface{}) error
+	Delete(context.Context, interface{}, []uuid.UUID) error
+
 	UpdateServer(context.Context, uuid.UUID, map[string]interface{}) (*model.DormantServer, error)
 
 	ListServers(context.Context, interface{}) error
@@ -54,15 +56,18 @@ func (s Store) Tx(fn func(IStore) error) error {
 	})
 }
 
-func (s Store) CreateServer(ctx context.Context, srv model.Server) (*model.DormantServer, error) {
-	var dormant model.DormantServer
-
-	dormant.Server = srv
-	if res := s.db.Create(&dormant); res.Error != nil {
-		return nil, res.Error
+func (s Store) Create(ctx context.Context, obj interface{}) error {
+	if res := s.db.Create(obj); res.Error != nil {
+		return fmt.Errorf("create; type: %T, error: %w", obj, res.Error)
 	}
+	return nil
+}
 
-	return &dormant, nil
+func (s Store) Delete(ctx context.Context, obj interface{}, ids []uuid.UUID) error {
+	if res := s.db.WithContext(ctx).Delete(obj, ids); res.Error != nil {
+		return fmt.Errorf("delete; type: %T, error: %w", obj, res.Error)
+	}
+	return nil
 }
 
 func (s Store) UpdateServer(

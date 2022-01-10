@@ -23,6 +23,9 @@ type IController interface {
 	StopServer(context.Context, uuid.UUID) (*model.DormantServer, error)
 
 	ListServers(context.Context, interface{}) error
+
+	AddServerTags(context.Context, uuid.UUID, model.Tags) error
+	RemoveServerTags(context.Context, uuid.UUID, []uuid.UUID) error
 }
 
 func NewAPI(
@@ -56,6 +59,9 @@ func NewAPI(
 		router.Method(http.MethodPatch, "/server", PatchServer{API: api})
 		router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
+
+		router.Method(http.MethodPost, "/server/tags", AddServerTags{API: api})
+		router.Method(http.MethodDelete, "/server/tags", RemoveServerTags{API: api})
 	})
 
 	return &api

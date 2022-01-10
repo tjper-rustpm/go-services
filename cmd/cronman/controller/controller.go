@@ -71,8 +71,8 @@ func (ctrl Controller) CreateServer(
 	input.AllocationID = *instance.Address.AllocationId
 	input.ElasticIP = *instance.Address.PublicIp
 
-	dormant, err := ctrl.store.CreateServer(ctx, input)
-	if err != nil {
+	dormant := model.DormantServer{Server: input}
+	if err := ctrl.store.Create(ctx, &dormant); err != nil {
 		return nil, fmt.Errorf("creating server; %w", err)
 	}
 
@@ -80,7 +80,7 @@ func (ctrl Controller) CreateServer(
 		return nil, fmt.Errorf("notifying director; %w", err)
 	}
 
-	return dormant, nil
+	return &dormant, nil
 }
 
 type UpdateServerInput struct {
@@ -279,7 +279,29 @@ func (ctrl *Controller) ListServers(ctx context.Context, dst interface{}) error 
 	}
 
 	return ctrl.store.ListServers(ctx, dst)
+}
 
+func (ctrl *Controller) AddServerTags(
+	ctx context.Context,
+	serverID uuid.UUID,
+	tags model.Tags,
+) error {
+	if err := ctrl.store.Create(ctx, tags); err != nil {
+		return fmt.Errorf("create server tags; serverID: %s, error: %w", serverID, err)
+	}
+	return nil
+}
+
+func (ctrl *Controller) RemoveServerTags(
+	ctx context.Context,
+	serverID uuid.UUID,
+	tagIDs []uuid.UUID,
+) error {
+
+	if err := ctrl.store.Delete(ctx, model.Tag{}, tagIDs); err != nil {
+		return fmt.Errorf("delete server tags; serverID: %s, error: %w", serverID, err)
+	}
+	return nil
 }
 
 // --- private ---
@@ -290,7 +312,6 @@ func (ctrl *Controller) rconAddServerModerators(
 	password string,
 	moderators model.Moderators,
 ) error {
-
 	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
 
 	client, err := ctrl.hub.Dial(

@@ -100,6 +100,16 @@ func (body PutServerBody) ToUpdateServerInput() controller.UpdateServerInput {
 	return controller.UpdateServerInput{ID: body.ID, Changes: body.Changes}
 }
 
+type AddServerTagsBody struct {
+	ServerID uuid.UUID `json:"serverId"`
+	Tags     Tags      `json:"tags"`
+}
+
+type RemoveServerTagsBody struct {
+	ServerID uuid.UUID   `json:"serverId"`
+	TagIDs   []uuid.UUID `json:"tagIds"`
+}
+
 func ServerFromModel(server model.Server) Server {
 	return Server{
 		Name:         server.Name,
@@ -211,6 +221,23 @@ func TagsFromModel(modelTags model.Tags) []Tag {
 		)
 	}
 	return tags
+}
+
+type Tags []Tag
+
+func (tags Tags) ToModelTags() model.Tags {
+	modelTags := make(model.Tags, 0, len(tags))
+	for _, tag := range tags {
+		modelTags = append(
+			modelTags,
+			model.Tag{
+				Description: tag.Description,
+				Icon:        tag.Icon,
+				Value:       tag.Value,
+			},
+		)
+	}
+	return nil
 }
 
 type Tag struct {
