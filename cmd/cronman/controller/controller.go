@@ -315,6 +315,40 @@ func (ctrl *Controller) RemoveServerTags(
 	return nil
 }
 
+func (ctrl *Controller) AddServerEvents(
+	ctx context.Context,
+	serverID uuid.UUID,
+	events model.Events,
+) error {
+	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
+
+	for i := range events {
+		events[i].ServerID = serverID
+	}
+
+	if err := ctrl.store.Create(ctx, events); err != nil {
+		return fmt.Errorf("create server events; serverID: %s, error: %w", serverID, err)
+	}
+	return nil
+}
+
+func (ctrl *Controller) RemoveServerEvents(
+	ctx context.Context,
+	serverID uuid.UUID,
+	eventIDs []uuid.UUID,
+) error {
+	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
+
+	if err := ctrl.store.Delete(ctx, &model.Event{}, eventIDs); err != nil {
+		return fmt.Errorf("delete server events; serverID: %s, error: %w", serverID, err)
+	}
+	return nil
+}
+
 // --- private ---
 
 func (ctrl *Controller) rconAddServerModerators(

@@ -26,21 +26,13 @@ type CreateServerBody struct {
 	MapWipeFrequency       model.WipeFrequency  `json:"mapWipeFrequency"`
 	Region                 model.Region         `json:"region"`
 
-	Events []struct {
-		Weekday time.Weekday    `json:"weekday"`
-		Hour    uint8           `json:"hour"`
-		Kind    model.EventKind `json:"kind"`
-	} `json:"events"`
+	Events Events `json:"events"`
 
 	Moderators []struct {
 		SteamID string `json:"steamId"`
 	} `json:"moderators"`
 
-	Tags []struct {
-		Description string         `json:"description"`
-		Icon        model.IconKind `json:"icon"`
-		Value       string         `json:"value"`
-	} `json:"tags"`
+	Tags Tags `json:"tags"`
 }
 
 func (body CreateServerBody) ToModelServer() model.Server {
@@ -110,6 +102,16 @@ type RemoveServerTagsBody struct {
 	TagIDs   []uuid.UUID `json:"tagIds"`
 }
 
+type AddServerEventsBody struct {
+	ServerID uuid.UUID `json:"serverId"`
+	Events   Events    `json:"events"`
+}
+
+type RemoveServerEventsBody struct {
+	ServerID uuid.UUID   `json:"serverId"`
+	EventIDs []uuid.UUID `json:"eventIds"`
+}
+
 func ServerFromModel(server model.Server) Server {
 	return Server{
 		Name:         server.Name,
@@ -123,7 +125,7 @@ func ServerFromModel(server model.Server) Server {
 		Description:  server.Description,
 		Background:   server.Background,
 		Tags:         TagsFromModel(server.Tags),
-		Events:       EventsFromModel(server.Events),
+		Events:       EventsAtFromModel(server.Events),
 	}
 }
 
@@ -139,7 +141,7 @@ type Server struct {
 	Description  string               `json:"description"`
 	Background   model.BackgroundKind `json:"background"`
 	Tags         []Tag                `json:"tags"`
-	Events       []Event              `json:"events"`
+	Events       []EventAt            `json:"events"`
 }
 
 type DormantServer struct {
@@ -247,12 +249,12 @@ type Tag struct {
 	Value       string         `json:"value"`
 }
 
-func EventsFromModel(modelEvents model.Events) []Event {
-	events := make([]Event, 0, len(modelEvents))
+func EventsAtFromModel(modelEvents model.Events) []EventAt {
+	events := make([]EventAt, 0, len(modelEvents))
 	for _, event := range modelEvents {
 		events = append(
 			events,
-			Event{
+			EventAt{
 				ID:   event.ID,
 				At:   event.NextTime(),
 				Kind: event.Kind,
@@ -262,8 +264,48 @@ func EventsFromModel(modelEvents model.Events) []Event {
 	return events
 }
 
-type Event struct {
+type EventAt struct {
 	ID   uuid.UUID       `json:"id"`
 	Kind model.EventKind `json:"kind"`
 	At   time.Time       `json:"at"`
+}
+
+func EventsFromModel(modelEvents model.Events) Events {
+	events := make(Events, 0, len(modelEvents))
+	for _, event := range modelEvents {
+		events = append(
+			events,
+			Event{
+				ID:      event.ID,
+				Weekday: event.Weekday,
+				Hour:    event.Hour,
+				Kind:    event.Kind,
+			},
+		)
+	}
+	return events
+}
+
+type Events []Event
+
+func (events Events) ToModelEvents() model.Events {
+	modelEvents := make(model.Events, 0, len(events))
+	for _, event := range events {
+		modelEvents = append(
+			modelEvents,
+			model.Event{
+				Weekday: event.Weekday,
+				Hour:    event.Hour,
+				Kind:    event.Kind,
+			},
+		)
+	}
+	return modelEvents
+}
+
+type Event struct {
+	ID      uuid.UUID
+	Weekday time.Weekday    `json:"weekday"`
+	Hour    uint8           `json:"hour"`
+	Kind    model.EventKind `json:"kind"`
 }

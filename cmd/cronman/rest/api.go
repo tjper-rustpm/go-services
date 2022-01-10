@@ -26,6 +26,9 @@ type IController interface {
 
 	AddServerTags(context.Context, uuid.UUID, model.Tags) error
 	RemoveServerTags(context.Context, uuid.UUID, []uuid.UUID) error
+
+	AddServerEvents(context.Context, uuid.UUID, model.Events) error
+	RemoveServerEvents(context.Context, uuid.UUID, []uuid.UUID) error
 }
 
 func NewAPI(
@@ -62,6 +65,9 @@ func NewAPI(
 
 		router.Method(http.MethodPost, "/server/tags", AddServerTags{API: api})
 		router.Method(http.MethodDelete, "/server/tags", RemoveServerTags{API: api})
+
+		router.Method(http.MethodPost, "/server/events", AddServerEvents{API: api})
+		router.Method(http.MethodDelete, "/server/events", RemoveServerEvents{API: api})
 	})
 
 	return &api
