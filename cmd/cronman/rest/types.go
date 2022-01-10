@@ -153,7 +153,7 @@ type DormantServer struct {
 func DormantServerFromModel(dormant model.DormantServer) *DormantServer {
 	return &DormantServer{
 		Header: Header{
-			ID:   dormant.ID,
+			ID:   dormant.Server.ID,
 			Kind: "dormant",
 		},
 		Server: ServerFromModel(dormant.Server),
@@ -177,7 +177,7 @@ type LiveServer struct {
 func LiveServerFromModel(live model.LiveServer) *LiveServer {
 	return &LiveServer{
 		Header: Header{
-			ID:   live.ID,
+			ID:   live.Server.ID,
 			Kind: "live",
 		},
 		Server:        ServerFromModel(live.Server),
@@ -195,7 +195,7 @@ type ArchivedServer struct {
 func ArchivedServerFromModel(archived model.ArchivedServer) *ArchivedServer {
 	return &ArchivedServer{
 		Header: Header{
-			ID:   archived.ID,
+			ID:   archived.Server.ID,
 			Kind: "archived",
 		},
 		Server: ServerFromModel(archived.Server),
@@ -237,7 +237,7 @@ func (tags Tags) ToModelTags() model.Tags {
 			},
 		)
 	}
-	return nil
+	return modelTags
 }
 
 type Tag struct {

@@ -25,6 +25,7 @@ type IStore interface {
 	ListServers(context.Context, interface{}) error
 	ListActiveServerEvents(context.Context) (model.Events, error)
 
+	GetServer(context.Context, uuid.UUID) (*model.Server, error)
 	GetLiveServer(context.Context, uuid.UUID) (*model.LiveServer, error)
 	GetDormantServer(context.Context, uuid.UUID) (*model.DormantServer, error)
 
@@ -85,16 +86,11 @@ func (s Store) UpdateServer(
 		snakeCaseChanges[strcase.ToSnake(field)] = value
 	}
 
-	if err := s.db.Transaction(func(tx *gorm.DB) error {
-		tx = tx.WithContext(ctx)
-
-		if res := tx.Model(&current.Server).Updates(snakeCaseChanges); res.Error != nil {
-			return fmt.Errorf("update server; id: %s, error: %w", id, res.Error)
-		}
-
-		return nil
-	}); err != nil {
-		return nil, err
+	if res := s.db.
+		WithContext(ctx).
+		Model(&current.Server).
+		Updates(snakeCaseChanges); res.Error != nil {
+		return nil, fmt.Errorf("update server; id: %s, error: %w", id, res.Error)
 	}
 
 	return s.GetDormantServer(ctx, id)
@@ -140,35 +136,69 @@ func (s Store) ListActiveServerEvents(ctx context.Context) (model.Events, error)
 }
 
 func (s Store) GetLiveServer(ctx context.Context, id uuid.UUID) (*model.LiveServer, error) {
-	server := new(model.LiveServer)
-	return server, s.GetServer(ctx, id, server)
+	server, err := s.GetServer(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get live server; %s, error: %w", id, err)
+	}
+
+	var live model.LiveServer
+	if res := s.db.First(&live, server.StateID); res.Error != nil {
+		return nil, fmt.Errorf("get live state; %s, error: %w", server.StateID, res.Error)
+	}
+
+	live.Server = *server
+
+	return &live, nil
 }
 
 func (s Store) GetDormantServer(ctx context.Context, id uuid.UUID) (*model.DormantServer, error) {
-	server := new(model.DormantServer)
-	return server, s.GetServer(ctx, id, server)
+	server, err := s.GetServer(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get dormant server; %s, error: %w", id, err)
+	}
+
+	var dormant model.DormantServer
+	if res := s.db.First(&dormant, server.StateID); res.Error != nil {
+		return nil, fmt.Errorf("get dormant state; %s, error: %w", server.StateID, res.Error)
+	}
+
+	dormant.Server = *server
+
+	return &dormant, nil
 }
 
 func (s Store) GetArchivedServer(ctx context.Context, id uuid.UUID) (*model.ArchivedServer, error) {
-	server := new(model.ArchivedServer)
-	return server, s.GetServer(ctx, id, server)
+	server, err := s.GetServer(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get archived server; %s, error: %w", id, err)
+	}
+
+	var archived model.ArchivedServer
+	if res := s.db.First(&archived, server.StateID); res.Error != nil {
+		return nil, fmt.Errorf("get archived state; %s, error: %w", server.StateID, res.Error)
+	}
+
+	archived.Server = *server
+
+	return &archived, nil
 }
 
-func (s Store) GetServer(ctx context.Context, id uuid.UUID, dst interface{}) error {
+func (s Store) GetServer(ctx context.Context, id uuid.UUID) (*model.Server, error) {
+	var server model.Server
 	res := s.db.
 		WithContext(ctx).
-		Preload("Server").
-		Preload("Server.Tags").
-		Preload("Server.Events").
-		Preload("Server.Moderators").
-		First(dst, id)
+		Preload("Tags").
+		Preload("Events").
+		Preload("Moderators").
+		First(&server, id)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("get server; id: %s, error: %w", id, cronmanerrors.ErrServerDNE)
+		return nil, fmt.Errorf("get server; id: %s, error: %w", id, cronmanerrors.ErrServerDNE)
 	}
 	if res.Error != nil {
-		return fmt.Errorf("get server; id: %s, error: %w", id, res.Error)
+		return nil, fmt.Errorf("get server; id: %s, error: %w", id, res.Error)
 	}
-	return nil
+
+	return &server, nil
 }
 
 type MakeServerLiveInput struct {
@@ -177,14 +207,17 @@ type MakeServerLiveInput struct {
 }
 
 func (s Store) MakeServerLive(ctx context.Context, input MakeServerLiveInput) (*model.LiveServer, error) {
-	var server *model.LiveServer
+	dormant, err := s.GetDormantServer(ctx, input.ID)
+	if err != nil {
+		return nil, err
+	}
 
+	var server *model.LiveServer
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
-		var dormant model.DormantServer
-		if res := tx.Preload("Server").First(&dormant, input.ID); res.Error != nil {
-			return fmt.Errorf("select dormant server; %w", res.Error)
+		if res := tx.Delete(&dormant); res.Error != nil {
+			return fmt.Errorf("delete dormant server; id: %s, error: %w", input.ID, res.Error)
 		}
 
 		server = &model.LiveServer{
@@ -192,68 +225,63 @@ func (s Store) MakeServerLive(ctx context.Context, input MakeServerLiveInput) (*
 			AssociationID: input.AssociationID,
 		}
 		if res := tx.Create(server); res.Error != nil {
-			return res.Error
-		}
-
-		if res := tx.Delete(&dormant); res.Error != nil {
-			return fmt.Errorf("delete dormant server; %w", res.Error)
+			return fmt.Errorf("create live server; id: %s, error: %w", input.ID, res.Error)
 		}
 
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return s.GetLiveServer(ctx, server.ID)
+	return server, nil
 }
 
 func (s Store) MakeServerDormant(ctx context.Context, id uuid.UUID) (*model.DormantServer, error) {
-	var server *model.DormantServer
+	live, err := s.GetLiveServer(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 
+	var server *model.DormantServer
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
-		var live model.LiveServer
-		if res := tx.Preload("Server").First(&live, id); res.Error != nil {
-			return fmt.Errorf("select live server; %w", res.Error)
+		if res := tx.Delete(&live); res.Error != nil {
+			return fmt.Errorf("delete live server; id: %s, error: %w", id, res.Error)
 		}
 
 		server = &model.DormantServer{
 			Server: live.Server,
 		}
 		if res := tx.Create(server); res.Error != nil {
-			return res.Error
-		}
-
-		if res := tx.Delete(&live); res.Error != nil {
-			return fmt.Errorf("delete live server; %w", res.Error)
+			return fmt.Errorf("create dormant server; id: %s, error: %w", id, res.Error)
 		}
 
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return s.GetDormantServer(ctx, server.ID)
+	return server, nil
 }
 
 func (s Store) MakeServerArchived(ctx context.Context, id uuid.UUID) (*model.ArchivedServer, error) {
+	dormant, err := s.GetDormantServer(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
 	var server *model.ArchivedServer
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
-		var dormant model.DormantServer
-		if res := tx.Preload("Server").First(&dormant, id); res.Error != nil {
-			return fmt.Errorf("select dormant server; %w", res.Error)
+		if res := tx.Delete(&dormant); res.Error != nil {
+			return fmt.Errorf("delete dormant server; id: %s, error: %w", id, res.Error)
 		}
 
 		server = &model.ArchivedServer{
 			Server: dormant.Server,
 		}
 		if res := tx.Create(server); res.Error != nil {
-			return res.Error
-		}
-
-		if res := tx.Delete(&dormant); res.Error != nil {
-			return fmt.Errorf("delete dormant server; %w", res.Error)
+			return fmt.Errorf("create archived server; id: %s, error: %w", id, res.Error)
 		}
 
 		return nil

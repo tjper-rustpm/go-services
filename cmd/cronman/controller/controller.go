@@ -286,6 +286,14 @@ func (ctrl *Controller) AddServerTags(
 	serverID uuid.UUID,
 	tags model.Tags,
 ) error {
+	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
+
+	for i := range tags {
+		tags[i].ServerID = serverID
+	}
+
 	if err := ctrl.store.Create(ctx, tags); err != nil {
 		return fmt.Errorf("create server tags; serverID: %s, error: %w", serverID, err)
 	}
@@ -297,8 +305,11 @@ func (ctrl *Controller) RemoveServerTags(
 	serverID uuid.UUID,
 	tagIDs []uuid.UUID,
 ) error {
+	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
 
-	if err := ctrl.store.Delete(ctx, model.Tag{}, tagIDs); err != nil {
+	if err := ctrl.store.Delete(ctx, &model.Tag{}, tagIDs); err != nil {
 		return fmt.Errorf("delete server tags; serverID: %s, error: %w", serverID, err)
 	}
 	return nil
