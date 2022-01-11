@@ -349,7 +349,81 @@ func (ctrl *Controller) RemoveServerEvents(
 	return nil
 }
 
+func (ctrl *Controller) AddServerModerators(
+	ctx context.Context,
+	serverID uuid.UUID,
+	moderators model.Moderators,
+) error {
+	server, err := ctrl.store.GetServer(ctx, serverID)
+	if err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
+
+	for i := range moderators {
+		moderators[i].ServerID = serverID
+	}
+
+	if err := ctrl.store.Create(ctx, moderators); err != nil {
+		return fmt.Errorf("create server moderators; serverID: %s, error: %w", serverID, err)
+	}
+
+	if server.StateType == model.DormantServerState {
+		return nil
+	}
+
+	return ctrl.rconAddServerModerators(
+		ctx,
+		server.ElasticIP,
+		server.RconPassword,
+		moderators,
+	)
+}
+
+func (ctrl *Controller) RemoveServerModerators(
+	ctx context.Context,
+	serverID uuid.UUID,
+	moderatorIDs []uuid.UUID,
+) error {
+	server, err := ctrl.store.GetServer(ctx, serverID)
+	if err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
+
+	if server.StateType == model.DormantServerState {
+		return ctrl.markServerModeratorsRemoval(ctx, moderatorIDs)
+	}
+
+	var moderators model.Moderators
+	if err := ctrl.store.Find(ctx, moderators, moderatorIDs); err != nil {
+		return fmt.Errorf(
+			"find moderators; serverID: %s, moderatorIDs: %v, error: %w",
+			serverID,
+			moderatorIDs,
+			err,
+		)
+	}
+
+	if err := ctrl.rconRemoveServerModerators(
+		ctx,
+		server.ElasticIP,
+		server.RconPassword,
+		moderators,
+	); err != nil {
+		return err
+	}
+
+	if err := ctrl.store.Delete(ctx, &model.Moderator{}, moderatorIDs); err != nil {
+		return fmt.Errorf("delete server moderators; serverID: %s, error: %w", serverID, err)
+	}
+
+	return nil
+}
+
 // --- private ---
+
+func (ctrl *Controller) markServerModeratorsRemoval(ctx context.Context, ids []uuid.UUID) error {
+	return ctrl.store.MarkServerModeratorsRemoval(ctx, ids)
+}
 
 func (ctrl *Controller) rconAddServerModerators(
 	ctx context.Context,
@@ -365,7 +439,7 @@ func (ctrl *Controller) rconAddServerModerators(
 		password,
 	)
 	if err != nil {
-		return fmt.Errorf("error dialing Rcon server; %w", err)
+		return fmt.Errorf("dial rcon; %w", err)
 	}
 	defer client.Close()
 
@@ -375,6 +449,35 @@ func (ctrl *Controller) rconAddServerModerators(
 			moderator.SteamID,
 		); err != nil && !errors.Is(err, rcon.ErrModeratorExists) {
 			logger.Error("unable to add moderators to server", zap.Error(err))
+		}
+	}
+	return nil
+}
+
+func (ctrl Controller) rconRemoveServerModerators(
+	ctx context.Context,
+	elasticIP string,
+	password string,
+	moderators model.Moderators,
+) error {
+	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
+
+	client, err := ctrl.hub.Dial(
+		ctx,
+		fmt.Sprintf("%s:28016", elasticIP),
+		password,
+	)
+	if err != nil {
+		return fmt.Errorf("dial rcon; %w", err)
+	}
+	defer client.Close()
+
+	for _, moderator := range moderators {
+		if err := client.RemoveModerator(
+			ctx,
+			moderator.SteamID,
+		); err != nil && !errors.Is(err, rcon.ErrModeratorExists) {
+			logger.Error("remove moderators", zap.Error(err))
 		}
 	}
 	return nil

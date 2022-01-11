@@ -144,6 +144,11 @@ type Server struct {
 	Events       []EventAt            `json:"events"`
 }
 
+const (
+	dormantKind = "dormant"
+	liveKind    = "live"
+)
+
 type DormantServer struct {
 	Header
 	Server
@@ -156,7 +161,7 @@ func DormantServerFromModel(dormant model.DormantServer) *DormantServer {
 	return &DormantServer{
 		Header: Header{
 			ID:   dormant.Server.ID,
-			Kind: "dormant",
+			Kind: dormantKind,
 		},
 		Server: ServerFromModel(dormant.Server),
 		StartsAt: dormant.Server.Events.NextEventAfter(
@@ -180,7 +185,7 @@ func LiveServerFromModel(live model.LiveServer) *LiveServer {
 	return &LiveServer{
 		Header: Header{
 			ID:   live.Server.ID,
-			Kind: "live",
+			Kind: liveKind,
 		},
 		Server:        ServerFromModel(live.Server),
 		ActivePlayers: live.ActivePlayers,

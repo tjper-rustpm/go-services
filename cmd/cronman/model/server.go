@@ -4,6 +4,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	LiveServerState    = "rustpm.live_server"
+	DormantServerState = "rustpm.dormant_server"
+)
+
 type Server struct {
 	Model
 
