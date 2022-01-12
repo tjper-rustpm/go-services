@@ -43,8 +43,8 @@ su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
 
 su -c "mkdir -p /home/rustserver/server/cfg" - rustserver
 
-find /home/rustserver/server/rustpm -name 'proceduralmap\.*\.*\.*\.map' | xargs rm
- 
+su -c "curl https://umod.org/plugins/BypassQueue.cs --output /home/rustserver/oxide/plugins/BypassQueue.cs --create-dirs" - rustserver
+
 export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRARY_PATH};
 
 echo "--- Starting Dedicated Server\n"

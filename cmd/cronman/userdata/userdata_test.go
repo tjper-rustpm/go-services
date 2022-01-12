@@ -65,6 +65,36 @@ func TestGenerate(t *testing.T) {
 				WithMapWipe(),
 			},
 		},
+		"queuebypass": {
+			hostName:     "rustpm-east-1",
+			rconPassword: "rustpm-rconpassword",
+			maxPlayers:   100,
+			worldSize:    2000,
+			seed:         123,
+			salt:         321,
+			tickRate:     30,
+			opts:         []Option{WithQueueBypassPlugin()},
+		},
+		"usercfg": {
+			hostName:     "rustpm-east-1",
+			rconPassword: "rustpm-rconpassword",
+			maxPlayers:   100,
+			worldSize:    2000,
+			seed:         123,
+			salt:         321,
+			tickRate:     30,
+			opts:         []Option{WithUserCfg([]string{"user1", "user2", "user3"})},
+		},
+		"servercfg": {
+			hostName:     "rustpm-east-1",
+			rconPassword: "rustpm-rconpassword",
+			maxPlayers:   100,
+			worldSize:    2000,
+			seed:         123,
+			salt:         321,
+			tickRate:     30,
+			opts:         []Option{WithServerCfg([]string{"user1", "user2", "user3"})},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

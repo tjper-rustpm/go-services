@@ -34,6 +34,21 @@ done
 --//
 `
 
+	userCfgTemplate = `
+su -c "cat <<EOT >> /home/rustserver/server/cfg/user.cfg
+%s
+EOT" -  rustserver
+`
+	serverCfgTemplate = `
+su -c "cat <<EOT >> /home/rustserver/server/cfg/server.cfg
+%s
+EOT" -  rustserver
+`
+
+	cfgDirectoryScript = `
+su -c "mkdir -p /home/rustserver/server/cfg" - rustserver
+`
+
 	installScript = `Content-Type: multipart/mixed; boundary="//"
 MIME-Version: 1.0
 
@@ -107,6 +122,7 @@ func Generate(
 	var s strings.Builder
 	s.WriteString(installScript)
 	s.WriteString(installOxideScript)
+	s.WriteString(cfgDirectoryScript)
 	for _, opt := range opts {
 		s.WriteString(opt())
 	}
@@ -145,8 +161,30 @@ func WithMapWipe() Option {
 	}
 }
 
+// WithQueueBypassPlugin returns an Option that enables the queue bypass oxide
+// plugin.
 func WithQueueBypassPlugin() Option {
 	return func() string {
 		return installBypassQueuePluginScript
+	}
+}
+
+func WithUserCfg(steamIDs []string) Option {
+	cmds := make([]string, 0, len(steamIDs))
+	for _, id := range steamIDs {
+		cmds = append(cmds, fmt.Sprintf("moderatorid %s", id))
+	}
+	return func() string {
+		return fmt.Sprintf(userCfgTemplate, strings.Join(cmds, "\n"))
+	}
+}
+
+func WithServerCfg(steamIDs []string) Option {
+	cmds := make([]string, 0, len(steamIDs))
+	for _, id := range steamIDs {
+		cmds = append(cmds, fmt.Sprintf("oxide.grant user %s bypassqueue.allow", id))
+	}
+	return func() string {
+		return fmt.Sprintf(serverCfgTemplate, strings.Join(cmds, "\n"))
 	}
 }
