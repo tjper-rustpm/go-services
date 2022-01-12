@@ -11,7 +11,6 @@ import (
 	// "math"
 	// "math/rand"
 
-	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -165,33 +164,19 @@ func (c Client) Quit(ctx context.Context) error {
 	}
 	defer c.router.CloseRoute(out.Identifier)
 
-	read := func(expected string) error {
-		in, err := c.waitForInbound(ctx, inboundc)
-		if err != nil {
-			return fmt.Errorf("error waiting for inbound; %w", err)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-c.ctx.Done():
+			return ctx.Err()
+		case in, ok := <-inboundc:
+			if !ok {
+				return nil
+			}
+			c.logger.Info("quit", zap.String("message", in.Message))
 		}
-		if err := checkInbound(in, out.Identifier, "Generic"); err != nil {
-			return err
-		}
-		if !strings.Contains(in.Message, expected) {
-			return errUnexpectedInboundMessage
-		}
-		return nil
 	}
-	if err := read("Invalidate Network Cache took"); err != nil {
-		return err
-	}
-	if err := read("Saved"); err != nil {
-		return err
-	}
-	if err := read("Saving complete"); err != nil {
-		return err
-	}
-	if err := read("Config Saved"); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // AddModerator adds the moderator specified by the id to the Rust server.
@@ -208,7 +193,7 @@ func (c Client) AddModerator(ctx context.Context, id string) error {
 		return fmt.Errorf("error waiting for inbound; %w", err)
 	}
 
-	if err := checkInbound(in, out.Identifier, "Generic"); err != nil {
+	if err := checkInbound(in, out.Identifier); err != nil {
 		return err
 	}
 	if in.Message == fmt.Sprintf("User %s is already a Moderator", id) {
@@ -235,7 +220,7 @@ func (c Client) RemoveModerator(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("error waiting for inbound; %w", err)
 	}
-	if err := checkInbound(in, out.Identifier, "Generic"); err != nil {
+	if err := checkInbound(in, out.Identifier); err != nil {
 		return err
 	}
 	if in.Message == fmt.Sprintf("User %s isn't a moderator", id) {
@@ -268,7 +253,7 @@ func (c Client) GrantPermission(
 	if err != nil {
 		return fmt.Errorf("error waiting for inbound; %w", err)
 	}
-	if err := checkInbound(in, out.Identifier, "Generic"); err != nil {
+	if err := checkInbound(in, out.Identifier); err != nil {
 		return err
 	}
 	if in.Message == fmt.Sprintf(
@@ -311,7 +296,7 @@ func (c Client) RevokePermission(
 	if err != nil {
 		return fmt.Errorf("error waiting for inbound; %w", err)
 	}
-	if err := checkInbound(in, out.Identifier, "Generic"); err != nil {
+	if err := checkInbound(in, out.Identifier); err != nil {
 		return err
 	}
 
@@ -407,10 +392,7 @@ func (c Client) write(messageType int, b []byte) error {
 	if err := c.conn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
 		return err
 	}
-	if err := c.conn.WriteMessage(messageType, b); err != nil {
-		return err
-	}
-	return nil
+	return c.conn.WriteMessage(messageType, b)
 }
 
 func (c Client) readPump(ctx context.Context) error {
@@ -469,11 +451,11 @@ func (c Client) waitForInbound(ctx context.Context, inboundc chan Inbound) (*Inb
 
 // --- helpers ---
 
-func checkInbound(in *Inbound, expid int, exptype string) error {
+func checkInbound(in *Inbound, expid int) error {
 	if in.Identifier != expid {
 		return errIdentifiersNotEqual
 	}
-	if in.Type != exptype {
+	if in.Type != "Generic" {
 		return errInboundTypeUnexpected
 	}
 	return nil

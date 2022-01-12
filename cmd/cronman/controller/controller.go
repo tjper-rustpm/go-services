@@ -236,6 +236,8 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 	}
 	defer client.Close()
 
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
 	if err := client.Quit(ctx); err != nil {
 		return nil, err
 	}
