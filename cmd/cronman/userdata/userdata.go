@@ -35,18 +35,18 @@ done
 `
 
 	userCfgTemplate = `
-su -c "cat <<EOT >> /home/rustserver/server/cfg/user.cfg
+su -c "cat <<EOT > /home/rustserver/server/rustpm/cfg/users.cfg
 %s
 EOT" -  rustserver
 `
 	serverCfgTemplate = `
-su -c "cat <<EOT >> /home/rustserver/server/cfg/server.cfg
+su -c "cat <<EOT > /home/rustserver/server/rustpm/cfg/server.cfg
 %s
 EOT" -  rustserver
 `
 
 	cfgDirectoryScript = `
-su -c "mkdir -p /home/rustserver/server/cfg" - rustserver
+su -c "mkdir -p /home/rustserver/server/rustpm/cfg" - rustserver
 `
 
 	installScript = `Content-Type: multipart/mixed; boundary="//"

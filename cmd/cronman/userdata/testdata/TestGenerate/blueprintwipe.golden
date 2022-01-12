@@ -41,7 +41,7 @@ su -c "steamcmd +login anonymous +force_install_dir /home/rustserver/ +app_updat
 su -c "curl --output Oxide.Rust-linux.zip -L https://github.com/OxideMod/Oxide.Rust/releases/latest/download/Oxide.Rust-linux.zip" - rustserver
 su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
 
-su -c "mkdir -p /home/rustserver/server/cfg" - rustserver
+su -c "mkdir -p /home/rustserver/server/rustpm/cfg" - rustserver
 
 find /home/rustserver/server/rustpm -name "player\.blueprints\.*\.db" | xargs rm
  
