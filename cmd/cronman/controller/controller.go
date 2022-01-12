@@ -175,14 +175,6 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
 	}
 
-	if err := ctrl.rconAddServerModerators(
-		ctx,
-		server.Server.ElasticIP,
-		server.Server.RconPassword,
-		server.Server.Moderators,
-	); err != nil {
-		return nil, fmt.Errorf("unable to add moderators; %w", err)
-	}
 	return ctrl.store.GetDormantServer(ctx, id)
 }
 
@@ -363,20 +355,22 @@ func (ctrl *Controller) AddServerModerators(
 		moderators[i].ServerID = serverID
 	}
 
+	if server.StateType == model.LiveServerState {
+		if err := ctrl.rconAddServerModerators(
+			ctx,
+			server.ElasticIP,
+			server.RconPassword,
+			moderators,
+		); err != nil {
+			return err
+		}
+	}
+
 	if err := ctrl.store.Create(ctx, moderators); err != nil {
 		return fmt.Errorf("create server moderators; serverID: %s, error: %w", serverID, err)
 	}
 
-	if server.StateType == model.DormantServerState {
-		return nil
-	}
-
-	return ctrl.rconAddServerModerators(
-		ctx,
-		server.ElasticIP,
-		server.RconPassword,
-		moderators,
-	)
+	return nil
 }
 
 func (ctrl *Controller) RemoveServerModerators(
@@ -389,10 +383,6 @@ func (ctrl *Controller) RemoveServerModerators(
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
 
-	if server.StateType == model.DormantServerState {
-		return ctrl.markServerModeratorsRemoval(ctx, moderatorIDs)
-	}
-
 	var moderators model.Moderators
 	if err := ctrl.store.Find(ctx, moderators, moderatorIDs); err != nil {
 		return fmt.Errorf(
@@ -403,13 +393,15 @@ func (ctrl *Controller) RemoveServerModerators(
 		)
 	}
 
-	if err := ctrl.rconRemoveServerModerators(
-		ctx,
-		server.ElasticIP,
-		server.RconPassword,
-		moderators,
-	); err != nil {
-		return err
+	if server.StateType == model.LiveServerState {
+		if err := ctrl.rconRemoveServerModerators(
+			ctx,
+			server.ElasticIP,
+			server.RconPassword,
+			moderators,
+		); err != nil {
+			return err
+		}
 	}
 
 	if err := ctrl.store.Delete(ctx, &model.Moderator{}, moderatorIDs); err != nil {
@@ -420,10 +412,6 @@ func (ctrl *Controller) RemoveServerModerators(
 }
 
 // --- private ---
-
-func (ctrl *Controller) markServerModeratorsRemoval(ctx context.Context, ids []uuid.UUID) error {
-	return ctrl.store.MarkServerModeratorsRemoval(ctx, ids)
-}
 
 func (ctrl *Controller) rconAddServerModerators(
 	ctx context.Context,
@@ -518,14 +506,15 @@ func generateUserData(server model.Server) (string, error) {
 		return "", fmt.Errorf("unable to generate userdata; %w", err)
 	}
 
-	var opts []userdata.Option
+	opts := []userdata.Option{
+		userdata.WithQueueBypassPlugin(),
+		userdata.WithUserCfg(server.Moderators.SteamIDs()),
+	}
 	switch {
 	case fullWipe:
-		opts = []userdata.Option{userdata.WithBluePrintWipe(), userdata.WithMapWipe()}
+		opts = append(opts, []userdata.Option{userdata.WithBluePrintWipe(), userdata.WithMapWipe()}...)
 	case mapWipe:
-		opts = []userdata.Option{userdata.WithMapWipe()}
-	default:
-		opts = []userdata.Option{}
+		opts = append(opts, []userdata.Option{userdata.WithMapWipe()}...)
 	}
 
 	return userdata.Generate(

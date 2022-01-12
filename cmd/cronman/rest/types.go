@@ -112,6 +112,16 @@ type RemoveServerEventsBody struct {
 	EventIDs []uuid.UUID `json:"eventIds"`
 }
 
+type AddServerModeratorsBody struct {
+	ServerID   uuid.UUID  `json:"serverId"`
+	Moderators Moderators `json:"moderators"`
+}
+
+type RemoveServerModeratorsBody struct {
+	ServerID     uuid.UUID   `json:"serverId"`
+	ModeratorIDs []uuid.UUID `json:"moderatorIds"`
+}
+
 func ServerFromModel(server model.Server) Server {
 	return Server{
 		Name:         server.Name,
@@ -309,8 +319,42 @@ func (events Events) ToModelEvents() model.Events {
 }
 
 type Event struct {
-	ID      uuid.UUID
+	ID      uuid.UUID       `json:"id"`
 	Weekday time.Weekday    `json:"weekday"`
 	Hour    uint8           `json:"hour"`
 	Kind    model.EventKind `json:"kind"`
+}
+
+func ModeratorsFromModel(modelModerators model.Moderators) Moderators {
+	moderators := make(Moderators, 0, len(modelModerators))
+	for _, moderator := range modelModerators {
+		moderators = append(
+			moderators,
+			Moderator{
+				ID:      moderator.ID,
+				SteamID: moderator.SteamID,
+			},
+		)
+	}
+	return moderators
+}
+
+type Moderators []Moderator
+
+func (mods Moderators) ToModelModerators() model.Moderators {
+	modelModerators := make(model.Moderators, 0, len(mods))
+	for _, moderator := range mods {
+		modelModerators = append(
+			modelModerators,
+			model.Moderator{
+				SteamID: moderator.SteamID,
+			},
+		)
+	}
+	return modelModerators
+}
+
+type Moderator struct {
+	ID      uuid.UUID `json:"id"`
+	SteamID string    `json:"steamId"`
 }

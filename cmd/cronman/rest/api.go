@@ -29,6 +29,9 @@ type IController interface {
 
 	AddServerEvents(context.Context, uuid.UUID, model.Events) error
 	RemoveServerEvents(context.Context, uuid.UUID, []uuid.UUID) error
+
+	AddServerModerators(context.Context, uuid.UUID, model.Moderators) error
+	RemoveServerModerators(context.Context, uuid.UUID, []uuid.UUID) error
 }
 
 func NewAPI(
@@ -68,6 +71,9 @@ func NewAPI(
 
 		router.Method(http.MethodPost, "/server/events", AddServerEvents{API: api})
 		router.Method(http.MethodDelete, "/server/events", RemoveServerEvents{API: api})
+
+		router.Method(http.MethodPost, "/server/moderators", AddServerModerators{API: api})
+		router.Method(http.MethodDelete, "/server/moderators", RemoveServerModerators{API: api})
 	})
 
 	return &api

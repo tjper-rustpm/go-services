@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/iancoleman/strcase"
 	cronmanerrors "github.com/tjper/rustcron/cmd/cronman/errors"
@@ -34,8 +33,6 @@ type IStore interface {
 	MakeServerLive(context.Context, MakeServerLiveInput) (*model.LiveServer, error)
 	MakeServerDormant(context.Context, uuid.UUID) (*model.DormantServer, error)
 	MakeServerArchived(context.Context, uuid.UUID) (*model.ArchivedServer, error)
-
-	MarkServerModeratorsRemoval(context.Context, []uuid.UUID) error
 }
 
 func NewStore(
@@ -300,15 +297,4 @@ func (s Store) MakeServerArchived(ctx context.Context, id uuid.UUID) (*model.Arc
 		return nil, err
 	}
 	return s.GetArchivedServer(ctx, server.ID)
-}
-
-func (s Store) MarkServerModeratorsRemoval(ctx context.Context, ids []uuid.UUID) error {
-	if res := s.db.
-		WithContext(ctx).
-		Model(&model.Moderator{}).
-		Where("id IN ?", ids).
-		Update("pending_removal_at", time.Now()); res.Error != nil {
-		return fmt.Errorf("mark moderators removal; %w", res.Error)
-	}
-	return nil
 }
