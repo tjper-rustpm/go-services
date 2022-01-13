@@ -37,13 +37,12 @@ type IController interface {
 
 func NewAPI(
 	logger *zap.Logger,
-	valid *validator.Validate,
 	ctrl IController,
 ) *API {
 	api := API{
 		Mux:    chi.NewRouter(),
 		logger: logger,
-		valid:  valid,
+		valid:  validator.New(),
 		ctrl:   ctrl,
 	}
 

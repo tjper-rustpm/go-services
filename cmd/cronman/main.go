@@ -19,7 +19,6 @@ import (
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/go-playground/validator/v10"
 	redisv8 "github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 )
@@ -146,7 +145,6 @@ func run() int {
 	logger.Info("[Startup] Creating REST API ...")
 	api := rest.NewAPI(
 		logger,
-		validator.New(),
 		ctrl,
 	)
 	logger.Info("[Startup] Created REST API.")
