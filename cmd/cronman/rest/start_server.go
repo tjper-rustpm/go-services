@@ -26,6 +26,10 @@ func (ep StartServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	_, err := ep.ctrl.StartServer(r.Context(), b.ServerID)
 	if errors.Is(err, cronmanerrors.ErrServerDNE) {
+		ihttp.ErrNotFound(w)
+		return
+	}
+	if errors.Is(err, cronmanerrors.ErrServerNotDormant) {
 		ihttp.ErrConflict(w)
 		return
 	}

@@ -25,6 +25,10 @@ func (ep StopServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	server, err := ep.ctrl.StopServer(r.Context(), b.ServerID)
 	if errors.Is(err, cronmanerrors.ErrServerDNE) {
+		ihttp.ErrNotFound(w)
+		return
+	}
+	if errors.Is(err, cronmanerrors.ErrServerNotLive) {
 		ihttp.ErrConflict(w)
 		return
 	}

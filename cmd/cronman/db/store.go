@@ -146,12 +146,20 @@ func (s Store) ListActiveServerEvents(ctx context.Context) (model.Events, error)
 func (s Store) GetLiveServer(ctx context.Context, id uuid.UUID) (*model.LiveServer, error) {
 	server, err := s.GetServer(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("get live server; %s, error: %w", id, err)
+		return nil, fmt.Errorf("get live server: %s, error: %w", id, err)
 	}
 
 	var live model.LiveServer
-	if res := s.db.First(&live, server.StateID); res.Error != nil {
-		return nil, fmt.Errorf("get live state; %s, error: %w", server.StateID, res.Error)
+	res := s.db.First(&live, server.StateID)
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf(
+			"get live state: %s, error: %w",
+			server.StateID,
+			cronmanerrors.ErrServerNotLive,
+		)
+	}
+	if res.Error != nil {
+		return nil, fmt.Errorf("get live state: %s, error: %w", server.StateID, res.Error)
 	}
 
 	live.Server = *server
@@ -162,12 +170,20 @@ func (s Store) GetLiveServer(ctx context.Context, id uuid.UUID) (*model.LiveServ
 func (s Store) GetDormantServer(ctx context.Context, id uuid.UUID) (*model.DormantServer, error) {
 	server, err := s.GetServer(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("get dormant server; %s, error: %w", id, err)
+		return nil, fmt.Errorf("get dormant server: %s, error: %w", id, err)
 	}
 
 	var dormant model.DormantServer
-	if res := s.db.First(&dormant, server.StateID); res.Error != nil {
-		return nil, fmt.Errorf("get dormant state; %s, error: %w", server.StateID, res.Error)
+	res := s.db.First(&dormant, server.StateID)
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf(
+			"get dormant state: %s, error: %w",
+			server.StateID,
+			cronmanerrors.ErrServerNotDormant,
+		)
+	}
+	if res.Error != nil {
+		return nil, fmt.Errorf("get dormant state: %s, error: %w", server.StateID, res.Error)
 	}
 
 	dormant.Server = *server
@@ -178,12 +194,20 @@ func (s Store) GetDormantServer(ctx context.Context, id uuid.UUID) (*model.Dorma
 func (s Store) GetArchivedServer(ctx context.Context, id uuid.UUID) (*model.ArchivedServer, error) {
 	server, err := s.GetServer(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("get archived server; %s, error: %w", id, err)
+		return nil, fmt.Errorf("get archived server: %s, error: %w", id, err)
 	}
 
 	var archived model.ArchivedServer
-	if res := s.db.First(&archived, server.StateID); res.Error != nil {
-		return nil, fmt.Errorf("get archived state; %s, error: %w", server.StateID, res.Error)
+	res := s.db.First(&archived, server.StateID)
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf(
+			"get archived state: %s, error: %w",
+			server.StateID,
+			cronmanerrors.ErrServerNotArchived,
+		)
+	}
+	if res.Error != nil {
+		return nil, fmt.Errorf("get archived state: %s, error: %w", server.StateID, res.Error)
 	}
 
 	archived.Server = *server
