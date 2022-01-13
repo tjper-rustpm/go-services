@@ -21,6 +21,11 @@ func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
 	out, err := ep.ctrl.LoginUser(
 		r.Context(),
 		controller.LoginUserInput{Email: b.Email, Password: b.Password},

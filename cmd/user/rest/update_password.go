@@ -12,12 +12,17 @@ type ResetPassword struct{ API }
 
 func (ep ResetPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		Hash     string
-		Password string
+		Hash     string `json:"hash" validate:"required"`
+		Password string `json:"password" validate:"required,password"`
 	}
 
 	var b body
 	if err := ep.read(w, r, &b); err != nil {
+		return
+	}
+
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"time"
 
 	usererrors "github.com/tjper/rustcron/cmd/user/errors"
@@ -91,15 +90,9 @@ func (ctrl Controller) CreateUser(
 	ctx context.Context,
 	input CreateUserInput,
 ) (*model.User, error) {
-	if !isEmail(input.Email) {
-		return nil, usererrors.EmailError("unknown characters")
-	}
-	if err := validatePassword(input.Password); err != nil {
-		return nil, err
-	}
 	_, err := ctrl.store.UserByEmail(ctx, input.Email)
 	if err == nil {
-		return nil, usererrors.EmailError("invalid; please use another email")
+		return nil, fmt.Errorf("user by email; error: %w", usererrors.EmailAlreadyInUse)
 	}
 	if err != nil && !errors.Is(err, usererrors.UserDNE) {
 		return nil, err
@@ -153,13 +146,6 @@ type UpdateUserPasswordInput struct {
 // UpdateUserPassword updates the user associated with the passed ID to utilize
 // the specified password.
 func (ctrl Controller) UpdateUserPassword(ctx context.Context, input UpdateUserPasswordInput) (*model.User, error) {
-	if err := validatePassword(input.CurrentPassword); err != nil {
-		return nil, err
-	}
-	if err := validatePassword(input.NewPassword); err != nil {
-		return nil, err
-	}
-
 	user, err := ctrl.store.User(ctx, input.ID)
 	if err != nil {
 		return nil, err
@@ -194,13 +180,6 @@ func (ctrl Controller) LoginUser(
 	ctx context.Context,
 	input LoginUserInput,
 ) (*LoginUserOutput, error) {
-	if !isEmail(input.Email) {
-		return nil, usererrors.EmailError("unknown characters")
-	}
-	if err := validatePassword(input.Password); err != nil {
-		return nil, err
-	}
-
 	user, err := ctrl.store.UserByEmail(ctx, input.Email)
 	if errors.Is(err, usererrors.UserDNE) {
 		return nil, usererrors.AuthError("invalid credentials")
@@ -335,10 +314,6 @@ func (ctrl Controller) ResendEmailVerification(ctx context.Context, id uuid.UUID
 // email address. If the specified email address is associated with a user,
 // that email address will receive a "reset password" email.
 func (ctrl Controller) RequestPasswordReset(ctx context.Context, email string) error {
-	if !isEmail(email) {
-		return usererrors.EmailError("unknown characters")
-	}
-
 	_, err := ctrl.store.UserByEmail(ctx, email)
 	if errors.Is(err, usererrors.UserDNE) {
 		return usererrors.EmailAddressNotRecognized
@@ -378,10 +353,6 @@ func (ctrl Controller) ResetPassword(
 	resetPasswordHash string,
 	password string,
 ) error {
-	if err := validatePassword(password); err != nil {
-		return err
-	}
-
 	user, err := ctrl.store.UserByResetPasswordHash(ctx, resetPasswordHash)
 	if errors.Is(err, usererrors.UserDNE) {
 		return usererrors.AuthError("invalid credentials")
@@ -426,47 +397,4 @@ func hash(password, salt []byte) []byte {
 		keyLength     = 32
 	)
 	return argon2.IDKey(password, salt, minIterations, minMemory, threads, keyLength)
-}
-
-var (
-	emailRE = regexp.MustCompile(`^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$`)
-
-	passwordRE            = regexp.MustCompile(`^[a-zA-Z\d \!\"\#\$\%\&\'\(\)\*\+\,\-\.\/\:\;\<\=\>\?\@\[\]\^\_\x60\{\|\}\~]{8,64}$`)
-	atLeastOneLowerCaseRE = regexp.MustCompile(`[a-z]+`)
-	atLeastOneUpperCaseRE = regexp.MustCompile(`[A-Z]+`)
-	atLeastOneNumberRE    = regexp.MustCompile(`[\d]+`)
-)
-
-func isEmail(s string) bool {
-	return emailRE.MatchString(s)
-}
-
-// validatePassword matches against strings that satisfy the following
-// requirements:
-// - between 8 and 64 characters in length
-// - at least one lower-case letter
-// - at least one upper-case letter
-// - at least one number
-// - special characters are allowed
-// In the event there is not a match, the reason is returned as an error.
-func validatePassword(s string) error {
-	const (
-		minLength = 8
-		maxLength = 64
-	)
-	switch {
-	case len(s) < minLength:
-		return usererrors.PasswordError(fmt.Sprintf("minimum of %d characters", minLength))
-	case len(s) > maxLength:
-		return usererrors.PasswordError(fmt.Sprintf("maximum of %d characters", maxLength))
-	case !passwordRE.MatchString(s):
-		return usererrors.PasswordError("unknown characters")
-	case !atLeastOneLowerCaseRE.MatchString(s):
-		return usererrors.PasswordError("at least one lower-case letter required")
-	case !atLeastOneUpperCaseRE.MatchString(s):
-		return usererrors.PasswordError("at least one upper-case letter required")
-	case !atLeastOneNumberRE.MatchString(s):
-		return usererrors.PasswordError("at least one number required")
-	}
-	return nil
 }

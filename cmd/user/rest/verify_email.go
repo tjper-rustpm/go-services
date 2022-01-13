@@ -16,11 +16,16 @@ func (ep VerifyEmail) Route(router chi.Router) {
 
 func (ep VerifyEmail) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		Hash string
+		Hash string `json:"hash" validate:"required"`
 	}
 
 	var b body
 	if err := ep.read(w, r, &b); err != nil {
+		return
+	}
+
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
 

@@ -13,12 +13,17 @@ type UpdateUserPassword struct{ API }
 
 func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		CurrentPassword string
-		NewPassword     string
+		CurrentPassword string `json:"currentPassword" validate:"required,password"`
+		NewPassword     string `json:"newPassword" validate:"required,password"`
 	}
 
 	var b body
 	if err := ep.read(w, r, &b); err != nil {
+		return
+	}
+
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
 
@@ -36,10 +41,6 @@ func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			NewPassword:     b.NewPassword,
 		},
 	)
-	if passwordErr := uerrors.AsPasswordError(err); passwordErr != nil {
-		ihttp.ErrBadRequest(w, "password")
-		return
-	}
 	if authErr := uerrors.AsAuthError(err); authErr != nil {
 		ihttp.ErrForbidden(w)
 		return
