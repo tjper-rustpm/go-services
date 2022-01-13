@@ -18,6 +18,11 @@ func (ep AddServerModerators) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
 	modelModerators := b.Moderators.ToModelModerators()
 
 	err := ep.ctrl.AddServerModerators(r.Context(), b.ServerID, modelModerators)
@@ -45,6 +50,11 @@ func (ep RemoveServerModerators) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	var b RemoveServerModeratorsBody
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
 

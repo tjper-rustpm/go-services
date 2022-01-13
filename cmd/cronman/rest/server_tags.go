@@ -18,6 +18,11 @@ func (ep AddServerTags) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
 	modelTags := b.Tags.ToModelTags()
 
 	err := ep.ctrl.AddServerTags(r.Context(), b.ServerID, modelTags)
@@ -45,6 +50,11 @@ func (ep RemoveServerTags) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var b RemoveServerTagsBody
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
 

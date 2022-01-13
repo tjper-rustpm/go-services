@@ -16,6 +16,11 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
 	server, err := ep.ctrl.CreateServer(r.Context(), b.ToModelServer())
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)

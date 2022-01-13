@@ -18,6 +18,11 @@ func (ep PatchServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
 	server, err := ep.ctrl.UpdateServer(r.Context(), b.ToUpdateServerInput())
 	if errors.Is(err, cronmanerrors.ErrServerDNE) {
 		ihttp.ErrConflict(w)

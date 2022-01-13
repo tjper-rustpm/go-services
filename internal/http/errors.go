@@ -1,9 +1,12 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 )
 
@@ -32,10 +35,27 @@ func ErrForbidden(w http.ResponseWriter) {
 	)
 }
 
-func ErrBadRequest(w http.ResponseWriter, field string) {
+func ErrBadRequest(logger *zap.Logger, w http.ResponseWriter, err error) {
+	logger.Warn("bad request", zap.Error(err))
+
+	var valerrors validator.ValidationErrors
+	if !errors.As(err, &valerrors) {
+		http.Error(
+			w,
+			"An unknown field is invalid. Please update your request and retry.",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	errormsgs := make([]string, len(valerrors))
+	for i, err := range valerrors {
+		errormsgs[i] = fmt.Sprintf("\"%s\" failed \"%s\" validator", err.Field(), err.Tag())
+	}
+
 	http.Error(
 		w,
-		fmt.Sprintf("Field \"%s\" is is invalid. Please update your request and retry.", field),
+		fmt.Sprintf("Field(s) validation failure: %s. Please update your request and retry.", strings.Join(errormsgs, ", ")),
 		http.StatusBadRequest,
 	)
 }

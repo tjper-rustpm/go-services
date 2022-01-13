@@ -18,6 +18,11 @@ func (ep AddServerEvents) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
 	modelEvents := b.Events.ToModelEvents()
 
 	err := ep.ctrl.AddServerEvents(r.Context(), b.ServerID, modelEvents)
@@ -45,6 +50,11 @@ func (ep RemoveServerEvents) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var b RemoveServerEventsBody
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
 

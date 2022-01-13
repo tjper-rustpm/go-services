@@ -9,30 +9,26 @@ import (
 )
 
 type CreateServerBody struct {
-	Name                   string               `json:"name"`
-	InstanceKind           model.InstanceKind   `json:"instanceKind"`
-	MaxPlayers             uint16               `json:"maxPlayers"`
-	MapSize                uint16               `json:"mapSize"`
-	MapSeed                uint16               `json:"mapSeed"`
-	MapSalt                uint16               `json:"mapSalt"`
-	TickRate               uint8                `json:"tickRate"`
-	RconPassword           string               `json:"rconPassword"`
-	Description            string               `json:"description"`
-	Url                    string               `json:"url"`
-	Background             model.BackgroundKind `json:"background"`
-	BannerUrl              string               `json:"bannerUrl"`
-	WipeDay                model.WipeDay        `json:"wipeDay"`
-	BlueprintWipeFrequency model.WipeFrequency  `json:"blueprintWipeFrequency"`
-	MapWipeFrequency       model.WipeFrequency  `json:"mapWipeFrequency"`
-	Region                 model.Region         `json:"region"`
+	Name                   string               `json:"name" validate:"required"`
+	InstanceKind           model.InstanceKind   `json:"instanceKind" validate:"required"`
+	MaxPlayers             uint16               `json:"maxPlayers" validate:"required"`
+	MapSize                uint16               `json:"mapSize" validate:"required"`
+	MapSeed                uint16               `json:"mapSeed" validate:"required"`
+	MapSalt                uint16               `json:"mapSalt" validate:"required"`
+	TickRate               uint8                `json:"tickRate" validate:"required"`
+	RconPassword           string               `json:"rconPassword" validate:"required"`
+	Description            string               `json:"description" validate:"required"`
+	Url                    string               `json:"url" validate:"required,url"`
+	Background             model.BackgroundKind `json:"background" validate:"required"`
+	BannerUrl              string               `json:"bannerUrl" validate:"required,url"`
+	WipeDay                model.WipeDay        `json:"wipeDay" validate:"required"`
+	BlueprintWipeFrequency model.WipeFrequency  `json:"blueprintWipeFrequency" validate:"required"`
+	MapWipeFrequency       model.WipeFrequency  `json:"mapWipeFrequency" validate:"required"`
+	Region                 model.Region         `json:"region" validate:"required"`
 
-	Events Events `json:"events"`
-
-	Moderators []struct {
-		SteamID string `json:"steamId"`
-	} `json:"moderators"`
-
-	Tags Tags `json:"tags"`
+	Events     Events     `json:"events" validate:"gte=2"`
+	Moderators Moderators `json:"moderators" validate:"gte=1"`
+	Tags       Tags       `json:"tags" validate:"gte=1"`
 }
 
 func (body CreateServerBody) ToModelServer() model.Server {
@@ -84,8 +80,8 @@ func (body CreateServerBody) ToModelServer() model.Server {
 }
 
 type PutServerBody struct {
-	ID      uuid.UUID              `json:"id"`
-	Changes map[string]interface{} `json:"changes"`
+	ID      uuid.UUID              `json:"id" validate:"required,uuidv3"`
+	Changes map[string]interface{} `json:"changes" validate:"required,dive,keys,eq=name|eq=instanceKind|eq=maxPlayers|eq=mapSize|eq=mapSeed|eq=mapSalt|eq=tickRate|eq=rconPassword|eq=description|eq=url|eq=background|eq=bannerUrl|eq=wipeDay|eq=blueprintWipeFrequency|eq=mapWipeFrequency|eq=region|eq=events|eq=moderators|eq=tags"`
 }
 
 func (body PutServerBody) ToUpdateServerInput() controller.UpdateServerInput {
@@ -93,33 +89,33 @@ func (body PutServerBody) ToUpdateServerInput() controller.UpdateServerInput {
 }
 
 type AddServerTagsBody struct {
-	ServerID uuid.UUID `json:"serverId"`
-	Tags     Tags      `json:"tags"`
+	ServerID uuid.UUID `json:"serverId" validate:"required,uuidv3"`
+	Tags     Tags      `json:"tags" validate:"required"`
 }
 
 type RemoveServerTagsBody struct {
-	ServerID uuid.UUID   `json:"serverId"`
-	TagIDs   []uuid.UUID `json:"tagIds"`
+	ServerID uuid.UUID   `json:"serverId" validate:"required,uuidv3"`
+	TagIDs   []uuid.UUID `json:"tagIds" validate:"required,dive,uuidv3"`
 }
 
 type AddServerEventsBody struct {
-	ServerID uuid.UUID `json:"serverId"`
-	Events   Events    `json:"events"`
+	ServerID uuid.UUID `json:"serverId" validate:"required,uuidv3"`
+	Events   Events    `json:"events" validate:"required"`
 }
 
 type RemoveServerEventsBody struct {
-	ServerID uuid.UUID   `json:"serverId"`
-	EventIDs []uuid.UUID `json:"eventIds"`
+	ServerID uuid.UUID   `json:"serverId" validate:"required,uuidv3"`
+	EventIDs []uuid.UUID `json:"eventIds" validate:"required,dive,uuidv3"`
 }
 
 type AddServerModeratorsBody struct {
-	ServerID   uuid.UUID  `json:"serverId"`
-	Moderators Moderators `json:"moderators"`
+	ServerID   uuid.UUID  `json:"serverId" validate:"required,uuidv3"`
+	Moderators Moderators `json:"moderators" validate:"required"`
 }
 
 type RemoveServerModeratorsBody struct {
-	ServerID     uuid.UUID   `json:"serverId"`
-	ModeratorIDs []uuid.UUID `json:"moderatorIds"`
+	ServerID     uuid.UUID   `json:"serverId" validate:"required,uuidv3"`
+	ModeratorIDs []uuid.UUID `json:"moderatorIds" validate:"required,dive,uuidv3"`
 }
 
 func ServerFromModel(server model.Server) Server {
@@ -258,10 +254,10 @@ func (tags Tags) ToModelTags() model.Tags {
 }
 
 type Tag struct {
-	ID          uuid.UUID      `json:"id"`
-	Description string         `json:"description"`
-	Icon        model.IconKind `json:"icon"`
-	Value       string         `json:"value"`
+	ID          uuid.UUID      `json:"id" validate:"uuidv3"`
+	Description string         `json:"description" validate:"required"`
+	Icon        model.IconKind `json:"icon" validate:"required"`
+	Value       string         `json:"value" validate:"required"`
 }
 
 func EventsAtFromModel(modelEvents model.Events) []EventAt {
@@ -280,9 +276,9 @@ func EventsAtFromModel(modelEvents model.Events) []EventAt {
 }
 
 type EventAt struct {
-	ID   uuid.UUID       `json:"id"`
-	Kind model.EventKind `json:"kind"`
-	At   time.Time       `json:"at"`
+	ID   uuid.UUID       `json:"id" validate:"uuidv3"`
+	Kind model.EventKind `json:"kind" validate:"required"`
+	At   time.Time       `json:"at" validate:"required"`
 }
 
 func EventsFromModel(modelEvents model.Events) Events {
@@ -319,10 +315,10 @@ func (events Events) ToModelEvents() model.Events {
 }
 
 type Event struct {
-	ID      uuid.UUID       `json:"id"`
-	Weekday time.Weekday    `json:"weekday"`
-	Hour    uint8           `json:"hour"`
-	Kind    model.EventKind `json:"kind"`
+	ID      uuid.UUID       `json:"id" validate:"uuidv3"`
+	Weekday time.Weekday    `json:"weekday" validate:"required"`
+	Hour    uint8           `json:"hour" validate:"required,min=0,max=23"`
+	Kind    model.EventKind `json:"kind" validate:"required"`
 }
 
 func ModeratorsFromModel(modelModerators model.Moderators) Moderators {
@@ -356,5 +352,5 @@ func (mods Moderators) ToModelModerators() model.Moderators {
 
 type Moderator struct {
 	ID      uuid.UUID `json:"id"`
-	SteamID string    `json:"steamId"`
+	SteamID string    `json:"steamId" validate:"required"`
 }

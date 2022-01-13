@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -36,11 +37,13 @@ type IController interface {
 
 func NewAPI(
 	logger *zap.Logger,
+	valid *validator.Validate,
 	ctrl IController,
 ) *API {
 	api := API{
 		Mux:    chi.NewRouter(),
 		logger: logger,
+		valid:  valid,
 		ctrl:   ctrl,
 	}
 
@@ -83,5 +86,6 @@ type API struct {
 	Mux *chi.Mux
 
 	logger *zap.Logger
+	valid  *validator.Validate
 	ctrl   IController
 }

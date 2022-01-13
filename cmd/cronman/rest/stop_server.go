@@ -14,12 +14,17 @@ type StopServer struct{ API }
 
 func (ep StopServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		ServerID uuid.UUID
+		ServerID uuid.UUID `validate:"required,uuidv3"`
 	}
 
 	var b body
 	if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
 

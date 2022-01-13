@@ -10,6 +10,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.0.7 // indirect
 	github.com/go-chi/cors v1.2.0 // indirect
+	github.com/go-playground/validator/v10 v10.10.0 // indirect
 	github.com/go-redis/redis/v8 v8.4.10
 	github.com/golang-migrate/migrate/v4 v4.11.0
 	github.com/google/uuid v1.2.0
@@ -26,7 +27,6 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.0.0-20200818005847-188abfa75333 // indirect
 	google.golang.org/genproto v0.0.0-20200815001618-f69a88009b70 // indirect
