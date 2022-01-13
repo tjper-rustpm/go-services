@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 
 	"github.com/iancoleman/strcase"
 	cronmanerrors "github.com/tjper/rustcron/cmd/cronman/errors"
@@ -22,6 +23,7 @@ type IStore interface {
 	Delete(context.Context, interface{}, []uuid.UUID) error
 
 	UpdateServer(context.Context, uuid.UUID, map[string]interface{}) (*model.DormantServer, error)
+	RandomizeServerSeeds(context.Context, *model.DormantServer) error
 
 	ListServers(context.Context, interface{}) error
 	ListActiveServerEvents(context.Context) (model.Events, error)
@@ -102,6 +104,29 @@ func (s Store) UpdateServer(
 	}
 
 	return s.GetDormantServer(ctx, id)
+}
+
+func (s Store) RandomizeServerSeeds(
+	ctx context.Context,
+	dormant *model.DormantServer,
+) error {
+	const maxSeed = 999999
+
+	if res := s.db.
+		Model(&(dormant.Server)).
+		Updates(
+			map[string]interface{}{
+				"map_seed": rand.Intn(maxSeed),
+				"map_salt": rand.Intn(maxSeed),
+			},
+		); res.Error != nil {
+		return fmt.Errorf(
+			"randomize server seeds; id: %s, error: %w",
+			dormant.Server.ID,
+			res.Error,
+		)
+	}
+	return nil
 }
 
 func (s Store) ListServers(ctx context.Context, dst interface{}) error {

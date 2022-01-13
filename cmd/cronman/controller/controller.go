@@ -133,33 +133,46 @@ func (ctrl Controller) StartServer(
 ) (*model.DormantServer, error) {
 	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
 
-	server, err := ctrl.store.GetDormantServer(ctx, id)
+	dormant, err := ctrl.store.GetDormantServer(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
-	userdata, err := generateUserData(server.Server)
+	isMapWipe, err := schedule.IsMapWipe(
+		dormant.Server.MapWipeFrequency,
+		schedule.WipeDayToWeekDay(dormant.Server.WipeDay),
+		time.Now().UTC())
+	if err != nil {
+		return nil, fmt.Errorf("is map wipe; error: %w", err)
+	}
+	if isMapWipe {
+		if err := ctrl.store.RandomizeServerSeeds(ctx, dormant); err != nil {
+			return nil, fmt.Errorf("randomize server seeds: %w", err)
+		}
+	}
+
+	userdata, err := generateUserData(dormant.Server)
 	if err != nil {
 		return nil, fmt.Errorf("generate server userdata; %w", err)
 	}
-	if err := ctrl.serverController.Region(server.Server.Region).StartInstance(
+	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
 		ctx,
-		server.Server.InstanceID,
+		dormant.Server.InstanceID,
 		userdata,
 	); err != nil {
 		return nil, fmt.Errorf("start server instance; %w", err)
 	}
 
-	association, err := ctrl.serverController.Region(server.Server.Region).MakeInstanceAvailable(
+	association, err := ctrl.serverController.Region(dormant.Server.Region).MakeInstanceAvailable(
 		ctx,
-		server.Server.InstanceID,
-		server.Server.AllocationID,
+		dormant.Server.InstanceID,
+		dormant.Server.AllocationID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make server instance available; %w", err)
 	}
 	defer func() {
-		if err := ctrl.serverController.Region(server.Server.Region).MakeInstanceUnavailable(
+		if err := ctrl.serverController.Region(dormant.Server.Region).MakeInstanceUnavailable(
 			ctx,
 			*association.AssociationId,
 		); err != nil {
@@ -169,8 +182,8 @@ func (ctrl Controller) StartServer(
 
 	if err := ctrl.pingUntilReady(
 		ctx,
-		server.Server.ElasticIP,
-		server.Server.RconPassword,
+		dormant.Server.ElasticIP,
+		dormant.Server.RconPassword,
 	); err != nil {
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
 	}
