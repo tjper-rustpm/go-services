@@ -7,6 +7,8 @@ import (
 
 	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/model"
+	ihttp "github.com/tjper/rustcron/internal/http"
+	"github.com/tjper/rustcron/internal/session"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -38,6 +40,8 @@ type IController interface {
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
+	sessionManager ihttp.ISessionManager,
+	sessionExpiration time.Duration,
 ) *API {
 	api := API{
 		Mux:    chi.NewRouter(),
@@ -49,33 +53,37 @@ func NewAPI(
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Group(func(router chi.Router) {
 			router.Use(
-				middleware.Timeout(30 * time.Minute),
+				ihttp.HasSession(logger, sessionManager, sessionExpiration),
+				ihttp.HasRole(session.RoleAdmin),
 			)
 
-			router.Method(http.MethodPost, "/server/start", StartServer{API: api})
+			router.Method(http.MethodPatch, "/server", PatchServer{API: api})
+			router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
+
+			router.Method(http.MethodPost, "/server/tags", AddServerTags{API: api})
+			router.Method(http.MethodDelete, "/server/tags", RemoveServerTags{API: api})
+
+			router.Method(http.MethodPost, "/server/events", AddServerEvents{API: api})
+			router.Method(http.MethodDelete, "/server/events", RemoveServerEvents{API: api})
+
+			router.Method(http.MethodPost, "/server/moderators", AddServerModerators{API: api})
+			router.Method(http.MethodDelete, "/server/moderators", RemoveServerModerators{API: api})
+
+			router.Group(func(router chi.Router) {
+				router.Use(middleware.Timeout(30 * time.Minute))
+
+				router.Method(http.MethodPost, "/server/start", StartServer{API: api})
+			})
+
+			router.Group(func(router chi.Router) {
+				router.Use(middleware.Timeout(10 * time.Minute))
+
+				router.Method(http.MethodPost, "/server", CreateServer{API: api})
+				router.Method(http.MethodPost, "/server/stop", StopServer{API: api})
+			})
 		})
 
-		router.Group(func(router chi.Router) {
-			router.Use(
-				middleware.Timeout(10 * time.Minute),
-			)
-
-			router.Method(http.MethodPost, "/server", CreateServer{API: api})
-			router.Method(http.MethodPost, "/server/stop", StopServer{API: api})
-		})
-
-		router.Method(http.MethodPatch, "/server", PatchServer{API: api})
-		router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
-
-		router.Method(http.MethodPost, "/server/tags", AddServerTags{API: api})
-		router.Method(http.MethodDelete, "/server/tags", RemoveServerTags{API: api})
-
-		router.Method(http.MethodPost, "/server/events", AddServerEvents{API: api})
-		router.Method(http.MethodDelete, "/server/events", RemoveServerEvents{API: api})
-
-		router.Method(http.MethodPost, "/server/moderators", AddServerModerators{API: api})
-		router.Method(http.MethodDelete, "/server/moderators", RemoveServerModerators{API: api})
 	})
 
 	return &api

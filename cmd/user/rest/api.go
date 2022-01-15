@@ -69,7 +69,10 @@ func NewAPI(
 		})
 
 		router.Group(func(router chi.Router) {
-			router.Use(ihttp.Session(logger, sessionManager, sessionExpiration))
+			router.Use(
+				ihttp.HasSession(logger, sessionManager, sessionExpiration),
+				ihttp.HasRole(session.RoleAdmin),
+			)
 
 			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
 			router.Method(http.MethodPost, "/user/logout-all", LogoutAllUser{API: api})

@@ -18,7 +18,7 @@ type ISessionManager interface {
 	DeleteSession(context.Context, session.Session) error
 }
 
-func Session(logger *zap.Logger, manager ISessionManager, exp time.Duration) func(http.Handler) http.Handler {
+func HasSession(logger *zap.Logger, manager ISessionManager, exp time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +60,26 @@ func Session(logger *zap.Logger, manager ISessionManager, exp time.Duration) fun
 				ctx := session.WithSession(r.Context(), sess)
 				req := r.WithContext(ctx)
 				next.ServeHTTP(w, req)
-			},
-		)
+			})
+	}
+}
+
+func HasRole(role session.Role) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				sess, ok := session.FromContext(r.Context())
+				if !ok {
+					ErrUnauthorized(w)
+					return
+				}
+
+				if sess.User.Role != role {
+					ErrForbidden(w)
+					return
+				}
+
+				next.ServeHTTP(w, r)
+			})
 	}
 }

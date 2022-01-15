@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/config"
 	"github.com/tjper/rustcron/cmd/cronman/controller"
@@ -16,6 +17,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/redis"
 	"github.com/tjper/rustcron/cmd/cronman/rest"
 	"github.com/tjper/rustcron/cmd/cronman/server"
+	"github.com/tjper/rustcron/internal/session"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -101,6 +103,10 @@ func run() int {
 	logger.Info("[Startup] Loaded eu-central-1 client.")
 	logger.Info("[Startup] Loaded AWS configuration.")
 
+	logger.Info("[Startup] Creating session manager ...")
+	sessionManager := session.NewManager(logger, rdb)
+	logger.Info("[Startup] Created session manager.")
+
 	logger.Info("[Startup] Creating controller ...")
 	ctrl := controller.New(
 		logger,
@@ -146,6 +152,8 @@ func run() int {
 	api := rest.NewAPI(
 		logger,
 		ctrl,
+		sessionManager,
+		48*time.Hour, // 2 days
 	)
 	logger.Info("[Startup] Created REST API.")
 
