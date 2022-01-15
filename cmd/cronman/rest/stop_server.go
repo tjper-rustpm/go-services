@@ -14,7 +14,7 @@ type StopServer struct{ API }
 
 func (ep StopServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		ServerID uuid.UUID `validate:"required,uuidv3"`
+		ServerID uuid.UUID `validate:"required"`
 	}
 
 	var b body
