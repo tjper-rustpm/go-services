@@ -107,7 +107,11 @@ func run() int {
 			SameSite: config.CookieSameSite(),
 		},
 		sessionManager,
-		48*time.Hour, // 2 days
+		ihttp.NewSessionMiddleware(
+			logger,
+			sessionManager,
+			48*time.Hour, // 2 days
+		),
 	)
 	logger.Info("[Startup] Created REST API.")
 

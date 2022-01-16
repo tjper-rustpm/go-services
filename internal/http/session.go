@@ -18,53 +18,90 @@ type ISessionManager interface {
 	DeleteSession(context.Context, session.Session) error
 }
 
-func HasSession(logger *zap.Logger, manager ISessionManager, exp time.Duration) func(http.Handler) http.Handler {
+func NewSessionMiddleware(logger *zap.Logger, manager ISessionManager, expiration time.Duration) *SessionMiddleware {
+	return &SessionMiddleware{
+		logger:     logger,
+		manager:    manager,
+		expiration: expiration,
+	}
+}
+
+type SessionMiddleware struct {
+	logger  *zap.Logger
+	manager ISessionManager
+
+	expiration time.Duration
+}
+
+// InjectSessionIntoCtx injects the session associated with the request. If
+// there is no session, the next handler is called. This middleware does not
+// guarantee that a session exists within the request context.
+func (sm SessionMiddleware) InjectSessionIntoCtx() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
+				var (
+					sess *session.Session
+					ctx  context.Context
+					err  error
+				)
+
 				sessionID := SessionFromRequest(r)
 				if sessionID == "" {
-					ErrUnauthorized(w)
-					return
+					goto serve
 				}
 
-				sess, err := manager.RetrieveSession(r.Context(), sessionID)
+				sess, err = sm.manager.RetrieveSession(r.Context(), sessionID)
 				if errors.Is(err, session.ErrSessionDNE) {
-					ErrUnauthorized(w)
-					return
+					goto serve
 				}
 				if err != nil {
-					ErrInternal(logger, w, err)
+					ErrInternal(sm.logger, w, err)
 					return
 				}
 
 				if sess.AbsoluteExpiration.Before(time.Now()) {
-					logger.Info(
-						"deleting base on absolute expiration",
-						zap.Time("exp", sess.AbsoluteExpiration),
-						zap.Time("now", time.Now()),
-					)
-					if err := manager.DeleteSession(r.Context(), *sess); err != nil {
-						logger.Error("error deleting session", zap.Error(err))
+					if err := sm.manager.DeleteSession(r.Context(), *sess); err != nil {
+						ErrInternal(sm.logger, w, err)
+						return
 					}
-
-					ErrUnauthorized(w)
-					return
+					goto serve
 				}
 
-				if err := manager.TouchSession(r.Context(), *sess, exp); err != nil {
-					ErrInternal(logger, w, err)
-					return
-				}
+				ctx = session.WithSession(r.Context(), sess)
+				r = r.WithContext(ctx)
 
-				ctx := session.WithSession(r.Context(), sess)
-				req := r.WithContext(ctx)
-				next.ServeHTTP(w, req)
+			serve:
+				next.ServeHTTP(w, r)
 			})
 	}
 }
 
-func HasRole(role session.Role) func(http.Handler) http.Handler {
+// Touch updates the request's session with a timestamp indicating when
+// activity last occurred. If session is not associated with the request, the
+// next middleware is called.
+func (sm SessionMiddleware) Touch() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				sess, ok := session.FromContext(r.Context())
+				if !ok {
+					goto serve
+				}
+
+				if err := sm.manager.TouchSession(r.Context(), *sess, sm.expiration); err != nil {
+					ErrInternal(sm.logger, w, err)
+					return
+				}
+
+			serve:
+				next.ServeHTTP(w, r)
+			})
+	}
+}
+
+// HasRole ensures the request's session exists and has the role specified.
+func (sm SessionMiddleware) HasRole(role session.Role) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {

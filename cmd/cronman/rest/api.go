@@ -10,8 +10,8 @@ import (
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -40,8 +40,7 @@ type IController interface {
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
-	sessionManager ihttp.ISessionManager,
-	sessionExpiration time.Duration,
+	sessionMiddleware *ihttp.SessionMiddleware,
 ) *API {
 	api := API{
 		Mux:    chi.NewRouter(),
@@ -50,12 +49,15 @@ func NewAPI(
 		ctrl:   ctrl,
 	}
 
+	api.Mux.Use(
+		sessionMiddleware.InjectSessionIntoCtx(),
+		sessionMiddleware.Touch(),
+		middleware.RequestLogger(ihttp.NewZapLogFormatter(logger)),
+	)
+
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Group(func(router chi.Router) {
-			router.Use(
-				ihttp.HasSession(logger, sessionManager, sessionExpiration),
-				ihttp.HasRole(session.RoleAdmin),
-			)
+			router.Use(sessionMiddleware.HasRole(session.RoleAdmin))
 
 			router.Method(http.MethodPatch, "/server", PatchServer{API: api})
 			router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})

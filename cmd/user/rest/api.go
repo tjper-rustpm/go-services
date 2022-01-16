@@ -39,9 +39,8 @@ func NewAPI(
 	ctrl IController,
 	cookieOptions ihttp.CookieOptions,
 	sessionManager ihttp.ISessionManager,
-	sessionExpiration time.Duration,
+	sessionMiddleware *ihttp.SessionMiddleware,
 ) *API {
-
 	api := API{
 		Mux:            chi.NewRouter(),
 		logger:         logger,
@@ -52,6 +51,8 @@ func NewAPI(
 	}
 
 	api.Mux.Use(
+		sessionMiddleware.InjectSessionIntoCtx(),
+		sessionMiddleware.Touch(),
 		middleware.RequestLogger(ihttp.NewZapLogFormatter(logger)),
 	)
 
@@ -69,10 +70,7 @@ func NewAPI(
 		})
 
 		router.Group(func(router chi.Router) {
-			router.Use(
-				ihttp.HasSession(logger, sessionManager, sessionExpiration),
-				ihttp.HasRole(session.RoleAdmin),
-			)
+			router.Use(sessionMiddleware.HasRole(session.RoleAdmin))
 
 			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
 			router.Method(http.MethodPost, "/user/logout-all", LogoutAllUser{API: api})

@@ -17,6 +17,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/redis"
 	"github.com/tjper/rustcron/cmd/cronman/rest"
 	"github.com/tjper/rustcron/cmd/cronman/server"
+	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -152,8 +153,11 @@ func run() int {
 	api := rest.NewAPI(
 		logger,
 		ctrl,
-		sessionManager,
-		48*time.Hour, // 2 days
+		ihttp.NewSessionMiddleware(
+			logger,
+			sessionManager,
+			48*time.Hour, // 2 days
+		),
 	)
 	logger.Info("[Startup] Created REST API.")
 

@@ -28,6 +28,7 @@ func (ep AddServerEvents) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := ep.ctrl.AddServerEvents(r.Context(), b.ServerID, modelEvents)
 	if errors.Is(err, cronmanerrors.ErrServerDNE) {
 		ihttp.ErrNotFound(w)
+		return
 	}
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)

@@ -28,6 +28,7 @@ func (ep AddServerModerators) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	err := ep.ctrl.AddServerModerators(r.Context(), b.ServerID, modelModerators)
 	if errors.Is(err, cronmanerrors.ErrServerDNE) {
 		ihttp.ErrNotFound(w)
+		return
 	}
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)

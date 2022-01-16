@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -99,10 +98,21 @@ func (m Manager) TouchSession(
 
 			sess.LastActivityAt = time.Now()
 
+			b, err := encode(sess)
+			if err != nil {
+				return err
+			}
+
 			// Operation is committed only if the watched keys remain unchanged.
 			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-				return pipe.SetXX(ctx, key, sess, exp).Err()
+				if err := pipe.SetXX(ctx, key, b, exp).Err(); err != nil {
+					m.logger.Error("touch setxx", zap.Error(err))
+				}
+				return nil
 			})
+			if err != nil {
+				m.logger.Error("touch", zap.Error(err))
+			}
 			return err
 		}
 
@@ -112,7 +122,7 @@ func (m Manager) TouchSession(
 				// Success.
 				return nil
 			}
-			if err == redis.TxFailedErr {
+			if errors.Is(err, redis.TxFailedErr) {
 				// Optimistic lock lost. Retry.
 				continue
 			}
@@ -123,22 +133,13 @@ func (m Manager) TouchSession(
 		return ErrMaxAttemptsReached
 	}
 
-	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			err := touch(keygen(sessionPrefix, sess.ID))
-			if errors.Is(err, redis.Nil) {
-				return
-			}
-			if err != nil {
-				m.logger.Error("error touching session", zap.Error(err))
-			}
-		}()
+	err := touch(keygen(sessionPrefix, sess.ID))
+	if errors.Is(err, redis.Nil) {
+		return fmt.Errorf("touch session; id: %s, error: %w", sess.ID, ErrSessionDNE)
 	}
-	wg.Wait()
+	if err != nil {
+		return fmt.Errorf("touch session; id: %s, error: %w", sess.ID, err)
+	}
 
 	return nil
 }

@@ -40,22 +40,7 @@ func (e logEntry) Write(
 	elapsed time.Duration,
 	_ interface{},
 ) {
-
-	var level func(string, ...zap.Field)
-	switch {
-	case status < http.StatusOK:
-		level = e.logger.Debug
-	case status < http.StatusMultipleChoices:
-		level = e.logger.Debug
-	case status < http.StatusBadRequest:
-		level = e.logger.Info
-	case status < http.StatusInternalServerError:
-		level = e.logger.Warn
-	default:
-		level = e.logger.Error
-	}
-
-	level(
+	e.logger.Debug(
 		"[HTTP Request]",
 		zap.String(kongRequestID, e.requestID),
 		zap.String("method", e.method),
