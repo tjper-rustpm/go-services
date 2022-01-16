@@ -50,6 +50,7 @@ func Migrate(db *gorm.DB, migrations string) error {
 
 	return db.AutoMigrate(
 		model.Server{},
+		model.Wipe{},
 		model.Tag{},
 		model.Moderator{},
 		model.Event{},

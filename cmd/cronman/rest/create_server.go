@@ -29,7 +29,11 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 
-	dormant := DormantServerFromModel(*server)
+	dormant, err := DormantServerFromModel(*server)
+	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
 
 	if err := json.NewEncoder(w).Encode(dormant); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)

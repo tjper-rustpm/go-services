@@ -12,7 +12,6 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/logger"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
-	"github.com/tjper/rustcron/cmd/cronman/schedule"
 	"github.com/tjper/rustcron/cmd/cronman/userdata"
 
 	"github.com/google/uuid"
@@ -138,23 +137,11 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
-	isMapWipe, err := schedule.IsMapWipe(
-		dormant.Server.MapWipeFrequency,
-		schedule.WipeDayToWeekDay(dormant.Server.WipeDay),
-		time.Now().UTC())
-	if err != nil {
-		return nil, fmt.Errorf("is map wipe; error: %w", err)
-	}
-	if isMapWipe {
-		if err := ctrl.store.RandomizeServerSeeds(ctx, dormant); err != nil {
-			return nil, fmt.Errorf("randomize server seeds: %w", err)
-		}
-	}
+	userdata := dormant.Server.Userdata(
+		userdata.WithQueueBypassPlugin(),
+		userdata.WithUserCfg(dormant.Server.Moderators.SteamIDs()),
+	)
 
-	userdata, err := generateUserData(dormant.Server)
-	if err != nil {
-		return nil, fmt.Errorf("generate server userdata; %w", err)
-	}
 	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
 		ctx,
 		dormant.Server.InstanceID,
@@ -504,45 +491,6 @@ func (ctrl *Controller) pingUntilReady(ctx context.Context, ip, password string)
 }
 
 // --- helpers ---
-
-func generateUserData(server model.Server) (string, error) {
-	fullWipe, err := schedule.IsFullWipe(
-		server.BlueprintWipeFrequency,
-		schedule.WipeDayToWeekDay(server.WipeDay),
-		time.Now().UTC())
-	if err != nil {
-		return "", fmt.Errorf("unable to generate userdata; %w", err)
-	}
-	mapWipe, err := schedule.IsMapWipe(
-		server.MapWipeFrequency,
-		schedule.WipeDayToWeekDay(server.WipeDay),
-		time.Now().UTC())
-	if err != nil {
-		return "", fmt.Errorf("unable to generate userdata; %w", err)
-	}
-
-	opts := []userdata.Option{
-		userdata.WithQueueBypassPlugin(),
-		userdata.WithUserCfg(server.Moderators.SteamIDs()),
-	}
-	switch {
-	case fullWipe:
-		opts = append(opts, []userdata.Option{userdata.WithBluePrintWipe(), userdata.WithMapWipe()}...)
-	case mapWipe:
-		opts = append(opts, []userdata.Option{userdata.WithMapWipe()}...)
-	}
-
-	return userdata.Generate(
-		server.Name,
-		server.RconPassword,
-		int(server.MaxPlayers),
-		int(server.MapSize),
-		int(server.MapSeed),
-		int(server.MapSalt),
-		int(server.TickRate),
-		opts...,
-	), nil
-}
 
 func rconURL(url, password string) string {
 	return fmt.Sprintf("ws://%s:28016/%s", url, password)

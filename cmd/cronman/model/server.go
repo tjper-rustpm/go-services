@@ -1,6 +1,8 @@
 package model
 
 import (
+	"github.com/tjper/rustcron/cmd/cronman/userdata"
+
 	"github.com/google/uuid"
 )
 
@@ -15,28 +17,40 @@ type Server struct {
 	StateID   uuid.UUID
 	StateType string
 
-	Name                   string
-	InstanceID             string
-	InstanceKind           InstanceKind
-	AllocationID           string
-	ElasticIP              string
-	MaxPlayers             uint16
-	MapSize                uint16
-	MapSeed                uint16
-	MapSalt                uint16
-	TickRate               uint8
-	RconPassword           string
-	Description            string
-	Background             BackgroundKind
-	Url                    string
-	BannerUrl              string
-	WipeDay                WipeDay
-	BlueprintWipeFrequency WipeFrequency
-	MapWipeFrequency       WipeFrequency
-	Region                 Region
-	Tags                   Tags
-	Events                 Events
-	Moderators             Moderators
+	Name         string
+	InstanceID   string
+	InstanceKind InstanceKind
+	AllocationID string
+	ElasticIP    string
+	MaxPlayers   uint16
+	MapSize      uint16
+	TickRate     uint8
+	RconPassword string
+	Description  string
+	Background   BackgroundKind
+	URL          string
+	BannerURL    string
+	Region       Region
+
+	Wipes      Wipes
+	Tags       Tags
+	Events     Events
+	Moderators Moderators
+}
+
+// UserData generates the userdata to be used by AWS to launch the server in
+// proper state.
+func (s Server) Userdata(options ...userdata.Option) string {
+	return userdata.Generate(
+		s.Name,
+		s.RconPassword,
+		int(s.MaxPlayers),
+		int(s.MapSize),
+		int(s.Wipes.CurrentWipe().MapSeed),
+		int(s.Wipes.CurrentWipe().MapSalt),
+		int(s.TickRate),
+		options...,
+	)
 }
 
 func (s Server) Clone() *Server {
@@ -169,26 +183,6 @@ const (
 	BackgroundKindOxum             BackgroundKind = "oxum"
 	BackgroundKindSewerNight       BackgroundKind = "sewerNight"
 	BackgroundKindTowerNight       BackgroundKind = "towerNight"
-)
-
-type WipeDay string
-
-const (
-	WipeDaySunday    WipeDay = "sunday"
-	WipeDayMonday    WipeDay = "monday"
-	WipeDayTuesday   WipeDay = "tuesday"
-	WipeDayWednesday WipeDay = "wednesday"
-	WipeDayThursday  WipeDay = "thursday"
-	WipeDayFriday    WipeDay = "friday"
-	WipeDaySaturday  WipeDay = "saturday"
-)
-
-type WipeFrequency string
-
-const (
-	WipeFrequencyWeekly   WipeFrequency = "weekly"
-	WipeFrequencyBiWeekly WipeFrequency = "biweekly"
-	WipeFrequencyMonthly  WipeFrequency = "monthly"
 )
 
 type Region string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 
 	"github.com/iancoleman/strcase"
@@ -23,7 +24,7 @@ type IStore interface {
 	Delete(context.Context, interface{}, []uuid.UUID) error
 
 	UpdateServer(context.Context, uuid.UUID, map[string]interface{}) (*model.DormantServer, error)
-	RandomizeServerSeeds(context.Context, *model.DormantServer) error
+	WipeServer(context.Context, *model.DormantServer) error
 
 	ListServers(context.Context, interface{}) error
 	ListActiveServerEvents(context.Context) (model.Events, error)
@@ -106,26 +107,22 @@ func (s Store) UpdateServer(
 	return s.GetDormantServer(ctx, id)
 }
 
-func (s Store) RandomizeServerSeeds(
+func (s Store) WipeServer(
 	ctx context.Context,
 	dormant *model.DormantServer,
 ) error {
-	const maxSeed = 999999
-
-	if res := s.db.
-		Model(&(dormant.Server)).
-		Updates(
-			map[string]interface{}{
-				"map_seed": rand.Intn(maxSeed),
-				"map_salt": rand.Intn(maxSeed),
-			},
-		); res.Error != nil {
+	wipe := &model.Wipe{
+		MapSeed: uint16(rand.Intn(math.MaxUint16)),
+		MapSalt: uint16(rand.Intn(math.MaxUint16)),
+	}
+	if res := s.db.WithContext(ctx).Create(wipe); res.Error != nil {
 		return fmt.Errorf(
-			"randomize server seeds; id: %s, error: %w",
+			"create wipe; id: %s, error: %w",
 			dormant.Server.ID,
 			res.Error,
 		)
 	}
+
 	return nil
 }
 
@@ -133,6 +130,7 @@ func (s Store) ListServers(ctx context.Context, dst interface{}) error {
 	if res := s.db.
 		WithContext(ctx).
 		Preload("Server").
+		Preload("Server.Wipes").
 		Preload("Server.Tags").
 		Preload("Server.Events").
 		Preload("Server.Moderators").
@@ -244,6 +242,7 @@ func (s Store) GetServer(ctx context.Context, id uuid.UUID) (*model.Server, erro
 	var server model.Server
 	res := s.db.
 		WithContext(ctx).
+		Preload("Wipes").
 		Preload("Tags").
 		Preload("Events").
 		Preload("Moderators").

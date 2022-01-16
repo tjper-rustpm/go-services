@@ -1,12 +1,44 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/robfig/cron/v3"
 )
 
 type Events []Event
+
+func (es Events) NextEvent(t time.Time, kind EventKind) (*Event, *time.Time, error) {
+	var next Event
+	for _, e := range es {
+		if e.Kind != kind {
+			continue
+		}
+		if (next == Event{}) {
+			next = e
+			continue
+		}
+
+		potential, err := e.Next(t)
+		if err != nil {
+			return nil, nil, err
+		}
+		current, err := next.Next(t)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if potential.Before(current) {
+			next = e
+		}
+	}
+
+	at, err := next.Next(t)
+
+	return &next, &at, err
+}
 
 func (es Events) Clone() Events {
 	cloned := make(Events, 0, len(es))
@@ -22,33 +54,29 @@ func (es Events) Scrub() {
 	}
 }
 
-func (es Events) NextEventAfter(t time.Time, kind EventKind) Event {
-	var next Event
-	for _, e := range es {
-		if e.Kind != kind {
-			continue
-		}
-		if (next == Event{}) {
-			next = e
-			continue
-		}
-
-		potential := e.NextTimeAfter(t)
-		current := next.NextTimeAfter(t)
-
-		if potential.Before(current) {
-			next = e
-		}
-	}
-	return next
-}
-
 type Event struct {
 	Model
-	Weekday  time.Weekday
-	Hour     uint8
+	Schedule string
+	Weekday  *time.Weekday
 	Kind     EventKind
 	ServerID uuid.UUID
+}
+
+func (e Event) Next(after time.Time) (time.Time, error) {
+	schedule, err := cron.ParseStandard(e.Schedule)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("parse schedule; id: %s, error: %w", e.ID, err)
+	}
+
+	if e.Weekday == nil {
+		return schedule.Next(after), nil
+	}
+
+	potential := schedule.Next(after)
+	if potential.Weekday() == *e.Weekday {
+		return potential, nil
+	}
+	return e.Next(potential)
 }
 
 func (e Event) Clone() Event {
@@ -60,25 +88,11 @@ func (e *Event) Scrub() {
 	e.ServerID = uuid.Nil
 }
 
-func (e Event) NextTime() time.Time {
-	return e.NextTimeAfter(time.Now().UTC())
-}
-
-func (e Event) NextTimeAfter(t time.Time) time.Time {
-	nextEventWeekday := e.Weekday
-	if (e.Weekday < t.Weekday()) || (e.Weekday == t.Weekday() && int(e.Hour) <= t.Hour()) {
-		nextEventWeekday += 7
-	}
-
-	days := time.Duration(nextEventWeekday-t.Weekday()) * 24 * time.Hour
-	hours := time.Duration(int(e.Hour)-t.Hour()) * time.Hour
-
-	return t.Add(days + hours).Truncate(time.Hour)
-}
-
 type EventKind string
 
 const (
-	EventKindStart EventKind = "start"
-	EventKindStop  EventKind = "stop"
+	EventKindStart    EventKind = "start"
+	EventKindStop     EventKind = "stop"
+	EventKindFullWipe EventKind = "fullWipe"
+	EventKindMapWipe  EventKind = "mapWipe"
 )

@@ -19,6 +19,7 @@ require (
 	github.com/iancoleman/strcase v0.2.0 // indirect
 	github.com/jackc/pgx/v4 v4.12.0 // indirect
 	github.com/mailgun/mailgun-go/v4 v4.5.2
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0
