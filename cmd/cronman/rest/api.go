@@ -9,10 +9,11 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
+	"github.com/tjper/rustcron/internal/validator"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-playground/validator/v10"
+	validatorv10 "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -95,6 +96,6 @@ type API struct {
 	Mux *chi.Mux
 
 	logger *zap.Logger
-	valid  *validator.Validate
+	valid  *validatorv10.Validate
 	ctrl   IController
 }

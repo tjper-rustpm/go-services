@@ -51,7 +51,12 @@ func (ep StartServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 
-	live := LiveServerFromModel(*server)
+	live, err := LiveServerFromModel(*server)
+	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
 	if err := json.NewEncoder(w).Encode(live); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return

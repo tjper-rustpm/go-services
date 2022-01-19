@@ -25,7 +25,13 @@ func (ep Servers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	servers := make([]interface{}, 0, len(liveServers)+len(dormantServers))
 	for _, server := range liveServers {
-		servers = append(servers, LiveServerFromModel(server))
+		live, err := LiveServerFromModel(server)
+		if err != nil {
+			ihttp.ErrInternal(ep.logger, w, err)
+			return
+		}
+
+		servers = append(servers, live)
 	}
 	for _, server := range dormantServers {
 		dormant, err := DormantServerFromModel(server)
@@ -33,6 +39,7 @@ func (ep Servers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ihttp.ErrInternal(ep.logger, w, err)
 			return
 		}
+
 		servers = append(servers, dormant)
 	}
 

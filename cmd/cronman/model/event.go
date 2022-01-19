@@ -79,6 +79,24 @@ func (e Event) Next(after time.Time) (time.Time, error) {
 	return e.Next(potential)
 }
 
+func (e Event) Occurrences(after, until time.Time) ([]time.Time, error) {
+	occurrences := make([]time.Time, 0)
+	for {
+		next, err := e.Next(after)
+		if err != nil {
+			return nil, fmt.Errorf("occurrences; id: %s, error: %w", e.ID, err)
+		}
+
+		if next.After(until) {
+			return occurrences, nil
+		}
+
+		occurrences = append(occurrences, next)
+		after = next
+	}
+
+}
+
 func (e Event) Clone() Event {
 	return e
 }

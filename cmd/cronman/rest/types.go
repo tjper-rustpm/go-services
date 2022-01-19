@@ -24,9 +24,9 @@ type CreateServerBody struct {
 	BannerURL    string               `json:"bannerURL" validate:"required,url"`
 	Region       model.Region         `json:"region" validate:"required"`
 
-	Events     Events     `json:"events" validate:"gte=3"`
-	Moderators Moderators `json:"moderators" validate:"gte=1"`
-	Tags       Tags       `json:"tags" validate:"gte=1"`
+	Events     Events     `json:"events" validate:"required,dive,required"`
+	Moderators Moderators `json:"moderators" validate:"required,dive,required"`
+	Tags       Tags       `json:"tags" validate:"required,dive,required"`
 }
 
 func (body CreateServerBody) ToModelServer() model.Server {
@@ -112,8 +112,13 @@ type RemoveServerModeratorsBody struct {
 	ModeratorIDs []uuid.UUID `json:"moderatorIds" validate:"required"`
 }
 
-func ServerFromModel(server model.Server) Server {
-	return Server{
+func ServerFromModel(server model.Server) (*Server, error) {
+	eventsAt, err := EventsAtFromModel(server.Events)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Server{
 		Name:         server.Name,
 		InstanceKind: server.InstanceKind,
 		ElasticIP:    server.ElasticIP,
@@ -125,8 +130,8 @@ func ServerFromModel(server model.Server) Server {
 		Description:  server.Description,
 		Background:   server.Background,
 		Tags:         TagsFromModel(server.Tags),
-		Events:       EventsFromModel(server.Events),
-	}
+		Events:       eventsAt,
+	}, nil
 }
 
 type Server struct {
@@ -141,7 +146,7 @@ type Server struct {
 	Description  string               `json:"description"`
 	Background   model.BackgroundKind `json:"background"`
 	Tags         Tags                 `json:"tags"`
-	Events       Events               `json:"events"`
+	Events       EventsAt             `json:"events"`
 }
 
 const (
@@ -163,12 +168,17 @@ func DormantServerFromModel(dormant model.DormantServer) (*DormantServer, error)
 		return nil, err
 	}
 
+	server, err := ServerFromModel(dormant.Server)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DormantServer{
 		Header: Header{
 			ID:   dormant.Server.ID,
 			Kind: dormantKind,
 		},
-		Server:    ServerFromModel(dormant.Server),
+		Server:    *server,
 		StartsAt:  *at,
 		CreatedAt: dormant.CreatedAt,
 	}, err
@@ -183,17 +193,22 @@ type LiveServer struct {
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
-func LiveServerFromModel(live model.LiveServer) *LiveServer {
+func LiveServerFromModel(live model.LiveServer) (*LiveServer, error) {
+	server, err := ServerFromModel(live.Server)
+	if err != nil {
+		return nil, err
+	}
+
 	return &LiveServer{
 		Header: Header{
 			ID:   live.Server.ID,
 			Kind: liveKind,
 		},
-		Server:        ServerFromModel(live.Server),
+		Server:        *server,
 		ActivePlayers: live.ActivePlayers,
 		QueuedPlayers: live.QueuedPlayers,
 		CreatedAt:     live.CreatedAt,
-	}
+	}, nil
 }
 
 type ArchivedServer struct {
@@ -201,14 +216,19 @@ type ArchivedServer struct {
 	Server
 }
 
-func ArchivedServerFromModel(archived model.ArchivedServer) *ArchivedServer {
+func ArchivedServerFromModel(archived model.ArchivedServer) (*ArchivedServer, error) {
+	server, err := ServerFromModel(archived.Server)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ArchivedServer{
 		Header: Header{
 			ID:   archived.Server.ID,
 			Kind: "archived",
 		},
-		Server: ServerFromModel(archived.Server),
-	}
+		Server: *server,
+	}, nil
 }
 
 type Header struct {
@@ -292,8 +312,40 @@ func (events Events) ToModelEvents() model.Events {
 type Event struct {
 	ID       uuid.UUID       `json:"id"`
 	Schedule string          `json:"schedule" validate:"required,cron"`
-	Weekday  *time.Weekday   `json:"weekday,omitempty" validate:"min=0,max=6"`
+	Weekday  *time.Weekday   `json:"weekday,omitempty" validate:"omitempty,min=0,max=6"`
 	Kind     model.EventKind `json:"kind" validate:"required"`
+}
+
+func EventsAtFromModel(modelEvents model.Events) (EventsAt, error) {
+	now := time.Now().UTC()
+	until := now.Add(7 * 24 * time.Hour) // 1 week
+	events := make(EventsAt, 0, len(modelEvents))
+	for _, event := range modelEvents {
+		occurrences, err := event.Occurrences(now, until)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, occurrence := range occurrences {
+			events = append(
+				events,
+				EventAt{
+					ID:   event.ID,
+					At:   occurrence,
+					Kind: event.Kind,
+				},
+			)
+		}
+	}
+	return events, nil
+}
+
+type EventsAt []EventAt
+
+type EventAt struct {
+	ID   uuid.UUID       `json:"id"`
+	At   time.Time       `json:"at"`
+	Kind model.EventKind `json:"kind"`
 }
 
 func ModeratorsFromModel(modelModerators model.Moderators) Moderators {
