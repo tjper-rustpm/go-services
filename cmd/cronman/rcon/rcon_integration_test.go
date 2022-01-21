@@ -1,3 +1,5 @@
+// +build rconintegration
+
 package rcon
 
 import (
