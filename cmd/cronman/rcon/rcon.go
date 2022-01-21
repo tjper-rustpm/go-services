@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"math/rand"
 	"net/http"
 	"sync"
-
-	// "math"
-	// "math/rand"
-
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -170,11 +168,10 @@ func (c Client) Quit(ctx context.Context) error {
 			return nil
 		case <-c.ctx.Done():
 			return ctx.Err()
-		case in, ok := <-inboundc:
+		case _, ok := <-inboundc:
 			if !ok {
 				return nil
 			}
-			c.logger.Info("quit", zap.String("message", in.Message))
 		}
 	}
 }
@@ -315,7 +312,7 @@ func (c Client) RevokePermission(
 // initialize the Outbound type with default values and a unique Message field.
 func NewOutbound(msg string) *Outbound {
 	return &Outbound{
-		Identifier: 20,
+		Identifier: rand.Intn(math.MaxInt32),
 		Message:    msg,
 		Name:       "WebRcon",
 	}
@@ -367,15 +364,17 @@ func (c Client) writePump(ctx context.Context) error {
 				if err := c.write(websocket.CloseMessage, []byte{}); err != nil {
 					return err
 				}
-				c.logger.Info("closed websocket connection")
+				c.logger.Debug("closed websocket connection")
 				close(c.closed)
 				return nil
 			}
-			c.logger.Info("writing bytes to websocket server", zap.String("message", out.Message))
+
+			c.logger.Debug("writing bytes to websocket server", zap.String("message", out.Message))
 			b, err := json.Marshal(out)
 			if err != nil {
 				return err
 			}
+
 			if err := c.write(websocket.TextMessage, b); err != nil {
 				return err
 			}
@@ -425,7 +424,8 @@ func (c Client) readPump(ctx context.Context) error {
 		if err := json.Unmarshal(b, &inbound); err != nil {
 			c.logger.Error("unable to unmarshal inbound websocket message", zap.Error(err))
 		}
-		c.logger.Info("reading bytes from websocket server", zap.String("message", inbound.Message))
+		c.logger.Debug("reading bytes from websocket server", zap.String("message", inbound.Message))
+
 		err = c.router.Injest(ctx, inbound)
 		if err != nil && !errors.Is(err, ErrRoutingIdentifier) {
 			c.logger.Error("error injesting inbound message", zap.Error(err))

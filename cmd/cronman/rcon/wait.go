@@ -65,20 +65,23 @@ func (w Waiter) UntilReady(
 
 	logger.Info("waiting for RCON to be ready", zap.String("url", url), zap.Duration("retry", wait))
 	for {
-		time.Sleep(wait)
 		err := readyCheck()
 		if errors.Is(err, errDialing) {
 			logger.Info("dialing...")
-			continue
+			goto wait
 		}
 		if errors.Is(err, errReadyCheck) {
 			logger.Info("ready check...")
-			continue
+			goto wait
 		}
 		if err != nil {
 			return fmt.Errorf("unable to wait for rcon to be ready; %w", err)
 		}
 		break
+
+	wait:
+		time.Sleep(wait)
+		continue
 	}
 	return nil
 }
