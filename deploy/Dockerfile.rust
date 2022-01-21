@@ -1,0 +1,29 @@
+# syntax = docker/dockerfile:1-experimental
+
+FROM didstopia/rust-server
+
+ENV RUST_SERVER_STARTUP_ARGUMENTS="-batchmode -load -nographics +server.secure 1"
+ENV RUST_SERVER_IDENTITY="docker"
+ENV RUST_SERVER_PORT="28015"
+ENV RUST_SERVER_SEED="12345"
+ENV RUST_SERVER_WORLDSIZE="1000"
+ENV RUST_SERVER_NAME="Rust Server [DOCKER]"
+ENV RUST_SERVER_MAXPLAYERS="100"
+ENV RUST_SERVER_DESCRIPTION="This is a Rust server running inside a Docker container!"
+ENV RUST_SERVER_URL="https://hub.docker.com/r/didstopia/rust-server/"
+ENV RUST_SERVER_BANNER_URL=""
+ENV RUST_SERVER_SAVE_INTERVAL="600"
+ENV RUST_RCON_WEB="1"
+ENV RUST_RCON_PORT="28016"
+ENV RUST_RCON_PASSWORD="docker"
+ENV RUST_APP_PORT="28082"
+ENV RUST_BRANCH=""
+ENV RUST_UPDATE_CHECKING="1"
+ENV RUST_UPDATE_BRANCH="public"
+ENV RUST_START_MODE="0"
+ENV RUST_OXIDE_ENABLED="1"
+ENV RUST_OXIDE_UPDATE_ON_BOOT="1"
+
+RUN curl https://umod.org/plugins/BypassQueue.cs --output /steamcmd/rust/oxide/plugins/BypassQueue.cs --create-dirs
+
+EXPOSE 28016
