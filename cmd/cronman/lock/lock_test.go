@@ -1,5 +1,3 @@
-// +build localonly
-
 package lock
 
 import (
