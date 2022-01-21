@@ -18,39 +18,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// WatchAndDirect instructs the Controller to collect upcoming server events and
-// pass them to the EventsProcessor.
-func (ctrl Controller) WatchAndDirect(ctx context.Context) error {
-	// acquire distributed lock, only one instance runs the controller
-	if err := ctrl.distributedLock.Lock(ctx); err != nil {
-		return fmt.Errorf("failed acquire controller lock; %w", err)
-	}
-	defer ctrl.distributedLock.Unlock(ctx)
-
-	ctrl.logger.Info("subscribed to refresh subject")
-	sub := ctrl.redis.Subscribe(ctx, refreshSubj)
-	defer func() {
-		if err := sub.Close(); err != nil {
-			ctrl.logger.Error("failed to close refresh subscription")
-		}
-	}()
-
-	for {
-		ctrl.logger.Info("retrieving server events")
-		_, err := ctrl.store.ListActiveServerEvents(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to list events; %w", err)
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-sub.Channel():
-			continue
-		}
-	}
-}
-
 // CreateServer instruct the Controller to create the server based on the input
 // specified. On success, the server has been created and is in a dormant
 // state.
@@ -129,6 +96,7 @@ func (ctrl Controller) ArchiveServer(
 func (ctrl Controller) StartServer(
 	ctx context.Context,
 	id uuid.UUID,
+	options ...userdata.Option,
 ) (*model.DormantServer, error) {
 	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
 
@@ -137,10 +105,12 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
-	userdata := dormant.Server.Userdata(
+	userdataOptions := append(
+		options,
 		userdata.WithQueueBypassPlugin(),
 		userdata.WithUserCfg(dormant.Server.Moderators.SteamIDs()),
 	)
+	userdata := dormant.Server.Userdata(userdataOptions...)
 
 	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
 		ctx,

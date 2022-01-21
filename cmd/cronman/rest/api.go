@@ -7,6 +7,7 @@ import (
 
 	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/model"
+	"github.com/tjper/rustcron/cmd/cronman/userdata"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/validator"
@@ -22,7 +23,7 @@ type IController interface {
 	CreateServer(context.Context, model.Server) (*model.DormantServer, error)
 	UpdateServer(context.Context, controller.UpdateServerInput) (*model.DormantServer, error)
 	ArchiveServer(context.Context, uuid.UUID) (*model.ArchivedServer, error)
-	StartServer(context.Context, uuid.UUID) (*model.DormantServer, error)
+	StartServer(context.Context, uuid.UUID, ...userdata.Option) (*model.DormantServer, error)
 	MakeServerLive(context.Context, uuid.UUID) (*model.LiveServer, error)
 	StopServer(context.Context, uuid.UUID) (*model.DormantServer, error)
 

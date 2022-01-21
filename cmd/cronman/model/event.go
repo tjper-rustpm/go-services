@@ -94,7 +94,13 @@ func (e Event) Occurrences(after, until time.Time) ([]time.Time, error) {
 		occurrences = append(occurrences, next)
 		after = next
 	}
+}
 
+func (e Event) IsWeekDay(t time.Time) bool {
+	if e.Weekday == nil {
+		return false
+	}
+	return t.Weekday() == *e.Weekday
 }
 
 func (e Event) Clone() Event {
@@ -111,6 +117,7 @@ type EventKind string
 const (
 	EventKindStart    EventKind = "start"
 	EventKindStop     EventKind = "stop"
+	EventKindLive     EventKind = "live"
 	EventKindFullWipe EventKind = "fullWipe"
 	EventKindMapWipe  EventKind = "mapWipe"
 )

@@ -13,6 +13,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/config"
 	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/db"
+	"github.com/tjper/rustcron/cmd/cronman/director"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/redis"
 	"github.com/tjper/rustcron/cmd/cronman/rest"
@@ -111,7 +112,6 @@ func run() int {
 	logger.Info("[Startup] Creating controller ...")
 	ctrl := controller.New(
 		logger,
-		redis.New(rdb),
 		db.NewStore(logger, dbconn),
 		controller.NewServerDirector(
 			server.NewManager(logger, usEastEC2),
@@ -120,7 +120,7 @@ func run() int {
 		),
 		controller.NewHub(logger),
 		rcon.NewWaiter(logger),
-		controller.NewNotifier(logger, rdb),
+		director.NewNotifier(logger, rdb),
 	)
 	logger.Info("[Startup] Created controller.")
 
@@ -131,13 +131,19 @@ func run() int {
 	defer cancel()
 
 	if config.DirectorEnabled() {
+		dir := director.New(
+			logger,
+			redis.New(rdb),
+			db.NewStore(logger, dbconn),
+			ctrl,
+		)
 		logger.Info("[Startup] Creating director ...")
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
 			logger.Info("[Startup] Created director.")
-			err := ctrl.WatchAndDirect(ctx)
+			err := dir.WatchAndDirect(ctx)
 			if errors.Is(err, context.Canceled) {
 				logger.Info("[Startup] Another process cancelled Controller.WatchAndDirect.")
 				return
