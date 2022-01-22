@@ -1,4 +1,4 @@
-// +build mailgun
+// +build mailgunintegration
 
 package email
 
