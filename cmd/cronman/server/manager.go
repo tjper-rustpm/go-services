@@ -244,3 +244,29 @@ func (m Manager) MakeInstanceUnavailable(
 	}
 	return nil
 }
+
+// TerminateInstance permanently deletes the instance and it's allocated
+// address.
+func (m Manager) TerminateInstance(
+	ctx context.Context,
+	instanceId string,
+	allocationId string,
+) error {
+	{ // terminate instance
+		input := &ec2.TerminateInstancesInput{
+			InstanceIds: []string{instanceId},
+		}
+		if _, err := m.ec2.TerminateInstances(ctx, input); err != nil {
+			return fmt.Errorf("terminate instances; id: %s, error: %w", instanceId, err)
+		}
+	}
+	{ // release address allocation
+		input := &ec2.ReleaseAddressInput{
+			AllocationId: aws.String(allocationId),
+		}
+		if _, err := m.ec2.ReleaseAddress(ctx, input); err != nil {
+			return fmt.Errorf("release address; id: %s, error: %w", allocationId, err)
+		}
+	}
+	return nil
+}
