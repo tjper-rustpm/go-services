@@ -48,3 +48,7 @@ test-rcon: ## Integration test rcon package against Rust server running in Docke
 .PHONY: test-server-manager
 test-server-manager: ## Integration test server package against AWS.
 	@go test -v -count=1 -tags=awsintegration ./cmd/cronman/server
+
+.PHONY: test-mailgun
+test-mailgun: ## Integration test email pakcage against mailgun.
+	@go test -v -count=1 -tags=mailgunintegration ./internal/email
