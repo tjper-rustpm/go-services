@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -30,7 +31,7 @@ var (
 )
 
 // WaitUntilReady waits until the specified URL is accepting connections. The
-// wait arguement specifies the period of time to wait between retries. This
+// wait argument specifies the period of time to wait between retries. This
 // process may be cancelled by cancelling context.Context. On success, a
 // nil-error is returned.
 func (w Waiter) UntilReady(
@@ -44,7 +45,8 @@ func (w Waiter) UntilReady(
 		// check if service may be dialed
 
 		client, err := Dial(ctx, w.logger, url)
-		if netErr, ok := err.(*net.OpError); ok && netErr.Op == "dial" {
+		netErr := new(net.OpError)
+		if ok := errors.As(err, &netErr); ok && netErr.Op == "dial" {
 			return errDialing
 		}
 		if err != nil {
@@ -66,20 +68,21 @@ func (w Waiter) UntilReady(
 	logger.Info("waiting for RCON to be ready", zap.String("url", url), zap.Duration("retry", wait))
 	for {
 		err := readyCheck()
+		if errors.Is(err, io.ErrUnexpectedEOF) {
+			goto retry
+		}
 		if errors.Is(err, errDialing) {
-			logger.Info("dialing...")
-			goto wait
+			goto retry
 		}
 		if errors.Is(err, errReadyCheck) {
-			logger.Info("ready check...")
-			goto wait
+			goto retry
 		}
 		if err != nil {
 			return fmt.Errorf("unable to wait for rcon to be ready; %w", err)
 		}
 		break
 
-	wait:
+	retry:
 		time.Sleep(wait)
 		continue
 	}

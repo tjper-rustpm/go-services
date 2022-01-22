@@ -38,3 +38,9 @@ down: ## Shutdown rustcrons/crons in docker-compose.
 .PHONY: lint
 lint: ## Lint repo using golangci-lint. See .golangci.yml for configuration.
 	@golangci-lint run
+
+.PHONY: test-rcon
+test-rcon: ## Integration test rcon package against Rust server running in Docker.
+	@docker build -t rustpm/rust -f deploy/Dockerfile.rust .
+	@docker run -dit -p 28016:28016 --rm rustpm/rust
+	@go test -v -count=1 -tags=rconintegration ./cmd/cronman/rcon

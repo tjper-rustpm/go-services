@@ -26,10 +26,6 @@ func TestIntegration(t *testing.T) {
 	suite := setup(ctx, t)
 	defer suite.cleanup()
 
-	t.Run("wait until ready", func(t *testing.T) {
-		err := suite.waiter.UntilReady(ctx, *url, 10*time.Second)
-		assert.Nil(t, err)
-	})
 	t.Run("server info", func(t *testing.T) {
 		_, err := suite.client.ServerInfo(ctx)
 		assert.Nil(t, err)
@@ -73,21 +69,19 @@ func TestIntegration(t *testing.T) {
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
-	t.Helper()
-
 	waiter := NewWaiter(zap.NewNop())
+	err := waiter.UntilReady(ctx, *url, 10*time.Second)
+	assert.Nil(t, err)
 
-	client, err := Dial(ctx, zap.NewExample(), *url)
+	client, err := Dial(ctx, zap.NewNop(), *url)
 	require.Nil(t, err)
 
 	return &suite{
-		waiter: waiter,
 		client: client,
 	}
 }
 
 type suite struct {
-	waiter *Waiter
 	client *Client
 }
 
