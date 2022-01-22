@@ -44,3 +44,7 @@ test-rcon: ## Integration test rcon package against Rust server running in Docke
 	@docker build -t rustpm/rust -f deploy/Dockerfile.rust .
 	@docker run -dit -p 28016:28016 --rm rustpm/rust
 	@go test -v -count=1 -tags=rconintegration ./cmd/cronman/rcon
+
+.PHONY: test-server-manager
+test-server-manager: ## Integration test server package against AWS.
+	@go test -v -count=1 -tags=awsintegration ./cmd/cronman/server
