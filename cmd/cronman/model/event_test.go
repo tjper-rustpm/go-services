@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEventsNextEventAfter(t *testing.T) {
+func TestEventsNextEvent(t *testing.T) {
 	type expected struct {
 		event Event
+		when  time.Time
 	}
 	tests := map[string]struct {
 		dt     time.Time
@@ -17,91 +18,126 @@ func TestEventsNextEventAfter(t *testing.T) {
 		events Events
 		exp    expected
 	}{
-		"single": {
+		"daily start stop": {
 			dt:   time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			kind: EventKindStart,
 			events: Events{
-				event(1, 22, EventKindStart),
+				{Schedule: "0 22 * * *", Kind: EventKindStart},
+				{Schedule: "0 4 * * *", Kind: EventKindStop},
 			},
 			exp: expected{
-				event: event(1, 22, EventKindStart),
+				event: Event{Schedule: "0 22 * * *", Kind: EventKindStart},
+				when:  time.Date(2020, time.September, 16, 22, 0, 0, 0, time.UTC),
 			},
 		},
-		"twelve-ordered": {
+		"daily start live stop": {
+			dt:   time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
+			kind: EventKindLive,
+			events: Events{
+				{Schedule: "30 20 * * *", Kind: EventKindStart},
+				{Schedule: "0 21 * * *", Kind: EventKindLive},
+				{Schedule: "0 6 * * *", Kind: EventKindStop},
+			},
+			exp: expected{
+				event: Event{Schedule: "0 21 * * *", Kind: EventKindLive},
+				when:  time.Date(2020, time.September, 16, 21, 0, 0, 0, time.UTC),
+			},
+		},
+		"daily skip stop": {
 			dt:   time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			kind: EventKindStart,
 			events: Events{
-				event(0, 22, EventKindStart),
-				event(1, 4, EventKindStop),
-				event(1, 22, EventKindStart),
-				event(2, 4, EventKindStop),
-				event(2, 22, EventKindStart),
-				event(3, 4, EventKindStop),
-				event(3, 22, EventKindStart),
-				event(4, 4, EventKindStop),
-				event(4, 22, EventKindStart),
-				event(5, 4, EventKindStop),
-				event(5, 22, EventKindStart),
-				event(6, 4, EventKindStop),
+				{Schedule: "0 14 * * *", Kind: EventKindStart},
+				{Schedule: "0 4 * * *", Kind: EventKindStop},
 			},
 			exp: expected{
-				event: event(3, 22, EventKindStart),
+				event: Event{Schedule: "0 14 * * *", Kind: EventKindStart},
+				when:  time.Date(2020, time.September, 17, 14, 0, 0, 0, time.UTC),
 			},
 		},
-		"twelve-unordered": {
+		"daily start stop, weekly mapwipe": {
 			dt:   time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
-			kind: EventKindStart,
+			kind: EventKindMapWipe,
 			events: Events{
-				event(1, 22, EventKindStart),
-				event(2, 22, EventKindStart),
-				event(3, 4, EventKindStop),
-				event(2, 4, EventKindStop),
-				event(3, 22, EventKindStart),
-				event(4, 4, EventKindStop),
-				event(5, 22, EventKindStart),
-				event(1, 4, EventKindStop),
-				event(4, 22, EventKindStart),
-				event(5, 4, EventKindStop),
-				event(0, 22, EventKindStart),
-				event(6, 4, EventKindStop),
+				{Schedule: "0 20 * * *", Kind: EventKindStart},
+				{Schedule: "0 6 * * *", Kind: EventKindStop},
+				{Schedule: "0 18 * * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
 			},
 			exp: expected{
-				event: event(3, 22, EventKindStart),
+				event: Event{Schedule: "0 18 * * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+				when:  time.Date(2020, time.September, 17, 18, 0, 0, 0, time.UTC),
 			},
 		},
-		"1/8/2022": {
-			dt:   time.Date(2022, time.January, 8, 22, 0, 0, 0, time.UTC),
-			kind: EventKindStart,
+		"daily start stop, bi-weekly mapwipe": {
+			dt:   time.Date(2020, time.September, 4, 19, 0, 0, 0, time.UTC),
+			kind: EventKindMapWipe,
 			events: Events{
-				event(0, 20, EventKindStart),
-				event(1, 6, EventKindStop),
-				event(1, 20, EventKindStart),
-				event(2, 6, EventKindStop),
-				event(2, 20, EventKindStart),
-				event(3, 6, EventKindStop),
-				event(3, 20, EventKindStart),
-				event(4, 6, EventKindStop),
-				event(4, 20, EventKindStart),
-				event(5, 6, EventKindStop),
-				event(5, 20, EventKindStart),
-				event(6, 6, EventKindStop),
-				event(6, 20, EventKindStart),
-				event(0, 6, EventKindStop),
+				{Schedule: "0 20 * * *", Kind: EventKindStart},
+				{Schedule: "0 6 * * *", Kind: EventKindStop},
+				{Schedule: "0 18 15-21 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
 			},
 			exp: expected{
-				event: event(0, 20, EventKindStart),
+				event: Event{Schedule: "0 18 15-21 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+				when:  time.Date(2020, time.September, 17, 18, 0, 0, 0, time.UTC),
+			},
+		},
+		"daily start stop, bi-weekly 2nd mapwipe": {
+			dt:   time.Date(2020, time.October, 1, 18, 0, 0, 0, time.UTC),
+			kind: EventKindMapWipe,
+			events: Events{
+				{Schedule: "0 20 * * *", Kind: EventKindStart},
+				{Schedule: "0 6 * * *", Kind: EventKindStop},
+				{Schedule: "0 18 28-31 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+			},
+			exp: expected{
+				event: Event{Schedule: "0 18 28-31 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+				when:  time.Date(2020, time.October, 29, 18, 0, 0, 0, time.UTC),
+			},
+		},
+		"daily start stop, weekly mapwipe, bi-weekly fullwipe, october": {
+			dt:   time.Date(2020, time.October, 1, 18, 0, 0, 0, time.UTC),
+			kind: EventKindFullWipe,
+			events: Events{
+				{Schedule: "0 20 * * *", Kind: EventKindStart},
+				{Schedule: "0 6 * * *", Kind: EventKindStop},
+				{Schedule: "0 18 8-14 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+				{Schedule: "0 18 22-28 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+				{Schedule: "0 18 1-7 * *", Weekday: weekday(time.Thursday), Kind: EventKindFullWipe},
+				{Schedule: "0 18 15-21 * *", Weekday: weekday(time.Thursday), Kind: EventKindFullWipe},
+			},
+			exp: expected{
+				event: Event{Schedule: "0 18 15-21 * *", Weekday: weekday(time.Thursday), Kind: EventKindFullWipe},
+				when:  time.Date(2020, time.October, 15, 18, 0, 0, 0, time.UTC),
+			},
+		},
+		"daily start stop, weekly mapwipe, bi-weekly fullwipe, november": {
+			dt:   time.Date(2020, time.October, 15, 18, 0, 0, 0, time.UTC),
+			kind: EventKindFullWipe,
+			events: Events{
+				{Schedule: "0 20 * * *", Kind: EventKindStart},
+				{Schedule: "0 6 * * *", Kind: EventKindStop},
+				{Schedule: "0 18 8-14 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+				{Schedule: "0 18 22-28 * *", Weekday: weekday(time.Thursday), Kind: EventKindMapWipe},
+				{Schedule: "0 18 1-7 * *", Weekday: weekday(time.Thursday), Kind: EventKindFullWipe},
+				{Schedule: "0 18 15-21 * *", Weekday: weekday(time.Thursday), Kind: EventKindFullWipe},
+			},
+			exp: expected{
+				event: Event{Schedule: "0 18 1-7 * *", Weekday: weekday(time.Thursday), Kind: EventKindFullWipe},
+				when:  time.Date(2020, time.November, 5, 18, 0, 0, 0, time.UTC),
 			},
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			event := test.events.NextEventAfter(test.dt, test.kind)
-			assert.Equal(t, test.exp.event, event)
+			event, when, err := test.events.NextEvent(test.dt, test.kind)
+			assert.Nil(t, err)
+			assert.Equal(t, test.exp.event, *event)
+			assert.Equal(t, test.exp.when, *when)
 		})
 	}
 }
 
-func TestEventNextTimeAfter(t *testing.T) {
+func TestEventNext(t *testing.T) {
 	type expected struct {
 		next time.Time
 	}
@@ -110,80 +146,53 @@ func TestEventNextTimeAfter(t *testing.T) {
 		after time.Time
 		exp   expected
 	}{
-		"+day,+hour": {
-			event: event(4, 22, EventKindStart),
-			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
-			exp: expected{
-				next: time.Date(2020, time.September, 17, 22, 0, 0, 0, time.UTC),
-			},
-		},
-		"++day,+hour": {
-			event: event(6, 22, EventKindStart),
-			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
-			exp: expected{
-				next: time.Date(2020, time.September, 19, 22, 0, 0, 0, time.UTC),
-			},
-		},
-		"++day,-hour": {
-			event: event(6, 16, EventKindStart),
-			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
-			exp: expected{
-				next: time.Date(2020, time.September, 19, 16, 0, 0, 0, time.UTC),
-			},
-		},
-		"day,+hour": {
-			event: event(3, 22, EventKindStart),
+		"daily": {
+			event: Event{Schedule: "0 22 * * *", Kind: EventKindStart},
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
 				next: time.Date(2020, time.September, 16, 22, 0, 0, 0, time.UTC),
 			},
 		},
-		"-day,+hour": {
-			event: event(2, 22, EventKindStart),
+		"weekly": {
+			event: Event{Schedule: "0 4 * * *", Weekday: weekday(time.Friday), Kind: EventKindStart},
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
-				next: time.Date(2020, time.September, 22, 22, 0, 0, 0, time.UTC),
+				next: time.Date(2020, time.September, 18, 4, 0, 0, 0, time.UTC),
 			},
 		},
-		"--day,+hour": {
-			event: event(0, 22, EventKindStart),
+		"1st week": {
+			event: Event{Schedule: "0 4 1-7 * *", Weekday: weekday(time.Friday), Kind: EventKindStart},
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
-				next: time.Date(2020, time.September, 20, 22, 0, 0, 0, time.UTC),
+				next: time.Date(2020, time.October, 2, 4, 0, 0, 0, time.UTC),
 			},
 		},
-		"--day,-hour": {
-			event: event(0, 16, EventKindStart),
+		"2nd week": {
+			event: Event{Schedule: "0 4 8-14 * *", Weekday: weekday(time.Friday), Kind: EventKindStart},
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
-				next: time.Date(2020, time.September, 20, 16, 0, 0, 0, time.UTC),
+				next: time.Date(2020, time.October, 9, 4, 0, 0, 0, time.UTC),
 			},
 		},
-		"day,hour": {
-			event: event(3, 19, EventKindStart),
+		"3rd week": {
+			event: Event{Schedule: "0 4 15-21 * *", Weekday: weekday(time.Friday), Kind: EventKindStart},
 			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
-				next: time.Date(2020, time.September, 23, 19, 0, 0, 0, time.UTC),
+				next: time.Date(2020, time.September, 18, 4, 0, 0, 0, time.UTC),
 			},
 		},
-		"+day,-hour,+minute": {
-			event: event(4, 16, EventKindStart),
-			after: time.Date(2020, time.September, 16, 19, 30, 0, 0, time.UTC),
+		"4th week": {
+			event: Event{Schedule: "0 4 22-28 * *", Weekday: weekday(time.Friday), Kind: EventKindStart},
+			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
 			exp: expected{
-				next: time.Date(2020, time.September, 17, 16, 0, 0, 0, time.UTC),
-			},
-		},
-		"1/8/2022 22:00:00": {
-			event: event(0, 20, EventKindStart),
-			after: time.Date(2022, time.January, 8, 22, 0, 0, 0, time.UTC),
-			exp: expected{
-				next: time.Date(2022, time.January, 9, 20, 0, 0, 0, time.UTC),
+				next: time.Date(2020, time.September, 25, 4, 0, 0, 0, time.UTC),
 			},
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			next := test.event.NextTimeAfter(test.after)
+			next, err := test.event.Next(test.after)
+			assert.Nil(t, err)
 			assert.True(
 				t,
 				test.exp.next.Equal(next),
@@ -195,12 +204,57 @@ func TestEventNextTimeAfter(t *testing.T) {
 	}
 }
 
-// --- helpers ---
+func TestEventOccurrences(t *testing.T) {
+	type expected struct {
+		occurrences []time.Time
+	}
+	tests := map[string]struct {
+		event Event
+		after time.Time
+		until time.Time
+		exp   expected
+	}{
+		"daily": {
+			event: Event{Schedule: "30 21 * * *", Kind: EventKindStart},
+			after: time.Date(2020, time.September, 16, 19, 0, 0, 0, time.UTC),
+			until: time.Date(2020, time.September, 23, 19, 0, 0, 0, time.UTC),
+			exp: expected{
+				occurrences: []time.Time{
+					time.Date(2020, time.September, 16, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 17, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 18, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 19, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 20, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 21, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 22, 21, 30, 0, 0, time.UTC),
+				},
+			},
+		},
+		"weekly": {
+			event: Event{Schedule: "30 21 * * *", Weekday: weekday(time.Thursday), Kind: EventKindStart},
+			after: time.Date(2020, time.September, 1, 0, 0, 0, 0, time.UTC),
+			until: time.Date(2020, time.September, 31, 23, 0, 0, 0, time.UTC),
+			exp: expected{
+				occurrences: []time.Time{
+					time.Date(2020, time.September, 3, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 10, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 17, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 24, 21, 30, 0, 0, time.UTC),
+					time.Date(2020, time.September, 31, 21, 30, 0, 0, time.UTC),
+				},
+			},
+		},
+	}
 
-func event(day time.Weekday, hour uint8, kind EventKind) Event {
-	return Event{
-		Weekday: day,
-		Hour:    hour,
-		Kind:    kind,
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			occurrences, err := test.event.Occurrences(test.after, test.until)
+			assert.Nil(t, err)
+			assert.Equal(t, test.exp.occurrences, occurrences)
+		})
 	}
 }
+
+// --- helpers ---
+
+func weekday(v time.Weekday) *time.Weekday { return &v }
