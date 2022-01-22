@@ -55,22 +55,31 @@ func (m Manager) RetrieveSession(
 		return nil, err
 	}
 
-	res, err := m.redis.Get(ctx, keygen(invalidateUserSessionsPrefix, sessionID)).Result()
-	if err == nil {
-		var invalidAt time.Time
-		if err := decode([]byte(res), &invalidAt); err != nil {
-			return nil, err
-		}
-
-		if sess.CreatedAt.Before(invalidAt) {
-			return nil, m.DeleteSession(ctx, sess)
-		}
+	res, err := m.redis.Get(
+		ctx,
+		keygen(invalidateUserSessionsPrefix, sess.User.ID.String()),
+	).Result()
+	if errors.Is(err, redis.Nil) {
+		return &sess, nil
 	}
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil {
 		return nil, err
 	}
 
-	return &sess, nil
+	var invalidAt time.Time
+	if err := decode([]byte(res), &invalidAt); err != nil {
+		return nil, err
+	}
+
+	if sess.CreatedAt.After(invalidAt) {
+		return &sess, nil
+	}
+
+	if err := m.DeleteSession(ctx, sess); err != nil {
+		return nil, err
+	}
+
+	return &sess, ErrSessionDNE
 }
 
 // TouchSession updates the LastActivityAt field of the session identified by
@@ -158,10 +167,14 @@ func (m Manager) InvalidateUserSessionsBefore(
 	userID fmt.Stringer,
 	dt time.Time,
 ) error {
+	b, err := encode(time.Now())
+	if err != nil {
+		return err
+	}
 	if _, err := m.redis.Set(
 		ctx,
 		keygen(invalidateUserSessionsPrefix, userID.String()),
-		time.Now(),
+		b,
 		0,
 	).Result(); err != nil {
 		return err

@@ -33,13 +33,14 @@ func (s Session) IsAuthorized(userID uuid.UUID) bool {
 	return s.User.ID == userID
 }
 
-// Equal checks if the passed Session is equal to the reciever Session.
+// Equal checks if the passed Session is equal to the receiver Session.
 func (s Session) Equal(s2 Session) bool {
-	if s.ID != s2.ID {
-		return false
-	}
-	if !s.LastActivityAt.Equal(s2.LastActivityAt) {
-		return false
-	}
-	return true
+	equal := true
+	equal = equal && (s.ID == s2.ID)
+	equal = equal && (s.User == s2.User)
+	equal = equal && s.AbsoluteExpiration.Equal(s2.AbsoluteExpiration)
+	equal = equal && s.LastActivityAt.Equal(s2.LastActivityAt)
+	equal = equal && s.CreatedAt.Equal(s2.CreatedAt)
+
+	return equal
 }

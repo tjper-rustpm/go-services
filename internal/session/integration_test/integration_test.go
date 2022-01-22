@@ -4,111 +4,130 @@ package session
 
 import (
 	"context"
+	"flag"
 	"testing"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/cronman/config"
 	"github.com/tjper/rustcron/internal/session"
+	"go.uber.org/zap"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+var (
+	redisAddr = flag.String(
+		"redis-addr",
+		"redis:6379",
+		"address of redis instance to be used for integration testing",
+	)
+	redisPassword = flag.String(
+		"redis-password",
+		"",
+		"password to access redis instance to be used for integration testing",
+	)
 )
 
 func TestIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	s := &suite{}
-	s.setup(ctx, t)
+	suite := setup(ctx, t)
 
-	t.Run("save session that does not exist", func(t *testing.T) {
-		s.save(ctx, t, session.Session{ID: "session-id"}, session.ErrSessionDNE)
+	t.Run("touch session that dne", func(t *testing.T) {
+		err := suite.manager.TouchSession(ctx, suite.session, time.Hour)
+		assert.ErrorIs(t, err, session.ErrSessionDNE, err.Error())
 	})
-	t.Run("delete session that does not exist", func(t *testing.T) {
-		s.delete(ctx, t, "session-id", nil)
+
+	t.Run("delete session that dne", func(t *testing.T) {
+		err := suite.manager.DeleteSession(ctx, suite.session)
+		assert.Nil(t, err)
 	})
-	t.Run("retrieve session that does not exist", func(t *testing.T) {
-		s.retrieve(ctx, t, "session-id", nil, session.ErrSessionDNE)
+
+	t.Run("retrieve session that dne", func(t *testing.T) {
+		_, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		assert.ErrorIs(t, err, session.ErrSessionDNE)
 	})
+
 	t.Run("create session", func(t *testing.T) {
-		s.create(ctx, t, session.Session{ID: "session-id"}, nil)
+		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
+		assert.Nil(t, err)
 	})
+
 	t.Run("create session that already exists", func(t *testing.T) {
-		s.create(ctx, t, session.Session{ID: "session-id"}, session.ErrSessionIDNotUnique)
+		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
+		assert.ErrorIs(t, err, session.ErrSessionIDNotUnique)
 	})
+
 	t.Run("retrieve session", func(t *testing.T) {
-		s.retrieve(ctx, t, "session-id", &session.Session{ID: "session-id"}, nil)
+		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		assert.Nil(t, err)
+		assert.True(t, suite.session.Equal(*sess))
 	})
-	t.Run("save session", func(t *testing.T) {
-		s.save(ctx, t, session.Session{ID: "session-id"}, nil)
+
+	t.Run("touch session", func(t *testing.T) {
+		err := suite.manager.TouchSession(ctx, suite.session, time.Hour)
+		assert.Nil(t, err)
 	})
+
 	t.Run("delete session", func(t *testing.T) {
-		s.delete(ctx, t, "session-id", nil)
+		err := suite.manager.DeleteSession(ctx, suite.session)
+		assert.Nil(t, err)
 	})
+
+	t.Run("create session", func(t *testing.T) {
+		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
+		assert.Nil(t, err)
+	})
+
+	t.Run("invalidate user's sessions", func(t *testing.T) {
+		err := suite.manager.InvalidateUserSessionsBefore(
+			ctx,
+			suite.session.User.ID,
+			time.Now(),
+		)
+		assert.Nil(t, err)
+	})
+
+	t.Run("retrieve invalidated session", func(t *testing.T) {
+		_, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		assert.ErrorIs(t, err, session.ErrSessionDNE)
+	})
+
 }
 
 // --- suite ---
 
 type suite struct {
 	manager *session.Manager
+
+	session session.Session
 }
 
-func (s *suite) setup(ctx context.Context, t *testing.T) {
-	cfg := config.Load()
+func setup(ctx context.Context, t *testing.T) *suite {
 	redis := redis.NewClient(
 		&redis.Options{
-			Addr:     cfg.RedisAddr(),
-			Password: cfg.RedisPassword(),
+			Addr:     *redisAddr,
+			Password: *redisPassword,
 		},
 	)
 	err := redis.Ping(ctx).Err()
 	require.Nil(t, err)
 
-	s.manager = session.NewManager(redis)
-}
-
-func (s *suite) create(
-	ctx context.Context,
-	t *testing.T,
-	sess session.Session,
-	expErr error,
-) {
-	err := s.manager.Create(ctx, sess)
-	assert.Equal(t, expErr, err)
-}
-
-func (s *suite) retrieve(
-	ctx context.Context,
-	t *testing.T,
-	sessionID string,
-	expSession *session.Session,
-	expErr error,
-) {
-	sess, err := s.manager.Retrieve(ctx, sessionID)
-	assert.Equal(t, expErr, err)
-	if err != nil {
-		return
+	return &suite{
+		manager: session.NewManager(zap.NewNop(), redis),
+		session: session.Session{
+			ID: "session-id",
+			User: session.User{
+				ID:    uuid.New(),
+				Email: "fake@email.com",
+				Role:  session.RoleStandard,
+			},
+			AbsoluteExpiration: time.Now().UTC().Add(time.Hour),
+			LastActivityAt:     time.Now().UTC(),
+			CreatedAt:          time.Now().UTC(),
+		},
 	}
-	assert.True(t, expSession.Equal(*sess), "sessions are not equal")
-}
-
-func (s *suite) save(
-	ctx context.Context,
-	t *testing.T,
-	sess session.Session,
-	expErr error,
-) {
-	err := s.manager.Save(ctx, sess)
-	assert.Equal(t, expErr, err)
-}
-
-func (s *suite) delete(
-	ctx context.Context,
-	t *testing.T,
-	sessionID string,
-	expErr error,
-) {
-	err := s.manager.Delete(ctx, sessionID)
-	assert.Equal(t, expErr, err)
 }
