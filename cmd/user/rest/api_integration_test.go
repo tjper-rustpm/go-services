@@ -1,3 +1,5 @@
+// +build userintegration
+
 package rest
 
 import (
