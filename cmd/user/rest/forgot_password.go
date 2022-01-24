@@ -12,7 +12,7 @@ type ForgotPassword struct{ API }
 
 func (ep ForgotPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		Email string `json:"email", validate:"required,email"`
+		Email string `json:"email" validate:"required,email"`
 	}
 
 	var b body

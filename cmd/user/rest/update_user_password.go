@@ -22,6 +22,8 @@ func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ep.logger.Sugar().Infof("update user password; body: %v\n", b)
+
 	if err := ep.valid.Struct(b); err != nil {
 		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
