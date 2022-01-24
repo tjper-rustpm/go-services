@@ -20,6 +20,7 @@ func TestValidator(t *testing.T) {
 		"password at least one upper-case": {value: "1ab!cdef", tag: "password", err: true},
 		"password at least one number":     {value: "aBc!defg", tag: "password", err: true},
 		"valid password":                   {value: "1ValidPassword!", tag: "password", err: false},
+		"invalid password":                 {value: "invalid-password", tag: "password", err: true},
 		"daily cron w/ minute":             {value: "30 21 * * *", tag: "cron", err: false},
 		"daily cron w/o minute":            {value: "0 21 * * *", tag: "cron", err: false},
 		"1st week cron":                    {value: "0 21 1-7 * *", tag: "cron", err: false},

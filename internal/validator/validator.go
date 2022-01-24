@@ -72,7 +72,7 @@ func RegisterCronValidation(validator *validator.Validate) error {
 	return validator.RegisterValidation("cron", cron)
 }
 
-var cronRE = regexp.MustCompile(`^([\*]|[0-9]|[1-5][0-9])\s([\*]|[0-9]|[1][0-9]|[2][0-4])\s([\*]|([1-9]|[12][0-9]|[3][01])|(([1-9]|[12][0-9]|[3][01])-([1-9]|[12][0-9]|[3][01])))\s[\*\?]\s[\*\?]$`)
+var cronRE = regexp.MustCompile(`^([\*]|[0-9]|[1-5][0-9])\s([\*]|[0-9]|[1][0-9]|[2][0-3])\s([\*]|([1-9]|[12][0-9]|[3][01])|(([1-9]|[12][0-9]|[3][01])-([1-9]|[12][0-9]|[3][01])))\s[\*\?]\s[\*\?]$`)
 
 // cron matches against strings that specify a cron schedule. Examples are:
 // - 0 22 8-14 * ?
