@@ -30,7 +30,7 @@ import (
 var (
 	dsn = flag.String(
 		"dsn",
-		"host=localhost user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC",
+		"host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC",
 		"DSN to be used to connect to user DB.",
 	)
 	migrations = flag.String(
@@ -40,7 +40,7 @@ var (
 	)
 	redisAddr = flag.String(
 		"redis-addr",
-		"localhost:6379",
+		"redis:6379",
 		"Redis address to be used to establish Redis client.",
 	)
 	redisPassword = flag.String(

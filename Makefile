@@ -52,3 +52,7 @@ test-server-manager: ## Integration test server package against AWS.
 .PHONY: test-mailgun
 test-mailgun: ## Integration test email pakcage against mailgun.
 	@go test -v -count=1 -tags=mailgunintegration ./internal/email
+
+.PHONY: test-user
+test-user:
+	@docker-compose -f cmd/user/rest/docker-compose.yml up -V --exit-code-from test
