@@ -3,6 +3,8 @@ package model
 import (
 	"sort"
 
+	"github.com/tjper/rustcron/internal/model"
+
 	"github.com/google/uuid"
 )
 
@@ -36,7 +38,7 @@ func (ws Wipes) Scrub() {
 }
 
 type Wipe struct {
-	Model
+	model.Model
 
 	MapSeed  uint16
 	MapSalt  uint16

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"github.com/tjper/rustcron/internal/model"
+
 	"github.com/google/uuid"
 )
 
@@ -29,7 +31,7 @@ func (dts Moderators) SteamIDs() []string {
 }
 
 type Moderator struct {
-	Model
+	model.Model
 	SteamID  string
 	ServerID uuid.UUID
 }

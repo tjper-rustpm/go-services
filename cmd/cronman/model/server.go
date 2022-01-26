@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/tjper/rustcron/cmd/cronman/userdata"
+	"github.com/tjper/rustcron/internal/model"
 
 	"github.com/google/uuid"
 )
@@ -12,7 +13,7 @@ const (
 )
 
 type Server struct {
-	Model
+	model.Model
 
 	StateID   uuid.UUID
 	StateType string
@@ -87,7 +88,7 @@ func (s LiveServers) Scrub() {
 }
 
 type LiveServer struct {
-	Model
+	model.Model
 
 	Server Server `json:"server" gorm:"polymorphic:State"`
 
@@ -121,7 +122,7 @@ func (s DormantServers) Scrub() {
 }
 
 type DormantServer struct {
-	Model
+	model.Model
 
 	Server Server `json:"server" gorm:"polymorphic:State"`
 }
@@ -150,7 +151,7 @@ func (s ArchivedServers) Scrub() {
 }
 
 type ArchivedServer struct {
-	Model
+	model.Model
 
 	Server Server `json:"server" gorm:"polymorphic:State"`
 }

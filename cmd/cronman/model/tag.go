@@ -1,6 +1,8 @@
 package model
 
 import (
+	"github.com/tjper/rustcron/internal/model"
+
 	"github.com/google/uuid"
 )
 
@@ -21,7 +23,7 @@ func (ts Tags) Scrub() {
 }
 
 type Tag struct {
-	Model
+	model.Model
 	Description string
 	Icon        IconKind
 	Value       string

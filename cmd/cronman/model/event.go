@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tjper/rustcron/internal/model"
+
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 )
@@ -55,7 +57,7 @@ func (es Events) Scrub() {
 }
 
 type Event struct {
-	Model
+	model.Model
 	Schedule string
 	Weekday  *time.Weekday
 	Kind     EventKind

@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/tjper/rustcron/internal/model"
 	"github.com/tjper/rustcron/internal/session"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type User struct {
-	Model
+	model.Model
 	Email    string       `json:"email" gorm:"uniqueIndex"`
 	Password []byte       `json:"-"`
 	Salt     string       `json:"-"`
@@ -55,7 +55,7 @@ func (u User) ToSessionUser() session.User {
 }
 
 type PasswordReset struct {
-	Model
+	model.Model
 	ResetHash   string `gorm:"uniqueIndex"`
 	RequestedAt time.Time
 	CompletedAt sql.NullTime
@@ -69,18 +69,4 @@ func (r PasswordReset) IsRequestStale() bool {
 
 func (r PasswordReset) IsCompleted() bool {
 	return r.CompletedAt.Valid
-}
-
-type Model struct {
-	ID        uuid.UUID      `json:"id" gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index"`
-}
-
-func (m *Model) Scrub() {
-	m.ID = uuid.Nil
-	m.CreatedAt = time.Time{}
-	m.UpdatedAt = time.Time{}
-	m.DeletedAt = gorm.DeletedAt{}
 }
