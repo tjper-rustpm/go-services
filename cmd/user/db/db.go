@@ -20,7 +20,7 @@ func Open(dsn string) (*gorm.DB, error) {
 		postgres.Open(dsn),
 		&gorm.Config{
 			NamingStrategy: schema.NamingStrategy{
-				TablePrefix: "normal.",
+				TablePrefix: "user.",
 			},
 			Logger: logger.New(
 				log.New(os.Stdout, "\r\n", log.LstdFlags),
