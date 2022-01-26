@@ -43,15 +43,18 @@ func NewAPI(
 	)
 
 	api.Mux.Route("/v1", func(router chi.Router) {
-		api.Mux.Use(sessionMiddleware.IsAuthenticated())
-
-		router.Method(http.MethodPost, "/payment/checkout", Checkout{API: api})
-		router.Method(http.MethodPost, "/payment/billing", Billing{API: api})
 		router.Method(
 			http.MethodPost,
 			"/payment/stripe",
 			Stripe{API: api, stripeWebhookSecret: stripeWebhookSecret},
 		)
+
+		router.Group(func(router chi.Router) {
+			api.Mux.Use(sessionMiddleware.IsAuthenticated())
+
+			router.Method(http.MethodPost, "/payment/checkout", Checkout{API: api})
+			router.Method(http.MethodPost, "/payment/billing", Billing{API: api})
+		})
 	})
 
 	return &api
