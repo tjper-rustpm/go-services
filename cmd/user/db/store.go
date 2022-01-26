@@ -7,6 +7,7 @@ import (
 
 	rpmerrors "github.com/tjper/rustcron/cmd/user/errors"
 	"github.com/tjper/rustcron/cmd/user/model"
+	imodel "github.com/tjper/rustcron/internal/model"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -41,7 +42,7 @@ func (s Store) UpdateUserPassword(
 	password []byte,
 ) (*model.User, error) {
 	if res := s.db.WithContext(ctx).Model(
-		&model.User{Model: model.Model{ID: id}},
+		&model.User{Model: imodel.Model{ID: id}},
 	).Update("password", password); res.Error != nil {
 		return nil, res.Error
 	}
@@ -113,7 +114,7 @@ func (s Store) VerifyEmail(
 	hash string,
 ) (*model.User, error) {
 	if res := s.db.WithContext(ctx).Model(
-		&model.User{Model: model.Model{ID: id}},
+		&model.User{Model: imodel.Model{ID: id}},
 	).Update("verified_at", time.Now()); res.Error != nil {
 		return nil, res.Error
 	}
@@ -126,7 +127,7 @@ func (s Store) ResetEmailVerification(
 	hash string,
 ) (*model.User, error) {
 	if res := s.db.WithContext(ctx).Model(
-		&model.User{Model: model.Model{ID: id}},
+		&model.User{Model: imodel.Model{ID: id}},
 	).Updates(
 		map[string]interface{}{
 			"verification_hash":    hash,
@@ -180,21 +181,18 @@ func (s Store) CompleteUserPasswordReset(
 	passwordResetID uuid.UUID,
 	password []byte,
 ) error {
-	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if res := tx.
-			Model(&model.User{Model: model.Model{ID: userID}}).
+			Model(&model.User{Model: imodel.Model{ID: userID}}).
 			Update("password", password); res.Error != nil {
 			return res.Error
 		}
 
 		if res := tx.
-			Model(&model.PasswordReset{Model: model.Model{ID: passwordResetID}}).
+			Model(&model.PasswordReset{Model: imodel.Model{ID: passwordResetID}}).
 			Update("completed_at", time.Now()); res.Error != nil {
 			return res.Error
 		}
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
