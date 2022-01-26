@@ -120,3 +120,19 @@ func (sm SessionMiddleware) HasRole(role session.Role) func(http.Handler) http.H
 			})
 	}
 }
+
+// IsAuthenticated ensures the request's session exists.
+func (sm SessionMiddleware) IsAuthenticated() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				_, ok := session.FromContext(r.Context())
+				if !ok {
+					ErrUnauthorized(w)
+					return
+				}
+
+				next.ServeHTTP(w, r)
+			})
+	}
+}

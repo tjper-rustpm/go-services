@@ -70,6 +70,8 @@ func NewAPI(
 		})
 
 		router.Group(func(router chi.Router) {
+			router.Use(sessionMiddleware.IsAuthenticated())
+
 			router.Method(http.MethodPost, "/user/logout", LogoutUser{API: api})
 			router.Method(http.MethodPost, "/user/logout-all", LogoutAllUser{API: api})
 			router.Method(http.MethodPost, "/user/update-password", UpdateUserPassword{API: api})

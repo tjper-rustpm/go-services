@@ -7,8 +7,6 @@ import (
 	"github.com/tjper/rustcron/cmd/user/controller"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
 	ihttp "github.com/tjper/rustcron/internal/http"
-
-	"go.uber.org/zap"
 )
 
 type CreateUser struct{ API }
@@ -38,7 +36,6 @@ func (ep CreateUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		ep.logger.Error("creating user", zap.Error(err))
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
