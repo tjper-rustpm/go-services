@@ -12,6 +12,7 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/rest"
+	"github.com/tjper/rustcron/cmd/payment/staging"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 
@@ -89,6 +90,8 @@ func run() int {
 		logger,
 		stripe.CheckoutSessions,
 		stripe.BillingPortalSessions,
+		db.NewStore(dbconn),
+		staging.NewClient(rdb),
 	)
 	logger.Info("[Startup] Created controller.")
 
@@ -101,6 +104,7 @@ func run() int {
 			sessionManager,
 			48*time.Hour, // 2 days
 		),
+		cfg.StripeWebhookSecret(),
 	)
 	logger.Info("[Startup] Created REST API.")
 
