@@ -1,0 +1,23 @@
+version: "3.8"
+services:
+  redis:
+    image: "redis"
+    restart: "always"
+    ports:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - stagingIntegrationTest
+  test:
+    build:
+      context: "../../.."
+      dockerfile: "cmd/payment/staging/Dockerfile"
+    restart: "no"
+    networks:
+      - stagingIntegrationTest
+networks:
+  stagingIntegrationTest:

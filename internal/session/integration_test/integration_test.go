@@ -1,4 +1,4 @@
-// +build integration
+// +build sessionintegration
 
 package session
 

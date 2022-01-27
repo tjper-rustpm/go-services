@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func NewClient(redis *redis.Client) *Client {
@@ -48,16 +48,11 @@ func (c Client) StageCheckout(
 	return id.String(), nil
 }
 
-type Checkout struct {
-	ServerID string
-	UserID   string
-}
-
 func (c Client) FetchCheckout(
 	ctx context.Context,
 	id string,
 ) (*Checkout, error) {
-	res, err := c.redis.Get(ctx, id).Result()
+	res, err := c.redis.Get(ctx, keygen(id)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("fetch checkout; id: %s, error: %w", id, err)
 	}
@@ -68,6 +63,11 @@ func (c Client) FetchCheckout(
 	}
 
 	return &checkout, nil
+}
+
+type Checkout struct {
+	ServerID uuid.UUID
+	UserID   uuid.UUID
 }
 
 // --- helpers ---
