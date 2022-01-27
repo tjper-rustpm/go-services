@@ -11,16 +11,16 @@ type Subscription struct {
 	ServerID uuid.UUID
 	UserID   uuid.UUID
 
+	StripeCheckoutID     string
 	StripeCustomerID     string
 	StripeSubscriptionID string
-	StripePriceID        string
 
 	Invoices []Invoice
 }
 
 type Invoice struct {
 	model.Model
-	SubscriptionID uuid.UUID
+	StripeSubscriptionID string
 
 	Status InvoiceStatus
 }

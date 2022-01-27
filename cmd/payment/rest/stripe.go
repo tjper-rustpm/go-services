@@ -40,9 +40,8 @@ func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "checkout.session.completed":
 		handler = ep.ctrl.CheckoutSessionComplete
 	case "invoice.paid":
-		handler = ep.ctrl.InvoicePaid
 	case "invoice.payment_failed":
-		handler = ep.ctrl.InvoicePaymentFailed
+		handler = ep.ctrl.ProcessInvoice
 	default:
 		ep.logger.Error("unknown webhook event", zap.String("type", event.Type))
 		return

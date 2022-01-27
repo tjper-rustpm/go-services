@@ -19,8 +19,7 @@ type IController interface {
 	CheckoutSession(context.Context, controller.CheckoutSessionInput) (string, error)
 	BillingPortalSession(context.Context, controller.BillingPortalSessionInput) (string, error)
 	CheckoutSessionComplete(context.Context, stripe.Event) error
-	InvoicePaid(context.Context, stripe.Event) error
-	InvoicePaymentFailed(context.Context, stripe.Event) error
+	ProcessInvoice(context.Context, stripe.Event) error
 }
 
 func NewAPI(
