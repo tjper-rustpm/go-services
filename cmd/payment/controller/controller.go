@@ -12,33 +12,33 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v72"
-	billing "github.com/stripe/stripe-go/v72/billingportal/session"
-	checkout "github.com/stripe/stripe-go/v72/checkout/session"
 	"go.uber.org/zap"
 )
 
+type IStripe interface {
+	CheckoutSession(*stripe.CheckoutSessionParams) (string, error)
+	BillingPortalSession(*stripe.BillingPortalSessionParams) (string, error)
+}
+
 func New(
 	logger *zap.Logger,
-	checkout *checkout.Client,
-	billing *billing.Client,
 	store *db.Store,
 	staging *staging.Client,
+	stripe IStripe,
 ) *Controller {
 	return &Controller{
-		logger:   logger,
-		checkout: checkout,
-		billing:  billing,
-		store:    store,
-		staging:  staging,
+		logger:  logger,
+		store:   store,
+		staging: staging,
+		stripe:  stripe,
 	}
 }
 
 type Controller struct {
-	logger   *zap.Logger
-	checkout *checkout.Client
-	billing  *billing.Client
-	store    *db.Store
-	staging  *staging.Client
+	logger  *zap.Logger
+	staging *staging.Client
+	store   *db.Store
+	stripe  IStripe
 }
 
 type CheckoutSessionInput struct {
@@ -78,12 +78,7 @@ func (ctrl Controller) CheckoutSession(
 		ExpiresAt:         stripe.Int64(expiresAt.Unix()),
 	}
 
-	sess, err := ctrl.checkout.New(params)
-	if err != nil {
-		return "", fmt.Errorf("new checkout session; price-id: %s, error: %w", input.PriceID, err)
-	}
-
-	return sess.URL, nil
+	return ctrl.stripe.CheckoutSession(params)
 }
 
 type BillingPortalSessionInput struct {
@@ -99,16 +94,8 @@ func (ctrl Controller) BillingPortalSession(
 		Customer:  stripe.String(input.CustomerID),
 		ReturnURL: stripe.String(input.ReturnURL),
 	}
-	sess, err := ctrl.billing.New(params)
-	if err != nil {
-		return "", fmt.Errorf(
-			"new billing portal session; customer-id: %s, error: %w",
-			input.CustomerID,
-			err,
-		)
-	}
 
-	return sess.URL, nil
+	return ctrl.stripe.BillingPortalSession(params)
 }
 
 func (ctrl Controller) CheckoutSessionComplete(

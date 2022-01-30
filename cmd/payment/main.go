@@ -15,6 +15,7 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
+	"github.com/tjper/rustcron/internal/stripe"
 
 	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/stripe/stripe-go/v72/client"
@@ -78,20 +79,26 @@ func run() int {
 	}
 	logger.Info("[Startup] Connected to Redis.")
 
-	stripe := &client.API{}
-	stripe.Init(cfg.StripeKey(), nil)
+	stripeClient := &client.API{}
+	stripeClient.Init(cfg.StripeKey(), nil)
 
 	logger.Info("[Startup] Creating session manager ...")
 	sessionManager := session.NewManager(logger, rdb)
 	logger.Info("[Startup] Created session manager.")
 
+	logger.Info("[Startup] Creating stripe clients ...")
+	stripeWrapper := stripe.New(
+		stripeClient.BillingPortalSessions,
+		stripeClient.CheckoutSessions,
+	)
+	logger.Info("[Startup] Created stripe clients.")
+
 	logger.Info("[Startup] Creating controller ...")
 	ctrl := controller.New(
 		logger,
-		stripe.CheckoutSessions,
-		stripe.BillingPortalSessions,
 		db.NewStore(dbconn),
 		staging.NewClient(rdb),
+		stripeWrapper,
 	)
 	logger.Info("[Startup] Created controller.")
 
