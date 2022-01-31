@@ -59,6 +59,10 @@ test-rcon: ## Integration test rcon package against Rust server running in Docke
 test-user: ## Integration test user API.
 	@docker-compose -f cmd/user/rest/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
 
+.PHONY: test-payment
+test-payment: ## Integration test payment API.
+	@docker-compose -f cmd/payment/rest/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
+
 .PHONY: test-session
 test-session: ## Integration test session package.
 	@docker-compose -f internal/session/integration_test/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test

@@ -1,0 +1,41 @@
+version: "3.8"
+services:
+  db:
+    image: "postgres:13.0"
+    restart: "always"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: "password"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout:  30s
+      retries: 5
+      start_period: 5s
+    networks:
+      - paymentAPIIntegrationTest
+  redis:
+    image: "redis"
+    restart: "always"
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - paymentAPIIntegrationTest
+  test:
+    build:
+      context: "../../.."
+      dockerfile: "cmd/payment/rest/Dockerfile"
+    restart: "no"
+    depends_on:
+      - redis
+      - db
+    networks:
+      - paymentAPIIntegrationTest
+networks:
+  paymentAPIIntegrationTest:

@@ -6,6 +6,20 @@ import (
 	"github.com/google/uuid"
 )
 
+func New(
+	id string,
+	user User,
+	absoluteDuration time.Duration,
+) *Session {
+	return &Session{
+		ID:                 id,
+		User:               user,
+		AbsoluteExpiration: time.Now().Add(absoluteDuration),
+		LastActivityAt:     time.Now(),
+		CreatedAt:          time.Now(),
+	}
+}
+
 // Session represents a client Session.
 type Session struct {
 	// ID is the unique identifier of the Session. This identifier needs to be

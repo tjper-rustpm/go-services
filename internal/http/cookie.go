@@ -10,23 +10,24 @@ type CookieOptions struct {
 
 const sessionKey = "_rpm-session"
 
+func Cookie(id string, options CookieOptions) *http.Cookie {
+	return &http.Cookie{
+		Name:     sessionKey,
+		Value:    id,
+		Domain:   options.Domain,
+		Path:     "/",
+		Secure:   options.Secure,
+		HttpOnly: true,
+		SameSite: options.SameSite,
+	}
+}
+
 func SetSessionCookie(
 	w http.ResponseWriter,
 	id string,
 	options CookieOptions,
 ) {
-	http.SetCookie(
-		w,
-		&http.Cookie{
-			Name:     sessionKey,
-			Value:    id,
-			Domain:   options.Domain,
-			Path:     "/",
-			Secure:   options.Secure,
-			HttpOnly: true,
-			SameSite: options.SameSite,
-		},
-	)
+	http.SetCookie(w, Cookie(id, options))
 }
 
 func SessionFromRequest(req *http.Request) string {

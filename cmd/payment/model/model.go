@@ -13,9 +13,9 @@ type Subscription struct {
 
 	StripeCheckoutID     string
 	StripeCustomerID     string
-	StripeSubscriptionID string
+	StripeSubscriptionID string `gorm:"uniqueIndex"`
 
-	Invoices []Invoice
+	Invoices []Invoice `gorm:"foreignKey:StripeSubscriptionID;references:StripeSubscriptionID"`
 }
 
 type Invoice struct {

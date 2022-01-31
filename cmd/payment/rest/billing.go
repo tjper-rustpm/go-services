@@ -12,7 +12,7 @@ type Billing struct{ API }
 
 func (ep Billing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		ReturnURL string `json:"returnUrl" validate:"required"`
+		ReturnURL string `json:"returnUrl" validate:"required,url"`
 	}
 
 	var b body

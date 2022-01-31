@@ -14,7 +14,7 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		CancelURL  string `json:"cancelUrl" validate:"required,url"`
 		SuccessURL string `json:"successUrl" validate:"required,url"`
-		PriceID    string `json:"priceId" validate:"required"`
+		PriceID    string `json:"priceId" validate:"required,oneof=prod_L1MFlCUj2bk2j0"`
 	}
 
 	var b body

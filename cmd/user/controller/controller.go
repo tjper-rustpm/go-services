@@ -199,17 +199,13 @@ func (ctrl Controller) LoginUser(
 	if err != nil {
 		return nil, err
 	}
-	if err := ctrl.sessionManager.CreateSession(
-		ctx,
-		session.Session{
-			ID:                 sessionID,
-			User:               user.ToSessionUser(),
-			LastActivityAt:     time.Now(),
-			AbsoluteExpiration: time.Now().Add(ctrl.absoluteSessionExpiration),
-			CreatedAt:          time.Now(),
-		},
-		ctrl.activeSessionExpiration,
-	); err != nil {
+	sess := session.New(
+		sessionID,
+		user.ToSessionUser(),
+		ctrl.absoluteSessionExpiration,
+	)
+
+	if err := ctrl.sessionManager.CreateSession(ctx, *sess, ctrl.activeSessionExpiration); err != nil {
 		return nil, err
 	}
 
