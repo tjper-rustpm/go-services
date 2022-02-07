@@ -51,5 +51,6 @@ func Migrate(db *gorm.DB, migrations string) error {
 	return db.AutoMigrate(
 		model.Subscription{},
 		model.Invoice{},
+		model.Event{},
 	)
 }

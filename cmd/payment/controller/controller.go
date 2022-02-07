@@ -3,17 +3,20 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
+
+var ErrEventAlreadyProcessed = errors.New("event already processed")
 
 type IStripe interface {
 	CheckoutSession(*stripe.CheckoutSessionParams) (string, error)
@@ -22,13 +25,13 @@ type IStripe interface {
 
 func New(
 	logger *zap.Logger,
-	store *db.Store,
+	gorm *gorm.DB,
 	staging *staging.Client,
 	stripe IStripe,
 ) *Controller {
 	return &Controller{
 		logger:  logger,
-		store:   store,
+		gorm:    gorm,
 		staging: staging,
 		stripe:  stripe,
 	}
@@ -37,7 +40,7 @@ func New(
 type Controller struct {
 	logger  *zap.Logger
 	staging *staging.Client
-	store   *db.Store
+	gorm    *gorm.DB
 	stripe  IStripe
 }
 
@@ -100,10 +103,10 @@ func (ctrl Controller) BillingPortalSession(
 
 func (ctrl Controller) CheckoutSessionComplete(
 	ctx context.Context,
-	event stripe.Event,
+	stripeEvent stripe.Event,
 ) error {
 	var checkout stripe.CheckoutSession
-	if err := json.Unmarshal(event.Data.Raw, &checkout); err != nil {
+	if err := json.Unmarshal(stripeEvent.Data.Raw, &checkout); err != nil {
 		return fmt.Errorf("unmarshal checkout; error: %w", err)
 	}
 
@@ -116,28 +119,76 @@ func (ctrl Controller) CheckoutSessionComplete(
 		)
 	}
 
-	subscription := &model.Subscription{
-		ServerID:             stagedCheckout.ServerID,
-		UserID:               stagedCheckout.UserID,
-		StripeCheckoutID:     checkout.ID,
-		StripeCustomerID:     checkout.Customer.ID,
-		StripeSubscriptionID: checkout.Subscription.ID,
+	if err := ctrl.gorm.Transaction(func(tx *gorm.DB) error {
+		tx = tx.WithContext(ctx)
+
+		event := model.Event{
+			StripeEventID: stripeEvent.ID,
+		}
+		exists, err := event.Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return ErrEventAlreadyProcessed
+		}
+
+		subscription := &model.Subscription{
+			ServerID:             stagedCheckout.ServerID,
+			UserID:               stagedCheckout.UserID,
+			StripeCheckoutID:     checkout.ID,
+			StripeCustomerID:     checkout.Customer.ID,
+			StripeSubscriptionID: checkout.Subscription.ID,
+			Event:                event,
+		}
+		return tx.Create(subscription).Error
+	}); err != nil {
+		return fmt.Errorf(
+			"create subscription; eventID: %s, error: %w",
+			stripeEvent.ID,
+			err,
+		)
 	}
-	return ctrl.store.Create(ctx, subscription)
+
+	return nil
 }
 
 func (ctrl Controller) ProcessInvoice(
 	ctx context.Context,
-	event stripe.Event,
+	stripeEvent stripe.Event,
 ) error {
 	var invoiceEvent stripe.Invoice
-	if err := json.Unmarshal(event.Data.Raw, &invoiceEvent); err != nil {
+	if err := json.Unmarshal(stripeEvent.Data.Raw, &invoiceEvent); err != nil {
 		return fmt.Errorf("unmarshal invoice; error: %w", err)
 	}
 
-	invoice := &model.Invoice{
-		StripeSubscriptionID: invoiceEvent.Subscription.ID,
-		Status:               model.InvoiceStatus(string(invoiceEvent.Status)),
+	if err := ctrl.gorm.Transaction(func(tx *gorm.DB) error {
+		tx = tx.WithContext(ctx)
+
+		event := model.Event{
+			StripeEventID: stripeEvent.ID,
+		}
+		exists, err := event.Exists(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return ErrEventAlreadyProcessed
+		}
+
+		invoice := &model.Invoice{
+			StripeSubscriptionID: invoiceEvent.Subscription.ID,
+			Status:               model.InvoiceStatus(string(invoiceEvent.Status)),
+			Event:                event,
+		}
+		return tx.Create(invoice).Error
+	}); err != nil {
+		return fmt.Errorf(
+			"create invoice; eventID: %s, error: %w",
+			stripeEvent.ID,
+			err,
+		)
 	}
-	return ctrl.store.Create(ctx, invoice)
+
+	return nil
 }

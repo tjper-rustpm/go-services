@@ -2,20 +2,25 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"net/http"
 
+	"github.com/tjper/rustcron/cmd/payment/controller"
 	ihttp "github.com/tjper/rustcron/internal/http"
 
 	"github.com/stripe/stripe-go/v72"
-	"github.com/stripe/stripe-go/v72/webhook"
 	"go.uber.org/zap"
 )
+
+type EventConstructor interface {
+	ConstructEvent([]byte, string) (stripe.Event, error)
+}
 
 type Stripe struct {
 	API
 
-	stripeWebhookSecret string
+	constructor EventConstructor
 }
 
 func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -25,10 +30,9 @@ func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := webhook.ConstructEvent(
+	event, err := ep.constructor.ConstructEvent(
 		b,
 		r.Header.Get("Stripe-Signature"),
-		ep.stripeWebhookSecret,
 	)
 	if err != nil {
 		ihttp.ErrBadRequest(ep.logger, w, err)
@@ -40,6 +44,7 @@ func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "checkout.session.completed":
 		handler = ep.ctrl.CheckoutSessionComplete
 	case "invoice.paid":
+		fallthrough
 	case "invoice.payment_failed":
 		handler = ep.ctrl.ProcessInvoice
 	default:
@@ -47,8 +52,13 @@ func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := handler(r.Context(), event); err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
+	w.WriteHeader(http.StatusOK)
+
+	err = handler(r.Context(), event)
+	if errors.Is(err, controller.ErrEventAlreadyProcessed) {
 		return
+	}
+	if err != nil {
+		ep.logger.Error("stripe event handling", zap.Error(err))
 	}
 }

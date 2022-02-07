@@ -1,6 +1,11 @@
 package stripe
 
-import "github.com/stripe/stripe-go/v72"
+import (
+	"bytes"
+	"encoding/json"
+
+	"github.com/stripe/stripe-go/v72"
+)
 
 func NewMock() *Mock {
 	return &Mock{
@@ -33,4 +38,12 @@ func (m *Mock) PopBillingPortalSession() *stripe.BillingPortalSessionParams {
 	session := m.billingPortalSessions[0]
 	m.billingPortalSessions = m.billingPortalSessions[1:]
 	return session
+}
+
+func (m *Mock) ConstructEvent(b []byte, signature string) (stripe.Event, error) {
+	var event stripe.Event
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&event); err != nil {
+		return event, err
+	}
+	return event, nil
 }

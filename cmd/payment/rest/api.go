@@ -11,22 +11,22 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	validatorv10 "github.com/go-playground/validator/v10"
-	"github.com/stripe/stripe-go/v72"
+	stripev72 "github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 )
 
 type IController interface {
 	CheckoutSession(context.Context, controller.CheckoutSessionInput) (string, error)
 	BillingPortalSession(context.Context, controller.BillingPortalSessionInput) (string, error)
-	CheckoutSessionComplete(context.Context, stripe.Event) error
-	ProcessInvoice(context.Context, stripe.Event) error
+	CheckoutSessionComplete(context.Context, stripev72.Event) error
+	ProcessInvoice(context.Context, stripev72.Event) error
 }
 
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
 	sessionMiddleware *ihttp.SessionMiddleware,
-	stripeWebhookSecret string,
+	eventConstructor EventConstructor,
 ) *API {
 	api := API{
 		Mux:    chi.NewRouter(),
@@ -45,7 +45,7 @@ func NewAPI(
 		router.Method(
 			http.MethodPost,
 			"/payment/stripe",
-			Stripe{API: api, stripeWebhookSecret: stripeWebhookSecret},
+			Stripe{API: api, constructor: eventConstructor},
 		)
 
 		router.Group(func(router chi.Router) {

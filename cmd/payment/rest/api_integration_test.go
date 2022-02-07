@@ -97,10 +97,198 @@ func TestCreateBillingPortalSession(t *testing.T) {
 	})
 }
 
+func TestCheckoutSessionComplete(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	var clientReferenceID string
+	t.Run("create subscription checkout session", func(t *testing.T) {
+		body := map[string]interface{}{
+			"cancelUrl":  "http://rustpm.com/payment/cancel",
+			"successUrl": "http://rustpm.com/payment/success",
+			"priceId":    "prod_L1MFlCUj2bk2j0",
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/checkout", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+		checkout := suite.stripe.PopCheckoutSession()
+		clientReferenceID = *checkout.ClientReferenceID
+	})
+
+	eventID := uuid.New().String()
+	t.Run("complete checkout session", func(t *testing.T) {
+		body := map[string]interface{}{
+			"id":   eventID,
+			"type": "checkout.session.completed",
+			"data": map[string]interface{}{
+				"object": map[string]interface{}{
+					"id":                  uuid.New().String(),
+					"client_reference_id": clientReferenceID,
+					"customer": map[string]interface{}{
+						"id": uuid.New().String(),
+					},
+					"subscription": map[string]interface{}{
+						"id": uuid.New().String(),
+					},
+				},
+			},
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("duplicate complete checkout session", func(t *testing.T) {
+		body := map[string]interface{}{
+			"id":   eventID,
+			"type": "checkout.session.completed",
+			"data": map[string]interface{}{
+				"object": map[string]interface{}{
+					"id":                  uuid.New().String(),
+					"client_reference_id": clientReferenceID,
+					"customer": map[string]interface{}{
+						"id": uuid.New().String(),
+					},
+					"subscription": map[string]interface{}{
+						"id": uuid.New().String(),
+					},
+				},
+			},
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("complete checkout session w/ invalid client reference ID", func(t *testing.T) {
+		body := map[string]interface{}{
+			"id":   uuid.New().String(),
+			"type": "checkout.session.completed",
+			"data": map[string]interface{}{
+				"object": map[string]interface{}{
+					"id":                  uuid.New().String(),
+					"client_reference_id": uuid.New().String(),
+					"customer": map[string]interface{}{
+						"id": uuid.New().String(),
+					},
+					"subscription": map[string]interface{}{
+						"id": uuid.New().String(),
+					},
+				},
+			},
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+}
+
+func TestInvoice(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	var clientReferenceID string
+	t.Run("create subscription checkout session", func(t *testing.T) {
+		body := map[string]interface{}{
+			"cancelUrl":  "http://rustpm.com/payment/cancel",
+			"successUrl": "http://rustpm.com/payment/success",
+			"priceId":    "prod_L1MFlCUj2bk2j0",
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/checkout", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+		checkout := suite.stripe.PopCheckoutSession()
+		clientReferenceID = *checkout.ClientReferenceID
+	})
+
+	subscriptionID := uuid.New().String()
+	t.Run("complete checkout session", func(t *testing.T) {
+		body := map[string]interface{}{
+			"id":   uuid.New().String(),
+			"type": "checkout.session.completed",
+			"data": map[string]interface{}{
+				"object": map[string]interface{}{
+					"id":                  uuid.New().String(),
+					"client_reference_id": clientReferenceID,
+					"customer": map[string]interface{}{
+						"id": uuid.New().String(),
+					},
+					"subscription": map[string]interface{}{
+						"id": subscriptionID,
+					},
+				},
+			},
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("invoice paid", func(t *testing.T) {
+		body := map[string]interface{}{
+			"id":   uuid.New().String(),
+			"type": "invoice.paid",
+			"data": map[string]interface{}{
+				"object": map[string]interface{}{
+					"id":     uuid.New().String(),
+					"status": "paid",
+					"subscription": map[string]interface{}{
+						"id": subscriptionID,
+					},
+				},
+			},
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("invoice payment failed", func(t *testing.T) {
+		body := map[string]interface{}{
+			"id":   uuid.New().String(),
+			"type": "invoice.payment_failed",
+			"data": map[string]interface{}{
+				"object": map[string]interface{}{
+					"id":     uuid.New().String(),
+					"status": "payment_failed",
+					"subscription": map[string]interface{}{
+						"id": subscriptionID,
+					},
+				},
+			},
+		}
+
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+}
+
 func setup(ctx context.Context, t *testing.T) *suite {
 	t.Helper()
 
-	logger := zap.NewNop()
+	logger := zap.NewExample()
 
 	dbconn, err := db.Open(*dsn)
 	require.Nil(t, err)
@@ -122,7 +310,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 
 	ctrl := controller.New(
 		logger,
-		db.NewStore(dbconn),
+		dbconn,
 		staging.NewClient(rdb),
 		stripe,
 	)
@@ -135,7 +323,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 			sessionManager,
 			48*time.Hour, // 2 days
 		),
-		"",
+		stripe,
 	)
 
 	return &suite{
@@ -184,6 +372,8 @@ func (s *suite) request(
 // --- helpers ---
 
 func cookie(ctx context.Context, t *testing.T, sm *session.Mock) *http.Cookie {
+	t.Helper()
+
 	id, err := rand.GenerateString(16)
 	require.Nil(t, err)
 

@@ -88,6 +88,7 @@ func run() int {
 
 	logger.Info("[Startup] Creating stripe clients ...")
 	stripeWrapper := stripe.New(
+		cfg.StripeWebhookSecret(),
 		stripeClient.BillingPortalSessions,
 		stripeClient.CheckoutSessions,
 	)
@@ -96,7 +97,7 @@ func run() int {
 	logger.Info("[Startup] Creating controller ...")
 	ctrl := controller.New(
 		logger,
-		db.NewStore(dbconn),
+		dbconn,
 		staging.NewClient(rdb),
 		stripeWrapper,
 	)
@@ -111,7 +112,7 @@ func run() int {
 			sessionManager,
 			48*time.Hour, // 2 days
 		),
-		cfg.StripeWebhookSecret(),
+		stripeWrapper,
 	)
 	logger.Info("[Startup] Created REST API.")
 
