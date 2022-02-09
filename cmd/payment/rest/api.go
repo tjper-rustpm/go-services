@@ -5,12 +5,14 @@ import (
 	"net/http"
 
 	"github.com/tjper/rustcron/cmd/payment/controller"
+	"github.com/tjper/rustcron/cmd/payment/model"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/validator"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	validatorv10 "github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	stripev72 "github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 )
@@ -18,6 +20,9 @@ import (
 type IController interface {
 	CheckoutSession(context.Context, controller.CheckoutSessionInput) (string, error)
 	BillingPortalSession(context.Context, controller.BillingPortalSessionInput) (string, error)
+
+	UserSubscriptions(context.Context, uuid.UUID) ([]model.Subscription, error)
+
 	CheckoutSessionComplete(context.Context, stripev72.Event) error
 	ProcessInvoice(context.Context, stripev72.Event) error
 }
@@ -44,15 +49,16 @@ func NewAPI(
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Method(
 			http.MethodPost,
-			"/payment/stripe",
+			"/stripe",
 			Stripe{API: api, constructor: eventConstructor},
 		)
 
 		router.Group(func(router chi.Router) {
 			api.Mux.Use(sessionMiddleware.IsAuthenticated())
 
-			router.Method(http.MethodPost, "/payment/checkout", Checkout{API: api})
-			router.Method(http.MethodPost, "/payment/billing", Billing{API: api})
+			router.Method(http.MethodPost, "/checkout", Checkout{API: api})
+			router.Method(http.MethodPost, "/billing", Billing{API: api})
+			router.Method(http.MethodGet, "/subscriptions", Subscriptions{API: api})
 		})
 	})
 

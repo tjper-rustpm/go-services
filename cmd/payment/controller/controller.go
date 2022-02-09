@@ -192,3 +192,18 @@ func (ctrl Controller) ProcessInvoice(
 
 	return nil
 }
+
+func (ctrl Controller) UserSubscriptions(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]model.Subscription, error) {
+	subscriptions := make([]model.Subscription, 0)
+	if res := ctrl.gorm.
+		Preload("Invoices").
+		Where("user_id = ?", userID).
+		Find(&subscriptions); res.Error != nil {
+		return nil, res.Error
+	}
+
+	return subscriptions, nil
+}

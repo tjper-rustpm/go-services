@@ -56,23 +56,12 @@ func TestCreateCheckoutSession(t *testing.T) {
 	suite := setup(ctx, t)
 
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		body := map[string]interface{}{
-			"cancelUrl":  "http://rustpm.com/payment/cancel",
-			"successUrl": "http://rustpm.com/payment/success",
-			"priceId":    "prod_L1MFlCUj2bk2j0",
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/checkout", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
-
-		checkout := suite.stripe.PopCheckoutSession()
-		assert.Equal(t, "http://rustpm.com/payment/cancel", *checkout.CancelURL)
-		assert.Equal(t, "http://rustpm.com/payment/success", *checkout.SuccessURL)
-		assert.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *checkout.Mode)
-		assert.Equal(t, "prod_L1MFlCUj2bk2j0", *checkout.LineItems[0].Price)
-		assert.Equal(t, int64(1), *checkout.LineItems[0].Quantity)
+		suite.postSubscriptionCheckoutSession(
+			ctx,
+			t,
+			uuid.New(),
+			uuid.New(),
+		)
 	})
 }
 
@@ -87,7 +76,7 @@ func TestCreateBillingPortalSession(t *testing.T) {
 			"returnUrl": "http://rustpm.com",
 		}
 
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/billing", body, suite.cookie)
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/billing", body, cookie(suite.session))
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
@@ -103,94 +92,46 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	var clientReferenceID string
+	var clientReferenceID uuid.UUID
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		body := map[string]interface{}{
-			"cancelUrl":  "http://rustpm.com/payment/cancel",
-			"successUrl": "http://rustpm.com/payment/success",
-			"priceId":    "prod_L1MFlCUj2bk2j0",
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/checkout", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
-
-		checkout := suite.stripe.PopCheckoutSession()
-		clientReferenceID = *checkout.ClientReferenceID
+		clientReferenceID = suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), uuid.New())
 	})
 
-	eventID := uuid.New().String()
+	eventID := uuid.New()
 	t.Run("complete checkout session", func(t *testing.T) {
-		body := map[string]interface{}{
-			"id":   eventID,
-			"type": "checkout.session.completed",
-			"data": map[string]interface{}{
-				"object": map[string]interface{}{
-					"id":                  uuid.New().String(),
-					"client_reference_id": clientReferenceID,
-					"customer": map[string]interface{}{
-						"id": uuid.New().String(),
-					},
-					"subscription": map[string]interface{}{
-						"id": uuid.New().String(),
-					},
-				},
-			},
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		suite.postCompleteCheckoutSession(
+			ctx,
+			t,
+			eventID,
+			uuid.New(),
+			clientReferenceID,
+			uuid.New(),
+			uuid.New(),
+		)
 	})
 
 	t.Run("duplicate complete checkout session", func(t *testing.T) {
-		body := map[string]interface{}{
-			"id":   eventID,
-			"type": "checkout.session.completed",
-			"data": map[string]interface{}{
-				"object": map[string]interface{}{
-					"id":                  uuid.New().String(),
-					"client_reference_id": clientReferenceID,
-					"customer": map[string]interface{}{
-						"id": uuid.New().String(),
-					},
-					"subscription": map[string]interface{}{
-						"id": uuid.New().String(),
-					},
-				},
-			},
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		suite.postCompleteCheckoutSession(
+			ctx,
+			t,
+			eventID,
+			uuid.New(),
+			clientReferenceID,
+			uuid.New(),
+			uuid.New(),
+		)
 	})
 
 	t.Run("complete checkout session w/ invalid client reference ID", func(t *testing.T) {
-		body := map[string]interface{}{
-			"id":   uuid.New().String(),
-			"type": "checkout.session.completed",
-			"data": map[string]interface{}{
-				"object": map[string]interface{}{
-					"id":                  uuid.New().String(),
-					"client_reference_id": uuid.New().String(),
-					"customer": map[string]interface{}{
-						"id": uuid.New().String(),
-					},
-					"subscription": map[string]interface{}{
-						"id": uuid.New().String(),
-					},
-				},
-			},
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		suite.postCompleteCheckoutSession(
+			ctx,
+			t,
+			uuid.New(),
+			uuid.New(),
+			uuid.New(),
+			uuid.New(),
+			uuid.New(),
+		)
 	})
 }
 
@@ -200,95 +141,168 @@ func TestInvoice(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	var clientReferenceID string
+	var (
+		clientReferenceID uuid.UUID
+		serverID          = uuid.New()
+	)
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		body := map[string]interface{}{
-			"cancelUrl":  "http://rustpm.com/payment/cancel",
-			"successUrl": "http://rustpm.com/payment/success",
-			"priceId":    "prod_L1MFlCUj2bk2j0",
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/checkout", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
-
-		checkout := suite.stripe.PopCheckoutSession()
-		clientReferenceID = *checkout.ClientReferenceID
+		clientReferenceID = suite.postSubscriptionCheckoutSession(
+			ctx,
+			t,
+			serverID,
+			suite.session.User.ID,
+		)
 	})
 
-	subscriptionID := uuid.New().String()
+	subscriptionID := uuid.New()
 	t.Run("complete checkout session", func(t *testing.T) {
-		body := map[string]interface{}{
-			"id":   uuid.New().String(),
-			"type": "checkout.session.completed",
-			"data": map[string]interface{}{
-				"object": map[string]interface{}{
-					"id":                  uuid.New().String(),
-					"client_reference_id": clientReferenceID,
-					"customer": map[string]interface{}{
-						"id": uuid.New().String(),
-					},
-					"subscription": map[string]interface{}{
-						"id": subscriptionID,
-					},
-				},
-			},
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		suite.postCompleteCheckoutSession(
+			ctx,
+			t,
+			uuid.New(),
+			uuid.New(),
+			clientReferenceID,
+			uuid.New(),
+			subscriptionID,
+		)
 	})
 
 	t.Run("invoice paid", func(t *testing.T) {
-		body := map[string]interface{}{
-			"id":   uuid.New().String(),
-			"type": "invoice.paid",
-			"data": map[string]interface{}{
-				"object": map[string]interface{}{
-					"id":     uuid.New().String(),
-					"status": "paid",
-					"subscription": map[string]interface{}{
-						"id": subscriptionID,
-					},
-				},
-			},
-		}
+		suite.postInvoice(
+			ctx,
+			t,
+			uuid.New(),
+			"invoice.paid",
+			uuid.New(),
+			"paid",
+			subscriptionID,
+		)
+	})
 
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
-		defer resp.Body.Close()
+	t.Run("get paid subscription", func(t *testing.T) {
+		subs := suite.getSubscriptions(ctx, t)
+		assert.Len(t, subs, 1)
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		sub := subs[0]
+		assert.Equal(t, sub.ServerID, serverID)
+		assert.Equal(t, sub.UserID, suite.session.User.ID)
+		assert.True(t, sub.Active)
 	})
 
 	t.Run("invoice payment failed", func(t *testing.T) {
-		body := map[string]interface{}{
-			"id":   uuid.New().String(),
-			"type": "invoice.payment_failed",
-			"data": map[string]interface{}{
-				"object": map[string]interface{}{
-					"id":     uuid.New().String(),
-					"status": "payment_failed",
-					"subscription": map[string]interface{}{
-						"id": subscriptionID,
-					},
-				},
-			},
-		}
-
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/payment/stripe", body, suite.cookie)
-		defer resp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		suite.postInvoice(
+			ctx,
+			t,
+			uuid.New(),
+			"invoice.payment_failed",
+			uuid.New(),
+			"payment_failed",
+			subscriptionID,
+		)
 	})
+
+	t.Run("get failed subscription", func(t *testing.T) {
+		subs := suite.getSubscriptions(ctx, t)
+		assert.Len(t, subs, 1)
+
+		sub := subs[0]
+		assert.Equal(t, sub.ServerID, serverID)
+		assert.Equal(t, sub.UserID, suite.session.User.ID)
+		assert.False(t, sub.Active)
+	})
+}
+
+func (s suite) postSubscriptionCheckoutSession(
+	ctx context.Context,
+	t *testing.T,
+	serverID uuid.UUID,
+	userID uuid.UUID,
+) uuid.UUID {
+	t.Helper()
+
+	body := map[string]interface{}{
+		"serverId":   serverID,
+		"userId":     userID,
+		"cancelUrl":  "http://rustpm.com/payment/cancel",
+		"successUrl": "http://rustpm.com/payment/success",
+		"priceId":    "prod_L1MFlCUj2bk2j0",
+	}
+
+	resp := s.request(ctx, t, http.MethodPost, "/v1/checkout", body, cookie(s.session))
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	checkout := s.stripe.PopCheckoutSession()
+	assert.Equal(t, "http://rustpm.com/payment/cancel", *checkout.CancelURL)
+	assert.Equal(t, "http://rustpm.com/payment/success", *checkout.SuccessURL)
+	assert.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *checkout.Mode)
+	assert.Equal(t, "prod_L1MFlCUj2bk2j0", *checkout.LineItems[0].Price)
+	assert.Equal(t, int64(1), *checkout.LineItems[0].Quantity)
+
+	return uuid.MustParse(*checkout.ClientReferenceID)
+}
+
+func (s suite) postCompleteCheckoutSession(
+	ctx context.Context,
+	t *testing.T,
+	id,
+	checkoutID,
+	clientReferenceID,
+	customerID,
+	subscriptionID uuid.UUID,
+) {
+	t.Helper()
+
+	body := checkoutSessionCompleteBody(id, checkoutID, clientReferenceID, customerID, subscriptionID)
+
+	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(s.session))
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func (s suite) postInvoice(
+	ctx context.Context,
+	t *testing.T,
+	id uuid.UUID,
+	eventType string,
+	invoiceID uuid.UUID,
+	status string,
+	subscriptionID uuid.UUID,
+) {
+	t.Helper()
+
+	body := invoiceBody(id, eventType, invoiceID, status, subscriptionID)
+
+	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(s.session))
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func (s suite) getSubscriptions(
+	ctx context.Context,
+	t *testing.T,
+) []Subscription {
+	t.Helper()
+
+	resp := s.request(ctx, t, http.MethodGet, "/v1/subscriptions", nil, cookie(s.session))
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var subs []Subscription
+	err := json.NewDecoder(resp.Body).Decode(&subs)
+	assert.Nil(t, err)
+
+	return subs
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
 	t.Helper()
 
-	logger := zap.NewExample()
+	logger := zap.NewNop()
 
 	dbconn, err := db.Open(*dsn)
 	require.Nil(t, err)
@@ -304,7 +318,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	require.Nil(t, err)
 
 	sessionManager := session.NewMock()
-	cookie := cookie(ctx, t, sessionManager)
+	session := newSession(ctx, t, sessionManager)
 
 	stripe := stripe.NewMock()
 
@@ -330,7 +344,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		api:      api.Mux,
 		stripe:   stripe,
 		sessions: sessionManager,
-		cookie:   cookie,
+		session:  session,
 	}
 }
 
@@ -338,7 +352,8 @@ type suite struct {
 	api      http.Handler
 	stripe   *stripe.Mock
 	sessions *session.Mock
-	cookie   *http.Cookie
+
+	session *session.Session
 }
 
 func (s *suite) request(
@@ -351,12 +366,17 @@ func (s *suite) request(
 ) *http.Response {
 	t.Helper()
 
-	buf := new(bytes.Buffer)
+	var req *http.Request
+	if body == nil {
+		req = httptest.NewRequest(method, target, nil)
+	} else {
+		buf := new(bytes.Buffer)
+		err := json.NewEncoder(buf).Encode(body)
+		assert.Nil(t, err)
 
-	err := json.NewEncoder(buf).Encode(body)
-	assert.Nil(t, err)
+		req = httptest.NewRequest(method, target, buf)
+	}
 
-	req := httptest.NewRequest(method, target, buf)
 	req = req.WithContext(ctx)
 
 	for _, cookie := range cookies {
@@ -371,7 +391,11 @@ func (s *suite) request(
 
 // --- helpers ---
 
-func cookie(ctx context.Context, t *testing.T, sm *session.Mock) *http.Cookie {
+func newSession(
+	ctx context.Context,
+	t *testing.T,
+	sm *session.Mock,
+) *session.Session {
 	t.Helper()
 
 	id, err := rand.GenerateString(16)
@@ -388,5 +412,56 @@ func cookie(ctx context.Context, t *testing.T, sm *session.Mock) *http.Cookie {
 	err = sm.CreateSession(ctx, *sess, time.Minute)
 	require.Nil(t, err)
 
-	return ihttp.Cookie(id, ihttp.CookieOptions{})
+	return sess
+}
+
+func cookie(sess *session.Session) *http.Cookie {
+	return ihttp.Cookie(sess.ID, ihttp.CookieOptions{})
+}
+
+func checkoutSessionCompleteBody(
+	id,
+	checkoutID,
+	clientReferenceID,
+	customerID,
+	subscriptionID uuid.UUID,
+) map[string]interface{} {
+	return map[string]interface{}{
+		"id":   id.String(),
+		"type": "checkout.session.completed",
+		"data": map[string]interface{}{
+			"object": map[string]interface{}{
+				"id":                  checkoutID.String(),
+				"client_reference_id": clientReferenceID.String(),
+				"customer": map[string]interface{}{
+					"id": customerID.String(),
+				},
+				"subscription": map[string]interface{}{
+					"id": subscriptionID.String(),
+				},
+			},
+		},
+	}
+}
+
+func invoiceBody(
+	id uuid.UUID,
+	eventType string,
+	invoiceID uuid.UUID,
+	status string,
+	subscriptionID uuid.UUID,
+) map[string]interface{} {
+	return map[string]interface{}{
+		"id":   id.String(),
+		"type": eventType,
+		"data": map[string]interface{}{
+			"object": map[string]interface{}{
+				"id":     invoiceID.String(),
+				"status": status,
+				"subscription": map[string]interface{}{
+					"id": subscriptionID.String(),
+				},
+			},
+		},
+	}
 }

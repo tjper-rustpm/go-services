@@ -24,6 +24,21 @@ type Subscription struct {
 	Invoices []Invoice `gorm:"foreignKey:StripeSubscriptionID;references:StripeSubscriptionID"`
 }
 
+func (sub Subscription) IsActive() bool {
+	if len(sub.Invoices) < 1 {
+		return false
+	}
+
+	latest := sub.Invoices[0]
+	for _, invoice := range sub.Invoices {
+		if invoice.CreatedAt.After(latest.CreatedAt) {
+			latest = invoice
+		}
+	}
+
+	return latest.Status == InvoiceStatusPaid
+}
+
 type Invoice struct {
 	model.Model
 
