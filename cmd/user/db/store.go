@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	rpmerrors "github.com/tjper/rustcron/cmd/user/errors"
@@ -195,4 +196,42 @@ func (s Store) CompleteUserPasswordReset(
 		}
 		return nil
 	})
+}
+
+func (s Store) AddUserVIP(
+	ctx context.Context,
+	userID uuid.UUID,
+	serverID uuid.UUID,
+) (*model.VIP, error) {
+	vip := model.VIP{
+		UserID:   userID,
+		ServerID: serverID,
+	}
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		res := tx.First(&model.User{}, userID)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return rpmerrors.UserDNE
+		}
+		if res.Error != nil {
+			return fmt.Errorf("first vip user; id: %s, error: %w", userID, res.Error)
+		}
+		if res := tx.Create(&vip); res.Error != nil {
+			return fmt.Errorf("create user vip; id: %s, error: %w", userID, res.Error)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &vip, nil
+}
+
+func (s Store) RemoveUserVIP(
+	ctx context.Context,
+	vipID uuid.UUID,
+) error {
+	if res := s.db.WithContext(ctx).Delete(&model.VIP{}, vipID); res.Error != nil {
+		return fmt.Errorf("remove user vip; id: %s, error: %w", vipID, res.Error)
+	}
+	return nil
 }

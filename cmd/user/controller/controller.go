@@ -46,6 +46,9 @@ type IStore interface {
 	CreateUserPasswordReset(context.Context, string, string) (*model.PasswordReset, error)
 	PasswordResetByHash(context.Context, string) (*model.PasswordReset, error)
 	CompleteUserPasswordReset(context.Context, uuid.UUID, uuid.UUID, []byte) error
+
+	AddUserVIP(context.Context, uuid.UUID, uuid.UUID) (*model.VIP, error)
+	RemoveUserVIP(context.Context, uuid.UUID) error
 }
 
 func New(
@@ -337,7 +340,7 @@ var (
 	// the provided hash was not recognized.
 	ErrResetHashNotRecognized = errors.New("password reset hash not recognized")
 
-	// ErrPasswordResetStale indicates that a password reset request has expired,
+	// ErrPasswordResetRequestStale indicates that a password reset request has expired,
 	// and the related hash is no longer valid.
 	ErrPasswordResetRequestStale = errors.New("password reset request stale")
 )
@@ -381,6 +384,19 @@ func (ctrl Controller) ResetPassword(
 	}
 
 	return ctrl.LogoutAllUserSessions(ctx, user.ID)
+}
+
+type AddUserVIPInput struct {
+	UserID   uuid.UUID
+	ServerID uuid.UUID
+}
+
+func (ctrl Controller) AddUserVIP(ctx context.Context, input AddUserVIPInput) (*model.VIP, error) {
+	return ctrl.store.AddUserVIP(ctx, input.UserID, input.ServerID)
+}
+
+func (ctrl Controller) RemoveUserVIP(ctx context.Context, vipID uuid.UUID) error {
+	return ctrl.store.RemoveUserVIP(ctx, vipID)
 }
 
 // --- helpers ---

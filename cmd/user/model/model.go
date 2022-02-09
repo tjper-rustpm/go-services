@@ -23,6 +23,8 @@ type User struct {
 	VerifiedAt         sql.NullTime `json:"verifiedAt"`
 
 	PasswordResets []PasswordReset `json:"-"`
+
+	VIPs []VIP `json:"vips"`
 }
 
 func (u User) MarshalJSON() ([]byte, error) {
@@ -69,4 +71,10 @@ func (r PasswordReset) IsRequestStale() bool {
 
 func (r PasswordReset) IsCompleted() bool {
 	return r.CompletedAt.Valid
+}
+
+type VIP struct {
+	model.Model
+	UserID   uuid.UUID
+	ServerID uuid.UUID
 }
