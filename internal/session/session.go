@@ -51,7 +51,7 @@ func (s Session) IsAuthorized(userID uuid.UUID) bool {
 func (s Session) Equal(s2 Session) bool {
 	equal := true
 	equal = equal && (s.ID == s2.ID)
-	equal = equal && (s.User == s2.User)
+	equal = equal && s.User.Equal(s2.User)
 	equal = equal && s.AbsoluteExpiration.Equal(s2.AbsoluteExpiration)
 	equal = equal && s.LastActivityAt.Equal(s2.LastActivityAt)
 	equal = equal && s.CreatedAt.Equal(s2.CreatedAt)

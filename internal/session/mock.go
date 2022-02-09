@@ -68,11 +68,11 @@ func (m *Mock) RetrieveSession(_ context.Context, id string) (*Session, error) {
 	return &sess.Session, nil
 }
 
-func (m *Mock) TouchSession(_ context.Context, sess Session, exp time.Duration) error {
+func (m *Mock) TouchSession(_ context.Context, sessionID string, exp time.Duration) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	fetched, ok := m.sessions[keygen(sessionPrefix, sess.ID)]
+	fetched, ok := m.sessions[keygen(sessionPrefix, sessionID)]
 	if !ok {
 		return ErrSessionDNE
 	}

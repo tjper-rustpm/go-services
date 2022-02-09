@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/session"
-	"go.uber.org/zap"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 var (
@@ -37,7 +38,7 @@ func TestIntegration(t *testing.T) {
 	suite := setup(ctx, t)
 
 	t.Run("touch session that dne", func(t *testing.T) {
-		err := suite.manager.TouchSession(ctx, suite.session, time.Hour)
+		_, err := suite.manager.TouchSession(ctx, suite.session.ID, time.Hour)
 		assert.ErrorIs(t, err, session.ErrSessionDNE, err.Error())
 	})
 
@@ -67,9 +68,11 @@ func TestIntegration(t *testing.T) {
 		assert.True(t, suite.session.Equal(*sess))
 	})
 
+	time.Sleep(time.Second)
 	t.Run("touch session", func(t *testing.T) {
-		err := suite.manager.TouchSession(ctx, suite.session, time.Hour)
+		sess, err := suite.manager.TouchSession(ctx, suite.session.ID, time.Hour)
 		assert.Nil(t, err)
+		assert.WithinDuration(t, time.Now(), sess.LastActivityAt, time.Second)
 	})
 
 	t.Run("delete session", func(t *testing.T) {
@@ -98,6 +101,48 @@ func TestIntegration(t *testing.T) {
 
 }
 
+func TestAddRemoveSessionVIPs(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	t.Run("create session", func(t *testing.T) {
+		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
+		assert.Nil(t, err)
+	})
+
+	vips := []uuid.UUID{uuid.New(), uuid.New()}
+
+	t.Run("add session VIPs", func(t *testing.T) {
+		updateFn := func(sess *session.Session) { sess.User.VIPs = vips }
+
+		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn, time.Hour)
+		assert.Nil(t, err)
+		assert.Equal(t, vips, sess.User.VIPs)
+	})
+
+	t.Run("retrieve session w/ VIPs", func(t *testing.T) {
+		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		assert.Nil(t, err)
+		assert.Equal(t, vips, sess.User.VIPs)
+	})
+
+	t.Run("remove session VIPs", func(t *testing.T) {
+		updateFn := func(sess *session.Session) { sess.User.VIPs = nil }
+
+		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn, time.Hour)
+		assert.Nil(t, err)
+		assert.Nil(t, sess.User.VIPs)
+	})
+
+	t.Run("retrieve session w/o VIPs", func(t *testing.T) {
+		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		assert.Nil(t, err)
+		assert.Nil(t, sess.User.VIPs)
+	})
+}
+
 // --- suite ---
 
 type suite struct {
@@ -116,10 +161,13 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	err := redis.Ping(ctx).Err()
 	require.Nil(t, err)
 
+	id, err := rand.GenerateString(16)
+	require.Nil(t, err)
+
 	return &suite{
 		manager: session.NewManager(zap.NewNop(), redis),
 		session: session.Session{
-			ID: "session-id",
+			ID: id,
 			User: session.User{
 				ID:    uuid.New(),
 				Email: "fake@email.com",

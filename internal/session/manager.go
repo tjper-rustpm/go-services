@@ -45,6 +45,18 @@ func (m Manager) CreateSession(
 	return m.setnx(ctx, keygen(sessionPrefix, sess.ID), sess, exp)
 }
 
+// UpdateSession updated the Session related to the sessionID passed using the
+// updateFn. The Session will be updated to equal the state of the updateFn's
+// *Session argument.
+func (m Manager) UpdateSession(
+	ctx context.Context,
+	sessionID string,
+	updateFn func(*Session),
+	exp time.Duration,
+) (*Session, error) {
+	return m.update(ctx, sessionID, updateFn, exp)
+}
+
 // RetrieveSession gets the Session related to the sessionID passed.
 func (m Manager) RetrieveSession(
 	ctx context.Context,
@@ -87,70 +99,15 @@ func (m Manager) RetrieveSession(
 // will be thrown.
 func (m Manager) TouchSession(
 	ctx context.Context,
-	sess Session,
+	sessionID string,
 	exp time.Duration,
-) error {
-	const maxRetries = 10
-
-	touch := func(key string) error {
-		// Transactional function.
-		fn := func(tx *redis.Tx) error {
-			res, err := tx.Get(ctx, key).Result()
-			if err != nil {
-				return err
-			}
-
-			var sess Session
-			if err := decode([]byte(res), &sess); err != nil {
-				return err
-			}
-
-			sess.LastActivityAt = time.Now()
-
-			b, err := encode(sess)
-			if err != nil {
-				return err
-			}
-
-			// Operation is committed only if the watched keys remain unchanged.
-			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-				if err := pipe.SetXX(ctx, key, b, exp).Err(); err != nil {
-					m.logger.Error("touch setxx", zap.Error(err))
-				}
-				return nil
-			})
-			if err != nil {
-				m.logger.Error("touch", zap.Error(err))
-			}
-			return err
-		}
-
-		for i := 0; i < maxRetries; i++ {
-			err := m.redis.Watch(ctx, fn, key)
-			if err == nil {
-				// Success.
-				return nil
-			}
-			if errors.Is(err, redis.TxFailedErr) {
-				// Optimistic lock lost. Retry.
-				continue
-			}
-			// Return any other error.
-			return err
-		}
-
-		return ErrMaxAttemptsReached
-	}
-
-	err := touch(keygen(sessionPrefix, sess.ID))
-	if errors.Is(err, redis.Nil) {
-		return fmt.Errorf("touch session; id: %s, error: %w", sess.ID, ErrSessionDNE)
-	}
-	if err != nil {
-		return fmt.Errorf("touch session; id: %s, error: %w", sess.ID, err)
-	}
-
-	return nil
+) (*Session, error) {
+	return m.update(
+		ctx,
+		sessionID,
+		func(sess *Session) { sess.LastActivityAt = time.Now() },
+		exp,
+	)
 }
 
 // DeleteSession deletes the specified Session.
@@ -214,6 +171,77 @@ func (m Manager) get(ctx context.Context, key string, dst interface{}) error {
 	}
 
 	return decode([]byte(res), dst)
+}
+
+func (m Manager) update(
+	ctx context.Context,
+	sessionID string,
+	updateFn func(*Session),
+	exp time.Duration,
+) (*Session, error) {
+	const maxRetries = 10
+
+	var updatedSess Session
+	optimisticTransaction := func(key string, updateFn func(*Session)) error {
+		attempt := func(tx *redis.Tx) error {
+			res, err := tx.Get(ctx, key).Result()
+			if err != nil {
+				return err
+			}
+
+			var sess Session
+			if err := decode([]byte(res), &sess); err != nil {
+				return err
+			}
+
+			updateFn(&sess)
+			// sess.LastActivityAt = time.Now()
+
+			b, err := encode(sess)
+			if err != nil {
+				return err
+			}
+
+			// Operation is committed only if the watched keys remain unchanged.
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				if err := pipe.SetXX(ctx, key, b, exp).Err(); err != nil {
+					m.logger.Error("update setxx", zap.Error(err))
+				}
+				return nil
+			})
+			if err != nil {
+				m.logger.Error("update", zap.Error(err))
+			}
+			updatedSess = sess
+			return err
+		}
+
+		for i := 0; i < maxRetries; i++ {
+			err := m.redis.Watch(ctx, attempt, key)
+			if err == nil {
+				// Success.
+				return nil
+			}
+			if errors.Is(err, redis.TxFailedErr) {
+				// Optimistic lock lost. Retry.
+				continue
+			}
+			// Return any other error.
+			return err
+		}
+
+		return ErrMaxAttemptsReached
+	}
+
+	err := optimisticTransaction(keygen(sessionPrefix, sessionID), updateFn)
+	if errors.Is(err, redis.Nil) {
+		return nil, fmt.Errorf("touch session; id: %s, error: %w", sessionID, ErrSessionDNE)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("touch session; id: %s, error: %w", sessionID, err)
+	}
+
+	return &updatedSess, nil
 }
 
 // --- helpers ---

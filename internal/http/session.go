@@ -14,7 +14,7 @@ import (
 // with.
 type ISessionManager interface {
 	RetrieveSession(context.Context, string) (*session.Session, error)
-	TouchSession(context.Context, session.Session, time.Duration) error
+	TouchSession(context.Context, string, time.Duration) (*session.Session, error)
 	DeleteSession(context.Context, session.Session) error
 }
 
@@ -89,7 +89,7 @@ func (sm SessionMiddleware) Touch() func(http.Handler) http.Handler {
 					goto serve
 				}
 
-				if err := sm.manager.TouchSession(r.Context(), *sess, sm.expiration); err != nil {
+				if _, err := sm.manager.TouchSession(r.Context(), sess.ID, sm.expiration); err != nil {
 					ErrInternal(sm.logger, w, err)
 					return
 				}
