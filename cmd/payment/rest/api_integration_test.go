@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -55,12 +58,23 @@ func TestCreateCheckoutSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
+	sess := suite.session(
+		ctx,
+		t,
+		session.User{
+			ID:    uuid.New(),
+			Email: "rustcron@gmail.com",
+			Role:  session.RoleStandard,
+		},
+	)
+
 	t.Run("create subscription checkout session", func(t *testing.T) {
 		suite.postSubscriptionCheckoutSession(
 			ctx,
 			t,
 			uuid.New(),
 			uuid.New(),
+			sess,
 		)
 	})
 }
@@ -71,12 +85,22 @@ func TestCreateBillingPortalSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
+	sess := suite.session(
+		ctx,
+		t,
+		session.User{
+			ID:    uuid.New(),
+			Email: "rustcron@gmail.com",
+			Role:  session.RoleStandard,
+		},
+	)
+
 	t.Run("create billing portal session", func(t *testing.T) {
 		body := map[string]interface{}{
 			"returnUrl": "http://rustpm.com",
 		}
 
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/billing", body, cookie(suite.session))
+		resp := suite.request(ctx, t, http.MethodPost, "/v1/billing", body, cookie(sess))
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
@@ -92,9 +116,19 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	suite := setup(ctx, t)
 
+	sess := suite.session(
+		ctx,
+		t,
+		session.User{
+			ID:    uuid.New(),
+			Email: "rustcron@gmail.com",
+			Role:  session.RoleStandard,
+		},
+	)
+
 	var clientReferenceID uuid.UUID
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		clientReferenceID = suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), uuid.New())
+		clientReferenceID = suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), uuid.New(), sess)
 	})
 
 	eventID := uuid.New()
@@ -107,6 +141,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 			clientReferenceID,
 			uuid.New(),
 			uuid.New(),
+			sess,
 		)
 	})
 
@@ -119,6 +154,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 			clientReferenceID,
 			uuid.New(),
 			uuid.New(),
+			sess,
 		)
 	})
 
@@ -131,6 +167,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 			uuid.New(),
 			uuid.New(),
 			uuid.New(),
+			sess,
 		)
 	})
 }
@@ -141,6 +178,16 @@ func TestInvoice(t *testing.T) {
 
 	suite := setup(ctx, t)
 
+	sess := suite.session(
+		ctx,
+		t,
+		session.User{
+			ID:    uuid.New(),
+			Email: "rustcron@gmail.com",
+			Role:  session.RoleStandard,
+		},
+	)
+
 	var (
 		clientReferenceID uuid.UUID
 		serverID          = uuid.New()
@@ -150,7 +197,8 @@ func TestInvoice(t *testing.T) {
 			ctx,
 			t,
 			serverID,
-			suite.session.User.ID,
+			sess.User.ID,
+			sess,
 		)
 	})
 
@@ -164,6 +212,7 @@ func TestInvoice(t *testing.T) {
 			clientReferenceID,
 			uuid.New(),
 			subscriptionID,
+			sess,
 		)
 	})
 
@@ -176,16 +225,17 @@ func TestInvoice(t *testing.T) {
 			uuid.New(),
 			"paid",
 			subscriptionID,
+			sess,
 		)
 	})
 
 	t.Run("get paid subscription", func(t *testing.T) {
-		subs := suite.getSubscriptions(ctx, t)
+		subs := suite.getSubscriptions(ctx, t, sess)
 		assert.Len(t, subs, 1)
 
 		sub := subs[0]
 		assert.Equal(t, sub.ServerID, serverID)
-		assert.Equal(t, sub.UserID, suite.session.User.ID)
+		assert.Equal(t, sub.UserID, sess.User.ID)
 		assert.True(t, sub.Active)
 	})
 
@@ -198,17 +248,81 @@ func TestInvoice(t *testing.T) {
 			uuid.New(),
 			"payment_failed",
 			subscriptionID,
+			sess,
 		)
 	})
 
 	t.Run("get failed subscription", func(t *testing.T) {
-		subs := suite.getSubscriptions(ctx, t)
+		subs := suite.getSubscriptions(ctx, t, sess)
 		assert.Len(t, subs, 1)
 
 		sub := subs[0]
 		assert.Equal(t, sub.ServerID, serverID)
-		assert.Equal(t, sub.UserID, suite.session.User.ID)
+		assert.Equal(t, sub.UserID, sess.User.ID)
 		assert.False(t, sub.Active)
+	})
+}
+
+func TestSingleUserParallelSubscriptionsCreation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	sess := suite.session(
+		ctx,
+		t,
+		session.User{
+			ID:    uuid.New(),
+			Email: "rustcron@gmail.com",
+			Role:  session.RoleStandard,
+		},
+	)
+
+	servers := make([]uuid.UUID, 0)
+	testFn := func(t *testing.T) {
+		t.Helper()
+
+		var (
+			serverID       = uuid.New()
+			subscriptionID = uuid.New()
+		)
+		clientReferenceID := suite.postSubscriptionCheckoutSession(ctx, t, serverID, sess.User.ID, sess)
+
+		suite.postCompleteCheckoutSession(ctx, t, uuid.New(), uuid.New(), clientReferenceID, uuid.New(), subscriptionID, sess)
+
+		suite.postInvoice(ctx, t, uuid.New(), "invoice.paid", uuid.New(), "paid", subscriptionID, sess)
+
+		servers = append(servers, serverID)
+	}
+
+	t.Run("create subscription checkout session", func(t *testing.T) {
+		for _, processes := range []int{2, 4, 10, 100} {
+			t.Run(fmt.Sprintf("%d parallel subscriptions", processes), func(t *testing.T) {
+				var wg sync.WaitGroup
+				defer wg.Wait()
+
+				for i := 0; i < processes; i++ {
+					wg.Add(1)
+					go func() {
+						testFn(t)
+						wg.Done()
+					}()
+				}
+			})
+		}
+	})
+
+	t.Run("fetch user subscriptions", func(t *testing.T) {
+		subs := suite.getSubscriptions(ctx, t, sess)
+		assert.Equal(t, len(subs), len(servers))
+
+		sort.Slice(subs, func(i, j int) bool { return subs[i].ServerID.String() < subs[j].ServerID.String() })
+		sort.Slice(servers, func(i, j int) bool { return servers[i].String() < servers[j].String() })
+
+		for i := range subs {
+			assert.Equal(t, servers[i], subs[i].ServerID)
+		}
 	})
 }
 
@@ -217,6 +331,7 @@ func (s suite) postSubscriptionCheckoutSession(
 	t *testing.T,
 	serverID uuid.UUID,
 	userID uuid.UUID,
+	sess *session.Session,
 ) uuid.UUID {
 	t.Helper()
 
@@ -228,7 +343,7 @@ func (s suite) postSubscriptionCheckoutSession(
 		"priceId":    "prod_L1MFlCUj2bk2j0",
 	}
 
-	resp := s.request(ctx, t, http.MethodPost, "/v1/checkout", body, cookie(s.session))
+	resp := s.request(ctx, t, http.MethodPost, "/v1/checkout", body, cookie(sess))
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
@@ -251,12 +366,13 @@ func (s suite) postCompleteCheckoutSession(
 	clientReferenceID,
 	customerID,
 	subscriptionID uuid.UUID,
+	sess *session.Session,
 ) {
 	t.Helper()
 
 	body := checkoutSessionCompleteBody(id, checkoutID, clientReferenceID, customerID, subscriptionID)
 
-	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(s.session))
+	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(sess))
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -270,12 +386,13 @@ func (s suite) postInvoice(
 	invoiceID uuid.UUID,
 	status string,
 	subscriptionID uuid.UUID,
+	sess *session.Session,
 ) {
 	t.Helper()
 
 	body := invoiceBody(id, eventType, invoiceID, status, subscriptionID)
 
-	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(s.session))
+	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(sess))
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -284,10 +401,11 @@ func (s suite) postInvoice(
 func (s suite) getSubscriptions(
 	ctx context.Context,
 	t *testing.T,
+	sess *session.Session,
 ) []Subscription {
 	t.Helper()
 
-	resp := s.request(ctx, t, http.MethodGet, "/v1/subscriptions", nil, cookie(s.session))
+	resp := s.request(ctx, t, http.MethodGet, "/v1/subscriptions", nil, cookie(sess))
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -318,7 +436,6 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	require.Nil(t, err)
 
 	sessionManager := session.NewMock()
-	session := newSession(ctx, t, sessionManager)
 
 	stripe := stripe.NewMock()
 
@@ -344,7 +461,6 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		api:      api.Mux,
 		stripe:   stripe,
 		sessions: sessionManager,
-		session:  session,
 	}
 }
 
@@ -352,8 +468,6 @@ type suite struct {
 	api      http.Handler
 	stripe   *stripe.Mock
 	sessions *session.Mock
-
-	session *session.Session
 }
 
 func (s *suite) request(
@@ -389,31 +503,25 @@ func (s *suite) request(
 	return rr.Result()
 }
 
-// --- helpers ---
-
-func newSession(
+func (s *suite) session(
 	ctx context.Context,
 	t *testing.T,
-	sm *session.Mock,
+	user session.User,
 ) *session.Session {
 	t.Helper()
 
 	id, err := rand.GenerateString(16)
 	require.Nil(t, err)
 
-	user := session.User{
-		ID:    uuid.New(),
-		Email: "rustcron@gmail.com",
-		Role:  session.RoleStandard,
-	}
-
 	sess := session.New(id, user, time.Minute)
 
-	err = sm.CreateSession(ctx, *sess, time.Minute)
+	err = s.sessions.CreateSession(ctx, *sess, time.Minute)
 	require.Nil(t, err)
 
 	return sess
 }
+
+// --- helpers ---
 
 func cookie(sess *session.Session) *http.Cookie {
 	return ihttp.Cookie(sess.ID, ihttp.CookieOptions{})
