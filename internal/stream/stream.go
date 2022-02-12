@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -13,12 +14,13 @@ import (
 var (
 	ErrUnexpectedStreamCount  = errors.New("unexpected stream count")
 	ErrUnexpectedMessageCount = errors.New("unexpected message count")
+	ErrNoPending              = errors.New("no pending messages")
 )
 
 const (
 	stream = "interserviceEventStream"
 	start  = "0"
-	maxlen = 1000
+	maxlen = 20000
 )
 
 func Init(ctx context.Context, rdb *redis.Client, group string) (*Client, error) {
@@ -26,9 +28,11 @@ func Init(ctx context.Context, rdb *redis.Client, group string) (*Client, error)
 		return nil, fmt.Errorf("initializing stream; error: %w", err)
 	}
 	return &Client{
-		rdb:      rdb,
-		group:    group,
-		consumer: uuid.New().String(),
+		rdb:        rdb,
+		group:      group,
+		consumer:   uuid.New().String(),
+		mutex:      new(sync.RWMutex),
+		claimStart: "0-0",
 	}, nil
 }
 
@@ -37,6 +41,9 @@ type Client struct {
 
 	group    string
 	consumer string
+
+	mutex      *sync.RWMutex
+	claimStart string
 }
 
 func (c Client) Write(ctx context.Context, kv map[string]interface{}) error {
@@ -53,11 +60,40 @@ func (c Client) Write(ctx context.Context, kv map[string]interface{}) error {
 	return nil
 }
 
+func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error) {
+	c.mutex.RLock()
+	start := c.claimStart
+	c.mutex.RUnlock()
+
+	args := &redis.XAutoClaimArgs{
+		Stream:   stream,
+		Group:    c.group,
+		Consumer: c.consumer,
+		MinIdle:  idle,
+		Count:    1,
+		Start:    start,
+	}
+	messages, start, err := c.rdb.XAutoClaim(ctx, args).Result()
+	if err != nil {
+		return nil, fmt.Errorf("auto claim; error: %w", err)
+	}
+
+	c.mutex.Lock()
+	c.claimStart = start
+	c.mutex.Unlock()
+
+	if len(messages) == 0 {
+		return nil, ErrNoPending
+	}
+
+	return c.extractMessage(messages)
+}
+
 func (c Client) Read(ctx context.Context) (*Message, error) {
 	args := &redis.XReadGroupArgs{
 		Group:    c.group,
 		Consumer: c.consumer,
-		Streams:  []string{stream},
+		Streams:  []string{stream, ">"},
 		Count:    1,
 		Block:    24 * time.Hour,
 		NoAck:    false,
@@ -79,15 +115,20 @@ read:
 			ErrUnexpectedStreamCount,
 		)
 	}
-	if len(streams[0].Messages) != 1 {
+
+	return c.extractMessage(streams[0].Messages)
+}
+
+func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {
+	if len(messages) != 1 {
 		return nil, fmt.Errorf(
-			"unexpected steam message count; n: %d, error: %w",
-			len(streams[0].Messages),
+			"unexpected stream message count; n: %d, error: %w",
+			len(messages),
 			ErrUnexpectedMessageCount,
 		)
 	}
 
-	m := streams[0].Messages[0]
+	m := messages[0]
 
 	return &Message{
 		ID:     m.ID,

@@ -67,6 +67,10 @@ test-payment: ## Integration test payment API.
 test-session: ## Integration test session package.
 	@docker-compose -f internal/session/integration_test/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
 
+.PHONY: test-stream
+test-stream: ## Integration test stream package.
+	@docker-compose -f internal/stream/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
+
 .PHONY: test-staging
 test-staging: ## Integration test staging package.
 	@docker-compose -f cmd/payment/staging/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
