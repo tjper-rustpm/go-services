@@ -13,15 +13,13 @@ import (
 
 type Subscription struct {
 	model.Model
-	ServerID uuid.UUID
-	UserID   uuid.UUID
 
 	StripeCheckoutID     string
 	StripeCustomerID     string
 	StripeSubscriptionID string `gorm:"uniqueIndex"`
 
-	Event    Event     `gorm:"polymorphic:Owner;"`
-	Invoices []Invoice `gorm:"foreignKey:StripeSubscriptionID;references:StripeSubscriptionID"`
+	Event    Event `gorm:"polymorphic:Owner;"`
+	Invoices []Invoice
 }
 
 func (sub Subscription) IsActive() bool {
@@ -42,7 +40,7 @@ func (sub Subscription) IsActive() bool {
 type Invoice struct {
 	model.Model
 
-	StripeSubscriptionID string
+	SubscriptionID uuid.UUID
 
 	Event  Event `gorm:"polymorphic:Owner;"`
 	Status InvoiceStatus

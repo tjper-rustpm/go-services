@@ -9,6 +9,8 @@ import (
 
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
+	"github.com/tjper/rustcron/internal/event"
+	"github.com/tjper/rustcron/internal/hash"
 
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v72"
@@ -23,17 +25,23 @@ type IStripe interface {
 	BillingPortalSession(*stripe.BillingPortalSessionParams) (string, error)
 }
 
+type IStream interface {
+	Write(context.Context, map[string]interface{}) error
+}
+
 func New(
 	logger *zap.Logger,
 	gorm *gorm.DB,
 	staging *staging.Client,
 	stripe IStripe,
+	stream IStream,
 ) *Controller {
 	return &Controller{
 		logger:  logger,
 		gorm:    gorm,
 		staging: staging,
 		stripe:  stripe,
+		stream:  stream,
 	}
 }
 
@@ -42,6 +50,7 @@ type Controller struct {
 	staging *staging.Client
 	gorm    *gorm.DB
 	stripe  IStripe
+	stream  IStream
 }
 
 type CheckoutSessionInput struct {
@@ -119,6 +128,7 @@ func (ctrl Controller) CheckoutSessionComplete(
 		)
 	}
 
+	var subscription model.Subscription
 	if err := ctrl.gorm.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
@@ -133,21 +143,32 @@ func (ctrl Controller) CheckoutSessionComplete(
 			return ErrEventAlreadyProcessed
 		}
 
-		subscription := &model.Subscription{
-			ServerID:             stagedCheckout.ServerID,
-			UserID:               stagedCheckout.UserID,
+		subscription = model.Subscription{
 			StripeCheckoutID:     checkout.ID,
 			StripeCustomerID:     checkout.Customer.ID,
 			StripeSubscriptionID: checkout.Subscription.ID,
 			Event:                event,
 		}
-		return tx.Create(subscription).Error
+		return tx.Create(&subscription).Error
 	}); err != nil {
 		return fmt.Errorf(
 			"create subscription; eventID: %s, error: %w",
 			stripeEvent.ID,
 			err,
 		)
+	}
+
+	event := event.NewSubscriptionCreatedEvent(
+		subscription.ID,
+		stagedCheckout.UserID,
+		stagedCheckout.ServerID,
+	)
+	kv, err := hash.FromStruct(event)
+	if err != nil {
+		return fmt.Errorf("hash event; event-id: %s, error: %w", event.ID.String(), err)
+	}
+	if err := ctrl.stream.Write(ctx, kv); err != nil {
+		return fmt.Errorf("stream write; event-id: %s, error: %w", event.ID.String(), err)
 	}
 
 	return nil
@@ -162,6 +183,7 @@ func (ctrl Controller) ProcessInvoice(
 		return fmt.Errorf("unmarshal invoice; error: %w", err)
 	}
 
+	var invoice model.Invoice
 	if err := ctrl.gorm.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
@@ -176,12 +198,24 @@ func (ctrl Controller) ProcessInvoice(
 			return ErrEventAlreadyProcessed
 		}
 
-		invoice := &model.Invoice{
-			StripeSubscriptionID: invoiceEvent.Subscription.ID,
-			Status:               model.InvoiceStatus(string(invoiceEvent.Status)),
-			Event:                event,
+		subscription := model.Subscription{}
+		if res := tx.Model(&subscription).Where(
+			"stripe_subscription_id = ?",
+			invoiceEvent.Subscription.ID,
+		); res.Error != nil {
+			return fmt.Errorf(
+				"fetch invoice subscription; id: %s, error: %w",
+				invoiceEvent.Subscription.ID,
+				res.Error,
+			)
 		}
-		return tx.Create(invoice).Error
+
+		invoice = model.Invoice{
+			SubscriptionID: subscription.ID,
+			Status:         model.InvoiceStatus(string(invoiceEvent.Status)),
+			Event:          event,
+		}
+		return tx.Create(&invoice).Error
 	}); err != nil {
 		return fmt.Errorf(
 			"create invoice; eventID: %s, error: %w",
@@ -190,6 +224,11 @@ func (ctrl Controller) ProcessInvoice(
 		)
 	}
 
+	if invoice.Status == model.InvoiceStatusPaymentFailed {
+		if err := ctrl.subscriptionDeleted(ctx, invoice.SubscriptionID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -206,4 +245,19 @@ func (ctrl Controller) UserSubscriptions(
 	}
 
 	return subscriptions, nil
+}
+
+func (ctrl Controller) subscriptionDeleted(ctx context.Context, id uuid.UUID) error {
+	event := event.NewSubscriptionDeleteEvent(id)
+
+	kv, err := hash.FromStruct(event)
+	if err != nil {
+		return fmt.Errorf("hash event; event-id: %s, error: %w", event.ID.String(), err)
+	}
+
+	if err := ctrl.stream.Write(ctx, kv); err != nil {
+		return fmt.Errorf("stream write; event-id: %s, error: %w", event.ID.String(), err)
+	}
+
+	return nil
 }
