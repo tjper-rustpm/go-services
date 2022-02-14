@@ -26,7 +26,7 @@ type IEmailer interface {
 }
 
 type ISessionManager interface {
-	CreateSession(context.Context, session.Session, time.Duration) error
+	CreateSession(context.Context, session.Session) error
 	DeleteSession(context.Context, session.Session) error
 	InvalidateUserSessionsBefore(context.Context, fmt.Stringer, time.Time) error
 }
@@ -46,9 +46,6 @@ type IStore interface {
 	CreateUserPasswordReset(context.Context, string, string) (*model.PasswordReset, error)
 	PasswordResetByHash(context.Context, string) (*model.PasswordReset, error)
 	CompleteUserPasswordReset(context.Context, uuid.UUID, uuid.UUID, []byte) error
-
-	AddUserVIP(context.Context, uuid.UUID, uuid.UUID) (*model.VIP, error)
-	RemoveUserVIP(context.Context, uuid.UUID) error
 }
 
 func New(
@@ -208,7 +205,7 @@ func (ctrl Controller) LoginUser(
 		ctrl.absoluteSessionExpiration,
 	)
 
-	if err := ctrl.sessionManager.CreateSession(ctx, *sess, ctrl.activeSessionExpiration); err != nil {
+	if err := ctrl.sessionManager.CreateSession(ctx, *sess); err != nil {
 		return nil, err
 	}
 
@@ -389,14 +386,6 @@ func (ctrl Controller) ResetPassword(
 type AddUserVIPInput struct {
 	UserID   uuid.UUID
 	ServerID uuid.UUID
-}
-
-func (ctrl Controller) AddUserVIP(ctx context.Context, input AddUserVIPInput) (*model.VIP, error) {
-	return ctrl.store.AddUserVIP(ctx, input.UserID, input.ServerID)
-}
-
-func (ctrl Controller) RemoveUserVIP(ctx context.Context, vipID uuid.UUID) error {
-	return ctrl.store.RemoveUserVIP(ctx, vipID)
 }
 
 // --- helpers ---

@@ -8,9 +8,7 @@ import (
 )
 
 type Subscription struct {
-	ID       uuid.UUID `json:"id"`
-	ServerID uuid.UUID `json:"serverId"`
-	UserID   uuid.UUID `json:"userId"`
+	ID uuid.UUID `json:"id"`
 
 	Active bool `json:"active"`
 
@@ -23,8 +21,6 @@ func SubscriptionsFromModel(modelSubscriptions []model.Subscription) []Subscript
 		subscriptions = append(subscriptions,
 			Subscription{
 				ID:        sub.ID,
-				ServerID:  sub.ServerID,
-				UserID:    sub.UserID,
 				Active:    sub.IsActive(),
 				CreatedAt: sub.CreatedAt,
 			})

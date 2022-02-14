@@ -3,10 +3,30 @@
 package event
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tjper/rustcron/internal/hash"
 )
+
+func ParseHash(h map[string]interface{}) (interface{}, error) {
+	var event interface{}
+	switch kind := h["Kind"]; kind {
+	case SubscriptionCreated:
+		event = SubscriptionCreatedEvent{}
+	case SubscriptionDeleted:
+		event = SubscriptionDeleteEvent{}
+	default:
+		return nil, fmt.Errorf("unexpected event; kind: %s", kind)
+	}
+
+	if err := hash.ToStruct(&event, h); err != nil {
+		return nil, fmt.Errorf("hash to struct; error: %w", err)
+	}
+
+	return event, nil
+}
 
 type Kind string
 

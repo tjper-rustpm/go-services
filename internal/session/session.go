@@ -16,6 +16,7 @@ func New(
 		User:               user,
 		AbsoluteExpiration: time.Now().Add(absoluteDuration),
 		LastActivityAt:     time.Now(),
+		RefreshedAt:        time.Now(),
 		CreatedAt:          time.Now(),
 	}
 }
@@ -36,6 +37,9 @@ type Session struct {
 
 	// LastActivityAt is the last time the Session was interacted with.
 	LastActivityAt time.Time `json:"lastActivityAt"`
+
+	// RefreshedAt is the time the Session was last synced with related stores.
+	RefreshedAt time.Time `json:"refreshedAt"`
 
 	// CreatedAt is the time the Session was created.
 	CreatedAt time.Time `json:"createdAt"`

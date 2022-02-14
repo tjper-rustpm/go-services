@@ -1,8 +1,6 @@
 package session
 
 import (
-	"sort"
-
 	"github.com/google/uuid"
 )
 
@@ -13,7 +11,7 @@ type User struct {
 	Email string    `json:"email"`
 	Role  Role      `json:"role"`
 
-	VIPs []uuid.UUID `json:"vips"`
+	Subscriptions []Subscription `json:"subscriptions"`
 }
 
 func (u User) Equal(u2 User) bool {
@@ -22,11 +20,8 @@ func (u User) Equal(u2 User) bool {
 	equal = equal && (u.Email == u2.Email)
 	equal = equal && (u.Role == u2.Role)
 
-	sort.Slice(u.VIPs, func(i, j int) bool { return u.VIPs[i].String() < u.VIPs[j].String() })
-	sort.Slice(u2.VIPs, func(i, j int) bool { return u2.VIPs[i].String() < u2.VIPs[j].String() })
-
-	for i := range u.VIPs {
-		equal = equal && (u.VIPs[i] == u2.VIPs[i])
+	for i := range u.Subscriptions {
+		equal = equal && (u.Subscriptions[i] == u2.Subscriptions[i])
 	}
 
 	return equal
@@ -38,3 +33,8 @@ const (
 	RoleStandard Role = "user"
 	RoleAdmin    Role = "admin"
 )
+
+type Subscription struct {
+	ID       uuid.UUID
+	ServerID uuid.UUID
+}

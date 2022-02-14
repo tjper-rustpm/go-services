@@ -15,6 +15,7 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
+	"github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
 
 	redisv8 "github.com/go-redis/redis/v8"
@@ -32,6 +33,7 @@ const (
 	ecDatabaseConnection
 	ecMigration
 	ecRedisConnection
+	ecStreamClient
 )
 
 func run() int {
@@ -83,7 +85,7 @@ func run() int {
 	stripeClient.Init(cfg.StripeKey(), nil)
 
 	logger.Info("[Startup] Creating session manager ...")
-	sessionManager := session.NewManager(logger, rdb)
+	sessionManager := session.NewManager(logger, rdb, 48*time.Hour)
 	logger.Info("[Startup] Created session manager.")
 
 	logger.Info("[Startup] Creating stripe clients ...")
@@ -94,12 +96,24 @@ func run() int {
 	)
 	logger.Info("[Startup] Created stripe clients.")
 
+	logger.Info("[Startup] Creating stream client ...")
+	stream, err := stream.Init(ctx, rdb, "payment")
+	if err != nil {
+		logger.Error(
+			"[Startup] Failed to initialze stream client.",
+			zap.Error(err),
+		)
+		return ecStreamClient
+	}
+	logger.Info("[Startup] Created stream client.")
+
 	logger.Info("[Startup] Creating controller ...")
 	ctrl := controller.New(
 		logger,
 		dbconn,
 		staging.NewClient(rdb),
 		stripeWrapper,
+		stream,
 	)
 	logger.Info("[Startup] Created controller.")
 
@@ -110,7 +124,6 @@ func run() int {
 		ihttp.NewSessionMiddleware(
 			logger,
 			sessionManager,
-			48*time.Hour, // 2 days
 		),
 		stripeWrapper,
 	)

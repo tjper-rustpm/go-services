@@ -24,7 +24,7 @@ type User struct {
 
 	PasswordResets []PasswordReset `json:"-"`
 
-	VIPs []VIP `json:"vips"`
+	Subscriptions []Subscription `json:"subscriptions"`
 }
 
 func (u User) MarshalJSON() ([]byte, error) {
@@ -49,10 +49,18 @@ func (u User) IsVerificationHashStale() bool {
 }
 
 func (u User) ToSessionUser() session.User {
+	subscriptions := make([]session.Subscription, 0)
+	for _, sub := range u.Subscriptions {
+		subscriptions = append(
+			subscriptions,
+			session.Subscription{ID: sub.SubscriptionID, ServerID: sub.ServerID})
+	}
+
 	return session.User{
-		ID:    u.ID,
-		Email: u.Email,
-		Role:  u.Role,
+		ID:            u.ID,
+		Email:         u.Email,
+		Role:          u.Role,
+		Subscriptions: subscriptions,
 	}
 }
 
@@ -73,8 +81,9 @@ func (r PasswordReset) IsCompleted() bool {
 	return r.CompletedAt.Valid
 }
 
-type VIP struct {
+type Subscription struct {
 	model.Model
-	UserID   uuid.UUID
-	ServerID uuid.UUID
+	UserID         uuid.UUID
+	SubscriptionID uuid.UUID
+	ServerID       uuid.UUID
 }

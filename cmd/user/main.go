@@ -83,7 +83,7 @@ func run() int {
 	logger.Info("[Startup] Created emailer.")
 
 	logger.Info("[Startup] Creating session manager ...")
-	sessionManager := session.NewManager(logger, rdb)
+	sessionManager := session.NewManager(logger, rdb, 48*time.Hour)
 	logger.Info("[Startup] Created session manager.")
 
 	logger.Info("[Startup] Creating controller ...")
@@ -110,7 +110,6 @@ func run() int {
 		ihttp.NewSessionMiddleware(
 			logger,
 			sessionManager,
-			48*time.Hour, // 2 days
 		),
 	)
 	logger.Info("[Startup] Created REST API.")

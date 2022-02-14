@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/internal/session"
+
 	"go.uber.org/zap"
 )
 
@@ -14,23 +15,23 @@ import (
 // with.
 type ISessionManager interface {
 	RetrieveSession(context.Context, string) (*session.Session, error)
-	TouchSession(context.Context, string, time.Duration) (*session.Session, error)
+	TouchSession(context.Context, string) (*session.Session, error)
 	DeleteSession(context.Context, session.Session) error
 }
 
-func NewSessionMiddleware(logger *zap.Logger, manager ISessionManager, expiration time.Duration) *SessionMiddleware {
+func NewSessionMiddleware(
+	logger *zap.Logger,
+	manager ISessionManager,
+) *SessionMiddleware {
 	return &SessionMiddleware{
-		logger:     logger,
-		manager:    manager,
-		expiration: expiration,
+		logger:  logger,
+		manager: manager,
 	}
 }
 
 type SessionMiddleware struct {
 	logger  *zap.Logger
 	manager ISessionManager
-
-	expiration time.Duration
 }
 
 // InjectSessionIntoCtx injects the session associated with the request. If
@@ -53,6 +54,9 @@ func (sm SessionMiddleware) InjectSessionIntoCtx() func(http.Handler) http.Handl
 
 				sess, err = sm.manager.RetrieveSession(r.Context(), sessionID)
 				if errors.Is(err, session.ErrSessionDNE) {
+					goto serve
+				}
+				if errors.Is(err, session.ErrSessionStale) {
 					goto serve
 				}
 				if err != nil {
@@ -89,7 +93,7 @@ func (sm SessionMiddleware) Touch() func(http.Handler) http.Handler {
 					goto serve
 				}
 
-				if _, err := sm.manager.TouchSession(r.Context(), sess.ID, sm.expiration); err != nil {
+				if _, err := sm.manager.TouchSession(r.Context(), sess.ID); err != nil {
 					ErrInternal(sm.logger, w, err)
 					return
 				}

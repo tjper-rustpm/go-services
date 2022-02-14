@@ -106,7 +106,7 @@ func run() int {
 	logger.Info("[Startup] Loaded AWS configuration.")
 
 	logger.Info("[Startup] Creating session manager ...")
-	sessionManager := session.NewManager(logger, rdb)
+	sessionManager := session.NewManager(logger, rdb, 48*time.Hour)
 	logger.Info("[Startup] Created session manager.")
 
 	logger.Info("[Startup] Creating controller ...")
@@ -159,11 +159,7 @@ func run() int {
 	api := rest.NewAPI(
 		logger,
 		ctrl,
-		ihttp.NewSessionMiddleware(
-			logger,
-			sessionManager,
-			48*time.Hour, // 2 days
-		),
+		ihttp.NewSessionMiddleware(logger, sessionManager),
 	)
 	logger.Info("[Startup] Created REST API.")
 

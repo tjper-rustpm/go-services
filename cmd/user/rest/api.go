@@ -19,6 +19,13 @@ import (
 	"go.uber.org/zap"
 )
 
+type ISessionManager interface {
+	RetrieveSession(context.Context, string) (*session.Session, error)
+	UpdateSession(context.Context, string, func(*session.Session)) (*session.Session, error)
+	TouchSession(context.Context, string) (*session.Session, error)
+	DeleteSession(context.Context, session.Session) error
+}
+
 type IController interface {
 	CreateUser(context.Context, controller.CreateUserInput) (*model.User, error)
 	User(context.Context, uuid.UUID) (*model.User, error)
@@ -38,7 +45,7 @@ func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
 	cookieOptions ihttp.CookieOptions,
-	sessionManager ihttp.ISessionManager,
+	sessionManager ISessionManager,
 	sessionMiddleware *ihttp.SessionMiddleware,
 ) *API {
 	api := API{
@@ -89,7 +96,7 @@ type API struct {
 	logger         *zap.Logger
 	valid          *validatorv10.Validate
 	ctrl           IController
-	sessionManager ihttp.ISessionManager
+	sessionManager ISessionManager
 
 	cookieOptions ihttp.CookieOptions
 }

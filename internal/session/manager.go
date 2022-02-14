@@ -20,19 +20,33 @@ var (
 	// session that does not exist.
 	ErrSessionDNE = errors.New("session does not exist")
 
+	// ErrSessionStale indicates that an interaction was attempted against a
+	// session that has been marked as stale and therefore outdated.
+	ErrSessionStale = errors.New("session stale")
+
 	// ErrMaxAttemptsReached indicates that an operation was unable to complete
 	// despite having been attempted the maximum allowed number of times.
 	ErrMaxAttemptsReached = errors.New("maximum attempts reached")
 )
 
-func NewManager(logger *zap.Logger, redis *redis.Client) *Manager {
-	return &Manager{logger: logger, redis: redis}
+func NewManager(
+	logger *zap.Logger,
+	redis *redis.Client,
+	sessionExpiration time.Duration,
+) *Manager {
+	return &Manager{
+		logger:     logger,
+		redis:      redis,
+		expiration: sessionExpiration,
+	}
 }
 
 // Manager manages Session interactions.
 type Manager struct {
 	logger *zap.Logger
 	redis  *redis.Client
+
+	expiration time.Duration
 }
 
 // CreateSession creates a new Session. This session should not already exist.
@@ -40,9 +54,8 @@ type Manager struct {
 func (m Manager) CreateSession(
 	ctx context.Context,
 	sess Session,
-	exp time.Duration,
 ) error {
-	return m.setnx(ctx, keygen(sessionPrefix, sess.ID), sess, exp)
+	return m.setnx(ctx, keygen(sessionPrefix, sess.ID), sess, m.expiration)
 }
 
 // UpdateSession updated the Session related to the sessionID passed using the
@@ -52,9 +65,8 @@ func (m Manager) UpdateSession(
 	ctx context.Context,
 	sessionID string,
 	updateFn func(*Session),
-	exp time.Duration,
 ) (*Session, error) {
-	return m.update(ctx, sessionID, updateFn, exp)
+	return m.update(ctx, sessionID, updateFn, m.expiration)
 }
 
 // RetrieveSession gets the Session related to the sessionID passed.
@@ -67,31 +79,23 @@ func (m Manager) RetrieveSession(
 		return nil, err
 	}
 
-	res, err := m.redis.Get(
-		ctx,
-		keygen(invalidateUserSessionsPrefix, sess.User.ID.String()),
-	).Result()
-	if errors.Is(err, redis.Nil) {
-		return &sess, nil
-	}
+	ok, err := m.isSessionValid(ctx, sess)
 	if err != nil {
 		return nil, err
 	}
+	if !ok {
+		return nil, ErrSessionDNE
+	}
 
-	var invalidAt time.Time
-	if err := decode([]byte(res), &invalidAt); err != nil {
+	ok, err = m.isSessionFresh(ctx, sess)
+	if err != nil {
 		return nil, err
 	}
-
-	if sess.CreatedAt.After(invalidAt) {
-		return &sess, nil
+	if !ok {
+		return nil, ErrSessionStale
 	}
 
-	if err := m.DeleteSession(ctx, sess); err != nil {
-		return nil, err
-	}
-
-	return &sess, ErrSessionDNE
+	return &sess, nil
 }
 
 // TouchSession updates the LastActivityAt field of the session identified by
@@ -100,13 +104,12 @@ func (m Manager) RetrieveSession(
 func (m Manager) TouchSession(
 	ctx context.Context,
 	sessionID string,
-	exp time.Duration,
 ) (*Session, error) {
 	return m.update(
 		ctx,
 		sessionID,
 		func(sess *Session) { sess.LastActivityAt = time.Now() },
-		exp,
+		m.expiration,
 	)
 }
 
@@ -124,7 +127,7 @@ func (m Manager) InvalidateUserSessionsBefore(
 	userID fmt.Stringer,
 	dt time.Time,
 ) error {
-	b, err := encode(time.Now())
+	b, err := encode(dt)
 	if err != nil {
 		return err
 	}
@@ -138,6 +141,93 @@ func (m Manager) InvalidateUserSessionsBefore(
 	}
 
 	return nil
+}
+
+func (m Manager) MarkStaleUserSessionsBefore(
+	ctx context.Context,
+	userID fmt.Stringer,
+	dt time.Time,
+) error {
+	b, err := encode(dt)
+	if err != nil {
+		return err
+	}
+	if _, err := m.redis.Set(
+		ctx,
+		keygen(markStaleUserSessionsPrefix, userID.String()),
+		b,
+		0,
+	).Result(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m Manager) isSessionValid(
+	ctx context.Context,
+	sess Session,
+) (bool, error) {
+	var invalidAt time.Time
+
+	res, err := m.redis.Get(
+		ctx,
+		keygen(invalidateUserSessionsPrefix, sess.User.ID.String()),
+	).Result()
+	if errors.Is(err, redis.Nil) {
+		goto valid
+	}
+	if err != nil {
+		return false, err
+	}
+
+	if err := decode([]byte(res), &invalidAt); err != nil {
+		return false, err
+	}
+
+	if sess.CreatedAt.After(invalidAt) {
+		goto valid
+	}
+
+	if err := m.DeleteSession(ctx, sess); err != nil {
+		return false, err
+	}
+
+	return false, nil
+
+valid:
+	return true, nil
+}
+
+func (m Manager) isSessionFresh(
+	ctx context.Context,
+	sess Session,
+) (bool, error) {
+	var staleAt time.Time
+
+	res, err := m.redis.Get(
+		ctx,
+		keygen(markStaleUserSessionsPrefix, sess.User.ID.String()),
+	).Result()
+	if errors.Is(err, redis.Nil) {
+		goto fresh
+	}
+	if err != nil {
+		return false, err
+	}
+
+	if err := decode([]byte(res), &staleAt); err != nil {
+		return false, err
+	}
+
+	if sess.CreatedAt.After(staleAt) {
+		goto fresh
+	}
+
+	return false, nil
+
+fresh:
+	return true, nil
 }
 
 func (m Manager) setnx(
@@ -249,6 +339,7 @@ func (m Manager) update(
 const (
 	sessionPrefix                = "rustpm-session-"
 	invalidateUserSessionsPrefix = "invalidate-user-sessions-"
+	markStaleUserSessionsPrefix  = "stale-user-sessions-"
 )
 
 func keygen(prefix, id string) string {
