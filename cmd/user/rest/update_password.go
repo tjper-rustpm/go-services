@@ -2,6 +2,7 @@ package rest
 
 import (
 	http "net/http"
+	"time"
 
 	usererrors "github.com/tjper/rustcron/cmd/user/errors"
 	ihttp "github.com/tjper/rustcron/internal/http"
@@ -25,12 +26,21 @@ func (ep ResetPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := ep.ctrl.ResetPassword(r.Context(), b.Hash, b.Password)
+	user, err := ep.ctrl.ResetPassword(r.Context(), b.Hash, b.Password)
 	if autherr := usererrors.AsAuthError(err); autherr != nil {
 		ihttp.ErrForbidden(w)
 		return
 	}
 	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	if err := ep.sessionManager.InvalidateUserSessionsBefore(
+		r.Context(),
+		user.ID,
+		time.Now(),
+	); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

@@ -20,10 +20,12 @@ import (
 )
 
 type ISessionManager interface {
+	CreateSession(context.Context, session.Session) error
 	RetrieveSession(context.Context, string) (*session.Session, error)
 	UpdateSession(context.Context, string, func(*session.Session)) (*session.Session, error)
 	TouchSession(context.Context, string) (*session.Session, error)
 	DeleteSession(context.Context, session.Session) error
+	InvalidateUserSessionsBefore(context.Context, fmt.Stringer, time.Time) error
 }
 
 type IController interface {
@@ -31,13 +33,11 @@ type IController interface {
 	User(context.Context, uuid.UUID) (*model.User, error)
 	UpdateUserPassword(context.Context, controller.UpdateUserPasswordInput) (*model.User, error)
 
-	LoginUser(context.Context, controller.LoginUserInput) (*controller.LoginUserOutput, error)
-	LogoutUserSession(context.Context, session.Session) error
-	LogoutAllUserSessions(context.Context, fmt.Stringer) error
+	LoginUser(context.Context, controller.LoginUserInput) (*model.User, error)
 
 	VerifyEmail(context.Context, string) (*model.User, error)
 	RequestPasswordReset(context.Context, string) error
-	ResetPassword(context.Context, string, string) error
+	ResetPassword(context.Context, string, string) (*model.User, error)
 	ResendEmailVerification(context.Context, uuid.UUID) (*model.User, error)
 }
 

@@ -25,12 +25,6 @@ type IEmailer interface {
 	SendVerifyEmail(context.Context, string, string) error
 }
 
-type ISessionManager interface {
-	CreateSession(context.Context, session.Session) error
-	DeleteSession(context.Context, session.Session) error
-	InvalidateUserSessionsBefore(context.Context, fmt.Stringer, time.Time) error
-}
-
 type IStore interface {
 	CreateUser(context.Context, *model.User) error
 	UpdateUserPassword(context.Context, uuid.UUID, []byte) (*model.User, error)
@@ -49,33 +43,23 @@ type IStore interface {
 }
 
 func New(
-	sessionManager ISessionManager,
 	store IStore,
 	emailer IEmailer,
 	admins IAdminSet,
-	activeSessionExpiration time.Duration,
-	absoluteSessionExpiration time.Duration,
 ) *Controller {
 	return &Controller{
-		sessionManager:            sessionManager,
-		store:                     store,
-		emailer:                   emailer,
-		admins:                    admins,
-		activeSessionExpiration:   activeSessionExpiration,
-		absoluteSessionExpiration: absoluteSessionExpiration,
+		store:   store,
+		emailer: emailer,
+		admins:  admins,
 	}
 }
 
 // Controller is responsible for interactions with user resources. All
 // interactions with the user resources occur through the Controller.
 type Controller struct {
-	sessionManager ISessionManager
-	store          IStore
-	emailer        IEmailer
-	admins         IAdminSet
-
-	activeSessionExpiration   time.Duration
-	absoluteSessionExpiration time.Duration
+	store   IStore
+	emailer IEmailer
+	admins  IAdminSet
 }
 
 // CreateUserInput is the input for the Controller.CreateUser method.
@@ -168,18 +152,12 @@ type LoginUserInput struct {
 	Password string
 }
 
-// LoginUserOutput is the output for the Controller.LoginUser method.
-type LoginUserOutput struct {
-	User      *model.User
-	SessionID string
-}
-
 // LoginUser ensures the passed credentials are valid. On success, the
 // logged-in user is returned to the caller, and a the user's new session ID.
 func (ctrl Controller) LoginUser(
 	ctx context.Context,
 	input LoginUserInput,
-) (*LoginUserOutput, error) {
+) (*model.User, error) {
 	user, err := ctrl.store.UserByEmail(ctx, input.Email)
 	if errors.Is(err, usererrors.UserDNE) {
 		return nil, usererrors.AuthError("invalid credentials")
@@ -195,36 +173,7 @@ func (ctrl Controller) LoginUser(
 		return nil, usererrors.AuthError("invalid credentials")
 	}
 
-	sessionID, err := rand.GenerateString(32)
-	if err != nil {
-		return nil, err
-	}
-	sess := session.New(
-		sessionID,
-		user.ToSessionUser(),
-		ctrl.absoluteSessionExpiration,
-	)
-
-	if err := ctrl.sessionManager.CreateSession(ctx, *sess); err != nil {
-		return nil, err
-	}
-
-	return &LoginUserOutput{
-		User:      user,
-		SessionID: sessionID,
-	}, nil
-}
-
-// LogoutUserSession invalidates the passed session, resulting in any user
-// using the session to be logged out.
-func (ctrl Controller) LogoutUserSession(ctx context.Context, sess session.Session) error {
-	return ctrl.sessionManager.DeleteSession(ctx, sess)
-}
-
-// LogoutAllUserSessions invalidates all existing sessions related to the user,
-// resulting in any user using these sessions to be logged out.
-func (ctrl Controller) LogoutAllUserSessions(ctx context.Context, userID fmt.Stringer) error {
-	return ctrl.sessionManager.InvalidateUserSessionsBefore(ctx, userID, time.Now())
+	return user, nil
 }
 
 // User retrieves the user associated with the passed ID.
@@ -348,27 +297,27 @@ func (ctrl Controller) ResetPassword(
 	ctx context.Context,
 	resetPasswordHash string,
 	password string,
-) error {
+) (*model.User, error) {
 	user, err := ctrl.store.UserByResetPasswordHash(ctx, resetPasswordHash)
 	if errors.Is(err, usererrors.UserDNE) {
-		return usererrors.AuthError("invalid credentials")
+		return nil, usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	reset, err := ctrl.store.PasswordResetByHash(ctx, resetPasswordHash)
 	if errors.Is(err, usererrors.PasswordResetDNE) {
-		return usererrors.AuthError("invalid credentials")
+		return nil, usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if reset.IsRequestStale() {
-		return usererrors.AuthError("stale hash")
+		return nil, usererrors.AuthError("stale hash")
 	}
 	if reset.IsCompleted() {
-		return usererrors.AuthError("reset previously completed")
+		return nil, usererrors.AuthError("reset previously completed")
 	}
 
 	if err := ctrl.store.CompleteUserPasswordReset(
@@ -377,10 +326,10 @@ func (ctrl Controller) ResetPassword(
 		reset.ID,
 		hash([]byte(password), []byte(user.Salt)),
 	); err != nil {
-		return err
+		return nil, err
 	}
 
-	return ctrl.LogoutAllUserSessions(ctx, user.ID)
+	return user, nil
 }
 
 type AddUserVIPInput struct {

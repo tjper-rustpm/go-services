@@ -2,6 +2,7 @@ package rest
 
 import (
 	http "net/http"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/user/controller"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
@@ -52,7 +53,11 @@ func (ep UpdateUserPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ep.ctrl.LogoutAllUserSessions(r.Context(), sess.User.ID); err != nil {
+	if err := ep.sessionManager.InvalidateUserSessionsBefore(
+		r.Context(),
+		sess.User.ID,
+		time.Now(),
+	); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

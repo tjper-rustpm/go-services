@@ -14,7 +14,7 @@ func (ep LogoutUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ep.ctrl.LogoutUserSession(r.Context(), *sess); err != nil {
+	if err := ep.sessionManager.DeleteSession(r.Context(), *sess); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

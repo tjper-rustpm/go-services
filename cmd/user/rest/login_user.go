@@ -2,10 +2,13 @@ package rest
 
 import (
 	http "net/http"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/user/controller"
 	uerrors "github.com/tjper/rustcron/cmd/user/errors"
 	ihttp "github.com/tjper/rustcron/internal/http"
+	"github.com/tjper/rustcron/internal/rand"
+	"github.com/tjper/rustcron/internal/session"
 )
 
 type LoginUser struct{ API }
@@ -26,7 +29,7 @@ func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := ep.ctrl.LoginUser(
+	user, err := ep.ctrl.LoginUser(
 		r.Context(),
 		controller.LoginUserInput{Email: b.Email, Password: b.Password},
 	)
@@ -39,11 +42,28 @@ func (ep LoginUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sessionID, err := rand.GenerateString(32)
+	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	sess := session.New(
+		sessionID,
+		user.ToSessionUser(),
+		7*24*time.Hour,
+	)
+
+	if err := ep.sessionManager.CreateSession(r.Context(), *sess); err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
 	ihttp.SetSessionCookie(
 		w,
-		out.SessionID,
+		sessionID,
 		ep.cookieOptions,
 	)
 
-	ep.write(w, http.StatusCreated, out.User)
+	ep.write(w, http.StatusCreated, user)
 }
