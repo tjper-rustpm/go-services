@@ -1,4 +1,4 @@
-// +build sessionintegration
+// +build integration
 
 package session
 
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/internal/rand"
-	"github.com/tjper/rustcron/internal/session"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
@@ -38,8 +37,8 @@ func TestIntegration(t *testing.T) {
 	suite := setup(ctx, t)
 
 	t.Run("touch session that dne", func(t *testing.T) {
-		_, err := suite.manager.TouchSession(ctx, suite.session.ID, time.Hour)
-		assert.ErrorIs(t, err, session.ErrSessionDNE, err.Error())
+		_, err := suite.manager.TouchSession(ctx, suite.session.ID)
+		assert.ErrorIs(t, err, ErrSessionDNE, err.Error())
 	})
 
 	t.Run("delete session that dne", func(t *testing.T) {
@@ -49,17 +48,17 @@ func TestIntegration(t *testing.T) {
 
 	t.Run("retrieve session that dne", func(t *testing.T) {
 		_, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
-		assert.ErrorIs(t, err, session.ErrSessionDNE)
+		assert.ErrorIs(t, err, ErrSessionDNE)
 	})
 
 	t.Run("create session", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
+		err := suite.manager.CreateSession(ctx, suite.session)
 		assert.Nil(t, err)
 	})
 
 	t.Run("create session that already exists", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
-		assert.ErrorIs(t, err, session.ErrSessionIDNotUnique)
+		err := suite.manager.CreateSession(ctx, suite.session)
+		assert.ErrorIs(t, err, ErrSessionIDNotUnique)
 	})
 
 	t.Run("retrieve session", func(t *testing.T) {
@@ -70,7 +69,7 @@ func TestIntegration(t *testing.T) {
 
 	time.Sleep(time.Second)
 	t.Run("touch session", func(t *testing.T) {
-		sess, err := suite.manager.TouchSession(ctx, suite.session.ID, time.Hour)
+		sess, err := suite.manager.TouchSession(ctx, suite.session.ID)
 		assert.Nil(t, err)
 		assert.WithinDuration(t, time.Now(), sess.LastActivityAt, time.Second)
 	})
@@ -81,7 +80,7 @@ func TestIntegration(t *testing.T) {
 	})
 
 	t.Run("create session", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
+		err := suite.manager.CreateSession(ctx, suite.session)
 		assert.Nil(t, err)
 	})
 
@@ -96,9 +95,8 @@ func TestIntegration(t *testing.T) {
 
 	t.Run("retrieve invalidated session", func(t *testing.T) {
 		_, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
-		assert.ErrorIs(t, err, session.ErrSessionDNE)
+		assert.ErrorIs(t, err, ErrSessionDNE)
 	})
-
 }
 
 func TestAddRemoveSessionVIPs(t *testing.T) {
@@ -108,47 +106,50 @@ func TestAddRemoveSessionVIPs(t *testing.T) {
 	suite := setup(ctx, t)
 
 	t.Run("create session", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session, time.Hour)
+		err := suite.manager.CreateSession(ctx, suite.session)
 		assert.Nil(t, err)
 	})
 
-	vips := []uuid.UUID{uuid.New(), uuid.New()}
+	subscriptions := []Subscription{
+		{ID: uuid.New()},
+		{ID: uuid.New()},
+	}
 
 	t.Run("add session VIPs", func(t *testing.T) {
-		updateFn := func(sess *session.Session) { sess.User.VIPs = vips }
+		updateFn := func(sess *Session) { sess.User.Subscriptions = subscriptions }
 
-		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn, time.Hour)
+		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn)
 		assert.Nil(t, err)
-		assert.Equal(t, vips, sess.User.VIPs)
+		assert.Equal(t, subscriptions, sess.User.Subscriptions)
 	})
 
 	t.Run("retrieve session w/ VIPs", func(t *testing.T) {
 		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
 		assert.Nil(t, err)
-		assert.Equal(t, vips, sess.User.VIPs)
+		assert.Equal(t, subscriptions, sess.User.Subscriptions)
 	})
 
 	t.Run("remove session VIPs", func(t *testing.T) {
-		updateFn := func(sess *session.Session) { sess.User.VIPs = nil }
+		updateFn := func(sess *Session) { sess.User.Subscriptions = nil }
 
-		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn, time.Hour)
+		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn)
 		assert.Nil(t, err)
-		assert.Nil(t, sess.User.VIPs)
+		assert.Nil(t, sess.User.Subscriptions)
 	})
 
 	t.Run("retrieve session w/o VIPs", func(t *testing.T) {
 		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
 		assert.Nil(t, err)
-		assert.Nil(t, sess.User.VIPs)
+		assert.Nil(t, sess.User.Subscriptions)
 	})
 }
 
 // --- suite ---
 
 type suite struct {
-	manager *session.Manager
+	manager *Manager
 
-	session session.Session
+	session Session
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
@@ -165,13 +166,13 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	require.Nil(t, err)
 
 	return &suite{
-		manager: session.NewManager(zap.NewNop(), redis),
-		session: session.Session{
+		manager: NewManager(zap.NewNop(), redis, time.Hour),
+		session: Session{
 			ID: id,
-			User: session.User{
+			User: User{
 				ID:    uuid.New(),
 				Email: "fake@email.com",
-				Role:  session.RoleStandard,
+				Role:  RoleStandard,
 			},
 			AbsoluteExpiration: time.Now().UTC().Add(time.Hour),
 			LastActivityAt:     time.Now().UTC(),

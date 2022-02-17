@@ -1,4 +1,4 @@
-// +build rconintegration
+// +build integration
 
 package rcon
 
@@ -15,7 +15,7 @@ import (
 
 var url = flag.String(
 	"url",
-	"ws://0.0.0.0:28016/docker",
+	"ws://rust:28016/docker",
 	"websocket url to run rcon integration tests against",
 )
 

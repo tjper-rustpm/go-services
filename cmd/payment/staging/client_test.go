@@ -1,4 +1,4 @@
-// +build stagingintegration
+// +build integration
 
 package staging
 

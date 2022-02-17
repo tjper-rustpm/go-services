@@ -1,0 +1,25 @@
+version: "3.8"
+services:
+  rust:
+    build:
+      context: "./"
+      dockerfile: "Dockerfile.rust"
+    restart: "always"
+    ports:
+      - "28016"
+    networks:
+      - integration
+  test:
+    image: "golang:1.16"
+    working_dir: "/app"
+    command: "go test -v -count=1 -tags=integration ${TEST}"
+    restart: "no"
+    volumes:
+      - ../:/app
+      - go-modules:/go/pkg/mod
+    networks:
+      - integration
+volumes:
+  go-modules:
+networks:
+  integration:

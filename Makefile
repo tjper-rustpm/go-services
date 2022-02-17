@@ -50,13 +50,13 @@ test-mailgun: ## Integration test email package against mailgun.
 
 .PHONY: test-rcon
 test-rcon: ## Integration test rcon package against Rust server running in Docker.
-	@docker build -t rustpm/rust -f cmd/cronman/rcon/Dockerfile.rust .
-	@docker run -dit -p 28016:28016 --rm --name test-rcon-rust rustpm/rust
-	@go test -v -count=1 -tags=rconintegration ./cmd/cronman/rcon
-	@docker stop test-rcon-rust
+	@TEST="./cmd/cronman/rcon" docker-compose -f deploy/docker-compose.rust.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.rust.yml down
+
 .PHONY: test-user
 test-user: ## Integration test user API.
-	@docker-compose -f cmd/user/rest/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@TEST="./cmd/user/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-payment
 test-payment: ## Integration test payment API.
@@ -65,7 +65,8 @@ test-payment: ## Integration test payment API.
 
 .PHONY: test-session
 test-session: ## Integration test session package.
-	@docker-compose -f internal/session/integration_test/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@TEST="./internal/session" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-stream
 test-stream: ## Integration test stream package.
@@ -74,4 +75,5 @@ test-stream: ## Integration test stream package.
 
 .PHONY: test-staging
 test-staging: ## Integration test staging package.
-	@docker-compose -f cmd/payment/staging/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@TEST="./cmd/payment/staging" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
