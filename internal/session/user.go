@@ -27,6 +27,14 @@ func (u User) Equal(u2 User) bool {
 	return equal
 }
 
+func (u User) SubscriptionIDs() []uuid.UUID {
+	ids := make([]uuid.UUID, 0, len(u.Subscriptions))
+	for _, sub := range u.Subscriptions {
+		ids = append(ids, sub.ID)
+	}
+	return ids
+}
+
 type Role string
 
 const (

@@ -7,4 +7,4 @@ RUN go mod download
 
 COPY . .
 
-ENTRYPOINT ["go", "test", "-v", "-count=1", "-tags=userintegration", "./cmd/user/rest"]
+ENTRYPOINT ["go", "test", "-v", "-count=1", "-tags=integration", "./cmd/user/rest"]

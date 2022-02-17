@@ -1,4 +1,4 @@
-// +build streamintegration
+// +build integration
 
 package stream
 
@@ -43,14 +43,14 @@ func TestRead(t *testing.T) {
 	})
 
 	t.Run("write", func(t *testing.T) {
-		err := suite.stream.Write(ctx, map[string]interface{}{"write": "message"})
+		err := suite.stream.Write(ctx, []byte("message"))
 		assert.Nil(t, err)
 	})
 
 	t.Run("read", func(t *testing.T) {
 		m, err := suite.stream.Read(ctx)
 		assert.Nil(t, err)
-		assert.Equal(t, map[string]interface{}{"write": "message"}, m.Values)
+		assert.Equal(t, []byte("message"), m.Payload)
 
 		err = m.Ack(ctx)
 		assert.Nil(t, err)
@@ -79,12 +79,12 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 			suite := setup(ctx, t)
 
 			sendc := make(chan int, test.messages)
-			receivec := make(chan string, test.messages)
+			receivec := make(chan []byte, test.messages)
 
 			for i := 0; i < test.writers; i++ {
 				go func(i int) {
 					for msg := range sendc {
-						err := suite.stream.Write(ctx, map[string]interface{}{"msg": msg})
+						err := suite.stream.Write(ctx, []byte(strconv.Itoa(msg)))
 						assert.Nil(t, err)
 					}
 				}(i)
@@ -99,7 +99,7 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 						}
 
 						assert.Nil(t, err)
-						receivec <- m.Values["msg"].(string)
+						receivec <- m.Payload
 
 						err = m.Ack(ctx)
 						assert.Nil(t, err)
@@ -119,7 +119,7 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 					assert.Equal(t, test.messages, len(received))
 					return
 				case msg := <-receivec:
-					i, err := strconv.Atoi(msg)
+					i, err := strconv.Atoi(string(msg))
 					assert.Nil(t, err)
 
 					received = append(received, i)
@@ -137,14 +137,14 @@ func TestFatalRecovery(t *testing.T) {
 	bravo := setup(ctx, t)
 
 	t.Run("alpha write", func(t *testing.T) {
-		err := alpha.stream.Write(ctx, map[string]interface{}{"write": "message"})
+		err := alpha.stream.Write(ctx, []byte("message"))
 		assert.Nil(t, err)
 	})
 
 	t.Run("alpha read w/ no ack", func(t *testing.T) {
 		m, err := alpha.stream.Read(ctx)
 		assert.Nil(t, err)
-		assert.Equal(t, map[string]interface{}{"write": "message"}, m.Values)
+		assert.Equal(t, []byte("message"), m.Payload)
 	})
 
 	t.Run("bravo read", func(t *testing.T) {
@@ -158,7 +158,7 @@ func TestFatalRecovery(t *testing.T) {
 	t.Run("bravo claim", func(t *testing.T) {
 		m, err := bravo.stream.Claim(ctx, time.Second)
 		assert.Nil(t, err)
-		assert.Equal(t, map[string]interface{}{"write": "message"}, m.Values)
+		assert.Equal(t, []byte("message"), m.Payload)
 
 		err = m.Ack(ctx)
 		assert.Nil(t, err)
@@ -168,7 +168,6 @@ func TestFatalRecovery(t *testing.T) {
 		_, err := alpha.stream.Claim(ctx, time.Second)
 		assert.ErrorIs(t, err, ErrNoPending)
 	})
-
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {

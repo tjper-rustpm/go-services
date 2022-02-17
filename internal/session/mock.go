@@ -7,11 +7,12 @@ import (
 	"time"
 )
 
-func NewMock() *Mock {
+func NewMock(expiration time.Duration) *Mock {
 	return &Mock{
 		mutex:         new(sync.Mutex),
 		sessions:      make(map[string]MockSession),
 		invalidations: make(map[string]time.Time),
+		expiration:    expiration,
 	}
 }
 
@@ -19,6 +20,7 @@ type Mock struct {
 	mutex         *sync.Mutex
 	sessions      map[string]MockSession
 	invalidations map[string]time.Time
+	expiration    time.Duration
 }
 
 type MockSession struct {
@@ -26,7 +28,7 @@ type MockSession struct {
 	ExpiresAt time.Time
 }
 
-func (m *Mock) CreateSession(_ context.Context, sess Session, exp time.Duration) error {
+func (m *Mock) CreateSession(_ context.Context, sess Session) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -36,9 +38,29 @@ func (m *Mock) CreateSession(_ context.Context, sess Session, exp time.Duration)
 
 	m.sessions[keygen(sessionPrefix, sess.ID)] = MockSession{
 		Session:   sess,
-		ExpiresAt: time.Now().Add(exp),
+		ExpiresAt: time.Now().Add(m.expiration),
 	}
 	return nil
+}
+
+func (m *Mock) UpdateSession(
+	_ context.Context,
+	sessionID string,
+	updateFn func(*Session),
+) (*Session, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	fetched, ok := m.sessions[keygen(sessionPrefix, sessionID)]
+	if !ok {
+		return nil, ErrSessionDNE
+	}
+
+	updateFn(&fetched.Session)
+
+	m.sessions[keygen(sessionPrefix, sessionID)] = fetched
+
+	return &fetched.Session, nil
 }
 
 func (m *Mock) RetrieveSession(_ context.Context, id string) (*Session, error) {
@@ -68,19 +90,19 @@ func (m *Mock) RetrieveSession(_ context.Context, id string) (*Session, error) {
 	return &sess.Session, nil
 }
 
-func (m *Mock) TouchSession(_ context.Context, sessionID string, exp time.Duration) error {
+func (m *Mock) TouchSession(ctx context.Context, sessionID string) (*Session, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	fetched, ok := m.sessions[keygen(sessionPrefix, sessionID)]
 	if !ok {
-		return ErrSessionDNE
+		return nil, ErrSessionDNE
 	}
 
 	fetched.LastActivityAt = time.Now()
-	fetched.ExpiresAt = time.Now().Add(exp)
+	fetched.ExpiresAt = time.Now().Add(m.expiration)
 
-	return nil
+	return &fetched.Session, nil
 }
 
 func (m *Mock) DeleteSession(_ context.Context, sess Session) error {

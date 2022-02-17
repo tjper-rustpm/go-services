@@ -15,6 +15,9 @@ var (
 	ErrUnexpectedStreamCount  = errors.New("unexpected stream count")
 	ErrUnexpectedMessageCount = errors.New("unexpected message count")
 	ErrNoPending              = errors.New("no pending messages")
+
+	errInvalidPayload = errors.New("invalid payload")
+	errBusyGroup      = errors.New("BUSYGROUP Consumer Group name already exists")
 )
 
 const (
@@ -24,9 +27,11 @@ const (
 )
 
 func Init(ctx context.Context, rdb *redis.Client, group string) (*Client, error) {
-	if err := rdb.XGroupCreateMkStream(ctx, stream, group, start).Err(); err != nil {
+	err := rdb.XGroupCreateMkStream(ctx, stream, group, start).Err()
+	if err != nil && !(err.Error() == errBusyGroup.Error()) {
 		return nil, fmt.Errorf("initializing stream; error: %w", err)
 	}
+
 	return &Client{
 		rdb:        rdb,
 		group:      group,
@@ -46,12 +51,12 @@ type Client struct {
 	claimStart string
 }
 
-func (c Client) Write(ctx context.Context, kv map[string]interface{}) error {
+func (c Client) Write(ctx context.Context, b []byte) error {
 	args := &redis.XAddArgs{
 		Stream:       stream,
 		MaxLenApprox: maxlen,
 		ID:           "*",
-		Values:       kv,
+		Values:       map[string]interface{}{"payload": b},
 	}
 	if err := c.rdb.XAdd(ctx, args).Err(); err != nil {
 		return fmt.Errorf("write stream; error: %w", err)
@@ -130,9 +135,14 @@ func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {
 
 	m := messages[0]
 
+	str, ok := m.Values["payload"].(string)
+	if !ok {
+		return nil, errInvalidPayload
+	}
+
 	return &Message{
-		ID:     m.ID,
-		Values: m.Values,
+		ID:      m.ID,
+		Payload: []byte(str),
 		ackFn: func(ctx context.Context) error {
 			return c.rdb.XAck(ctx, stream, c.group, m.ID).Err()
 		},
@@ -140,9 +150,9 @@ func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {
 }
 
 type Message struct {
-	ID     string
-	Values map[string]interface{}
-	ackFn  func(context.Context) error
+	ID      string
+	Payload []byte
+	ackFn   func(context.Context) error
 }
 
 func (m Message) Ack(ctx context.Context) error {

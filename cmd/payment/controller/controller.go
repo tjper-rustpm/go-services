@@ -10,7 +10,7 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/event"
-	"github.com/tjper/rustcron/internal/hash"
+	iuuid "github.com/tjper/rustcron/internal/uuid"
 
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v72"
@@ -26,7 +26,7 @@ type IStripe interface {
 }
 
 type IStream interface {
-	Write(context.Context, map[string]interface{}) error
+	Write(context.Context, []byte) error
 }
 
 func New(
@@ -158,20 +158,7 @@ func (ctrl Controller) CheckoutSessionComplete(
 		)
 	}
 
-	event := event.NewSubscriptionCreatedEvent(
-		subscription.ID,
-		stagedCheckout.UserID,
-		stagedCheckout.ServerID,
-	)
-	kv, err := hash.FromStruct(event)
-	if err != nil {
-		return fmt.Errorf("hash event; event-id: %s, error: %w", event.ID.String(), err)
-	}
-	if err := ctrl.stream.Write(ctx, kv); err != nil {
-		return fmt.Errorf("stream write; event-id: %s, error: %w", event.ID.String(), err)
-	}
-
-	return nil
+	return ctrl.subscriptionCreated(ctx, subscription.ID, stagedCheckout.UserID, stagedCheckout.ServerID)
 }
 
 func (ctrl Controller) ProcessInvoice(
@@ -199,10 +186,10 @@ func (ctrl Controller) ProcessInvoice(
 		}
 
 		subscription := model.Subscription{}
-		if res := tx.Model(&subscription).Where(
+		if res := tx.Where(
 			"stripe_subscription_id = ?",
 			invoiceEvent.Subscription.ID,
-		); res.Error != nil {
+		).First(&subscription); res.Error != nil {
 			return fmt.Errorf(
 				"fetch invoice subscription; id: %s, error: %w",
 				invoiceEvent.Subscription.ID,
@@ -234,12 +221,14 @@ func (ctrl Controller) ProcessInvoice(
 
 func (ctrl Controller) UserSubscriptions(
 	ctx context.Context,
-	userID uuid.UUID,
+	subscriptionIDs []uuid.UUID,
 ) ([]model.Subscription, error) {
 	subscriptions := make([]model.Subscription, 0)
 	if res := ctrl.gorm.
 		Preload("Invoices").
-		Where("user_id = ?", userID).
+		Preload("Invoices.Event").
+		Preload("Event").
+		Where("id IN ?", iuuid.Strings(subscriptionIDs)).
 		Find(&subscriptions); res.Error != nil {
 		return nil, res.Error
 	}
@@ -247,15 +236,43 @@ func (ctrl Controller) UserSubscriptions(
 	return subscriptions, nil
 }
 
+func (ctrl Controller) subscriptionCreated(
+	ctx context.Context,
+	subscriptionID uuid.UUID,
+	userID uuid.UUID,
+	serverID uuid.UUID,
+) error {
+	event := event.NewSubscriptionCreatedEvent(subscriptionID, userID, serverID)
+
+	b, err := json.Marshal(&event)
+	if err != nil {
+		return fmt.Errorf(
+			"marshal event; event-id: %s, error: %w",
+			event.ID.String(),
+			err,
+		)
+	}
+
+	if err := ctrl.stream.Write(ctx, b); err != nil {
+		return fmt.Errorf("stream write; event-id: %s, error: %w", event.ID.String(), err)
+	}
+
+	return nil
+}
+
 func (ctrl Controller) subscriptionDeleted(ctx context.Context, id uuid.UUID) error {
 	event := event.NewSubscriptionDeleteEvent(id)
 
-	kv, err := hash.FromStruct(event)
+	b, err := json.Marshal(&event)
 	if err != nil {
-		return fmt.Errorf("hash event; event-id: %s, error: %w", event.ID.String(), err)
+		return fmt.Errorf(
+			"marshal event; event-id: %s, error: %w",
+			event.ID.String(),
+			err,
+		)
 	}
 
-	if err := ctrl.stream.Write(ctx, kv); err != nil {
+	if err := ctrl.stream.Write(ctx, b); err != nil {
 		return fmt.Errorf("stream write; event-id: %s, error: %w", event.ID.String(), err)
 	}
 

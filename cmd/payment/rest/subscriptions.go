@@ -17,7 +17,10 @@ func (ep Subscriptions) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	modelSubscriptions, err := ep.ctrl.UserSubscriptions(r.Context(), sess.User.ID)
+	modelSubscriptions, err := ep.ctrl.UserSubscriptions(
+		r.Context(),
+		sess.User.SubscriptionIDs(),
+	)
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return

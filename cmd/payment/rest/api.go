@@ -21,7 +21,7 @@ type IController interface {
 	CheckoutSession(context.Context, controller.CheckoutSessionInput) (string, error)
 	BillingPortalSession(context.Context, controller.BillingPortalSessionInput) (string, error)
 
-	UserSubscriptions(context.Context, uuid.UUID) ([]model.Subscription, error)
+	UserSubscriptions(context.Context, []uuid.UUID) ([]model.Subscription, error)
 
 	CheckoutSessionComplete(context.Context, stripev72.Event) error
 	ProcessInvoice(context.Context, stripev72.Event) error

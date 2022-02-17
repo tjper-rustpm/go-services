@@ -3,26 +3,39 @@
 package event
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/tjper/rustcron/internal/hash"
 )
 
-func ParseHash(h map[string]interface{}) (interface{}, error) {
-	var event interface{}
-	switch kind := h["Kind"]; kind {
-	case SubscriptionCreated:
-		event = SubscriptionCreatedEvent{}
-	case SubscriptionDeleted:
-		event = SubscriptionDeleteEvent{}
-	default:
-		return nil, fmt.Errorf("unexpected event; kind: %s", kind)
+var errKindInvalid = errors.New("kind is not string type")
+
+func Parse(b []byte) (interface{}, error) {
+	m := make(map[string]interface{})
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, fmt.Errorf("unmarshal event; error: %w", err)
 	}
 
-	if err := hash.ToStruct(&event, h); err != nil {
-		return nil, fmt.Errorf("hash to struct; error: %w", err)
+	str, ok := m["Kind"].(string)
+	if !ok {
+		return nil, errKindInvalid
+	}
+
+	var event interface{}
+	switch Kind(str) {
+	case SubscriptionCreated:
+		event = &SubscriptionCreatedEvent{}
+	case SubscriptionDeleted:
+		event = &SubscriptionDeleteEvent{}
+	default:
+		return nil, fmt.Errorf("unexpected event; kind: %s, error: %w", str, errKindInvalid)
+	}
+
+	if err := json.Unmarshal(b, event); err != nil {
+		return nil, fmt.Errorf("unmarshal event; type: %T, error: %w", event, err)
 	}
 
 	return event, nil

@@ -1,4 +1,4 @@
-// +build userintegration
+// +build integration
 
 package rest
 
@@ -16,7 +16,6 @@ import (
 	"github.com/tjper/rustcron/cmd/user/config"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/db"
-	"github.com/tjper/rustcron/internal/email"
 	emailpkg "github.com/tjper/rustcron/internal/email"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
@@ -152,6 +151,7 @@ func TestForgotPassword(t *testing.T) {
 		}
 
 		resp := suite.request(ctx, t, http.MethodPost, "/v1/user/forgot-password", body)
+		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
@@ -543,17 +543,14 @@ func setup(
 	err = rdb.Ping(ctx).Err()
 	require.Nil(t, err)
 
-	sessionManager := session.NewManager(logger, rdb)
+	sessionManager := session.NewManager(logger, rdb, 48*time.Hour)
 
 	emailer := emailpkg.NewMock()
 
 	ctrl := controller.New(
-		sessionManager,
 		db.NewStore(logger, dbconn),
 		emailer,
 		admin.NewAdminSet(admins),
-		48*time.Hour,   // 2 days
-		7*24*time.Hour, // 1 week
 	)
 
 	api := NewAPI(
@@ -568,7 +565,6 @@ func setup(
 		ihttp.NewSessionMiddleware(
 			logger,
 			sessionManager,
-			48*time.Hour, // 2 days
 		),
 	)
 
@@ -580,11 +576,10 @@ func setup(
 }
 
 type suite struct {
-	emailer *email.Mock
+	emailer *emailpkg.Mock
 	api     http.Handler
 
-	email   string
-	cookies []*http.Cookie
+	email string
 }
 
 func (s *suite) request(

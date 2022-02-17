@@ -1,3 +1,5 @@
+// +build integration
+
 package rest
 
 import (
@@ -5,20 +7,19 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"sort"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/staging"
+	"github.com/tjper/rustcron/internal/event"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/session"
+	"github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
 
 	redisv8 "github.com/go-redis/redis/v8"
@@ -202,7 +203,10 @@ func TestInvoice(t *testing.T) {
 		)
 	})
 
-	subscriptionID := uuid.New()
+	var (
+		subscriptionID       uuid.UUID
+		stripeSubscriptionID = uuid.New()
+	)
 	t.Run("complete checkout session", func(t *testing.T) {
 		suite.postCompleteCheckoutSession(
 			ctx,
@@ -211,9 +215,24 @@ func TestInvoice(t *testing.T) {
 			uuid.New(),
 			clientReferenceID,
 			uuid.New(),
-			subscriptionID,
+			stripeSubscriptionID,
 			sess,
 		)
+
+		eventI := suite.readEvent(ctx, t)
+		event, ok := eventI.(*event.SubscriptionCreatedEvent)
+		assert.True(t, ok)
+		assert.Equal(t, serverID.String(), event.ServerID.String())
+		assert.Equal(t, sess.User.ID.String(), event.UserID.String())
+		subscriptionID = event.SubscriptionID
+
+		updateFn := func(sess *session.Session) {
+			sess.User.Subscriptions = []session.Subscription{
+				{ID: event.SubscriptionID, ServerID: serverID},
+			}
+		}
+		_, err := suite.sessions.UpdateSession(ctx, sess.ID, updateFn)
+		assert.Nil(t, err)
 	})
 
 	t.Run("invoice paid", func(t *testing.T) {
@@ -224,19 +243,17 @@ func TestInvoice(t *testing.T) {
 			"invoice.paid",
 			uuid.New(),
 			"paid",
-			subscriptionID,
+			stripeSubscriptionID,
 			sess,
 		)
 	})
 
-	t.Run("get paid subscription", func(t *testing.T) {
+	t.Run("get session's subscription", func(t *testing.T) {
 		subs := suite.getSubscriptions(ctx, t, sess)
 		assert.Len(t, subs, 1)
 
 		sub := subs[0]
-		assert.Equal(t, sub.ServerID, serverID)
-		assert.Equal(t, sub.UserID, sess.User.ID)
-		assert.True(t, sub.Active)
+		assert.Equal(t, subscriptionID, sub.ID)
 	})
 
 	t.Run("invoice payment failed", func(t *testing.T) {
@@ -247,83 +264,39 @@ func TestInvoice(t *testing.T) {
 			"invoice.payment_failed",
 			uuid.New(),
 			"payment_failed",
-			subscriptionID,
+			stripeSubscriptionID,
 			sess,
 		)
+
+		eventI := suite.readEvent(ctx, t)
+		event, ok := eventI.(*event.SubscriptionDeleteEvent)
+		assert.True(t, ok)
+		assert.Equal(t, subscriptionID, event.SubscriptionID)
+
+		updateFn := func(sess *session.Session) { sess.User.Subscriptions = nil }
+		_, err := suite.sessions.UpdateSession(ctx, sess.ID, updateFn)
+		assert.Nil(t, err)
 	})
 
-	t.Run("get failed subscription", func(t *testing.T) {
+	t.Run("check session has no subscription", func(t *testing.T) {
 		subs := suite.getSubscriptions(ctx, t, sess)
-		assert.Len(t, subs, 1)
-
-		sub := subs[0]
-		assert.Equal(t, sub.ServerID, serverID)
-		assert.Equal(t, sub.UserID, sess.User.ID)
-		assert.False(t, sub.Active)
+		assert.Len(t, subs, 0)
 	})
 }
 
-func TestSingleUserParallelSubscriptionsCreation(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+func (s suite) readEvent(ctx context.Context, t *testing.T) interface{} {
+	t.Helper()
 
-	suite := setup(ctx, t)
+	m, err := s.stream.Read(ctx)
+	assert.Nil(t, err)
 
-	sess := suite.session(
-		ctx,
-		t,
-		session.User{
-			ID:    uuid.New(),
-			Email: "rustcron@gmail.com",
-			Role:  session.RoleStandard,
-		},
-	)
+	eventI, err := event.Parse(m.Payload)
+	assert.Nil(t, err)
 
-	servers := make([]uuid.UUID, 0)
-	testFn := func(t *testing.T) {
-		t.Helper()
+	err = m.Ack(ctx)
+	assert.Nil(t, err)
 
-		var (
-			serverID       = uuid.New()
-			subscriptionID = uuid.New()
-		)
-		clientReferenceID := suite.postSubscriptionCheckoutSession(ctx, t, serverID, sess.User.ID, sess)
-
-		suite.postCompleteCheckoutSession(ctx, t, uuid.New(), uuid.New(), clientReferenceID, uuid.New(), subscriptionID, sess)
-
-		suite.postInvoice(ctx, t, uuid.New(), "invoice.paid", uuid.New(), "paid", subscriptionID, sess)
-
-		servers = append(servers, serverID)
-	}
-
-	t.Run("create subscription checkout session", func(t *testing.T) {
-		for _, processes := range []int{2, 4, 10, 100} {
-			t.Run(fmt.Sprintf("%d parallel subscriptions", processes), func(t *testing.T) {
-				var wg sync.WaitGroup
-				defer wg.Wait()
-
-				for i := 0; i < processes; i++ {
-					wg.Add(1)
-					go func() {
-						testFn(t)
-						wg.Done()
-					}()
-				}
-			})
-		}
-	})
-
-	t.Run("fetch user subscriptions", func(t *testing.T) {
-		subs := suite.getSubscriptions(ctx, t, sess)
-		assert.Equal(t, len(subs), len(servers))
-
-		sort.Slice(subs, func(i, j int) bool { return subs[i].ServerID.String() < subs[j].ServerID.String() })
-		sort.Slice(servers, func(i, j int) bool { return servers[i].String() < servers[j].String() })
-
-		for i := range subs {
-			assert.Equal(t, servers[i], subs[i].ServerID)
-		}
-	})
+	return eventI
 }
 
 func (s suite) postSubscriptionCheckoutSession(
@@ -365,12 +338,12 @@ func (s suite) postCompleteCheckoutSession(
 	checkoutID,
 	clientReferenceID,
 	customerID,
-	subscriptionID uuid.UUID,
+	stripeSubscriptionID uuid.UUID,
 	sess *session.Session,
 ) {
 	t.Helper()
 
-	body := checkoutSessionCompleteBody(id, checkoutID, clientReferenceID, customerID, subscriptionID)
+	body := checkoutSessionCompleteBody(id, checkoutID, clientReferenceID, customerID, stripeSubscriptionID)
 
 	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(sess))
 	defer resp.Body.Close()
@@ -385,12 +358,12 @@ func (s suite) postInvoice(
 	eventType string,
 	invoiceID uuid.UUID,
 	status string,
-	subscriptionID uuid.UUID,
+	stripeSubscriptionID uuid.UUID,
 	sess *session.Session,
 ) {
 	t.Helper()
 
-	body := invoiceBody(id, eventType, invoiceID, status, subscriptionID)
+	body := invoiceBody(id, eventType, invoiceID, status, stripeSubscriptionID)
 
 	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(sess))
 	defer resp.Body.Close()
@@ -435,15 +408,22 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	err = rdb.Ping(ctx).Err()
 	require.Nil(t, err)
 
-	sessionManager := session.NewMock()
+	err = rdb.FlushDB(ctx).Err()
+	require.Nil(t, err)
+
+	sessionManager := session.NewMock(time.Hour)
 
 	stripe := stripe.NewMock()
+
+	stream, err := stream.Init(ctx, rdb, "test")
+	require.Nil(t, err)
 
 	ctrl := controller.New(
 		logger,
 		dbconn,
 		staging.NewClient(rdb),
 		stripe,
+		stream,
 	)
 
 	api := NewAPI(
@@ -452,7 +432,6 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		ihttp.NewSessionMiddleware(
 			logger,
 			sessionManager,
-			48*time.Hour, // 2 days
 		),
 		stripe,
 	)
@@ -460,6 +439,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	return &suite{
 		api:      api.Mux,
 		stripe:   stripe,
+		stream:   stream,
 		sessions: sessionManager,
 	}
 }
@@ -467,6 +447,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 type suite struct {
 	api      http.Handler
 	stripe   *stripe.Mock
+	stream   *stream.Client
 	sessions *session.Mock
 }
 
@@ -515,7 +496,7 @@ func (s *suite) session(
 
 	sess := session.New(id, user, time.Minute)
 
-	err = s.sessions.CreateSession(ctx, *sess, time.Minute)
+	err = s.sessions.CreateSession(ctx, *sess)
 	require.Nil(t, err)
 
 	return sess
@@ -532,7 +513,7 @@ func checkoutSessionCompleteBody(
 	checkoutID,
 	clientReferenceID,
 	customerID,
-	subscriptionID uuid.UUID,
+	stripeSubscriptionID uuid.UUID,
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"id":   id.String(),
@@ -545,7 +526,7 @@ func checkoutSessionCompleteBody(
 					"id": customerID.String(),
 				},
 				"subscription": map[string]interface{}{
-					"id": subscriptionID.String(),
+					"id": stripeSubscriptionID.String(),
 				},
 			},
 		},
@@ -557,7 +538,7 @@ func invoiceBody(
 	eventType string,
 	invoiceID uuid.UUID,
 	status string,
-	subscriptionID uuid.UUID,
+	stripeSubscriptionID uuid.UUID,
 ) map[string]interface{} {
 	return map[string]interface{}{
 		"id":   id.String(),
@@ -567,7 +548,7 @@ func invoiceBody(
 				"id":     invoiceID.String(),
 				"status": status,
 				"subscription": map[string]interface{}{
-					"id": subscriptionID.String(),
+					"id": stripeSubscriptionID.String(),
 				},
 			},
 		},

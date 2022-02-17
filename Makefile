@@ -54,14 +54,14 @@ test-rcon: ## Integration test rcon package against Rust server running in Docke
 	@docker run -dit -p 28016:28016 --rm --name test-rcon-rust rustpm/rust
 	@go test -v -count=1 -tags=rconintegration ./cmd/cronman/rcon
 	@docker stop test-rcon-rust
-
 .PHONY: test-user
 test-user: ## Integration test user API.
 	@docker-compose -f cmd/user/rest/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
 
 .PHONY: test-payment
 test-payment: ## Integration test payment API.
-	@docker-compose -f cmd/payment/rest/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@TEST="./cmd/payment/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-session
 test-session: ## Integration test session package.
@@ -69,7 +69,8 @@ test-session: ## Integration test session package.
 
 .PHONY: test-stream
 test-stream: ## Integration test stream package.
-	@docker-compose -f internal/stream/docker-compose.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@TEST="./internal/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-staging
 test-staging: ## Integration test staging package.
