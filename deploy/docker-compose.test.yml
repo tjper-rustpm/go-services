@@ -1,0 +1,46 @@
+version: "3.8"
+services:
+  db:
+    image: "postgres:13.0"
+    restart: "always"
+    ports:
+      - "5432"
+    environment:
+      POSTGRES_PASSWORD: "password"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout:  30s
+      retries: 5
+      start_period: 5s
+    networks:
+      - integration
+  redis:
+    image: "redis"
+    restart: "always"
+    ports:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    networks:
+      - integration
+  test:
+    image: "golang:1.16"
+    working_dir: "/app"
+    command: "go test -v -count=1 -tags=integration ${TEST}"
+    restart: "no"
+    volumes:
+      - ../:/app
+      - go-modules:/go/pkg/mod
+    depends_on:
+      - redis
+      - db
+    networks:
+      - integration
+volumes:
+  go-modules:
+networks:
+  integration:
