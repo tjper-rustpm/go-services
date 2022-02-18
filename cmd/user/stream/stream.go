@@ -7,12 +7,13 @@ import (
 
 	"github.com/tjper/rustcron/cmd/user/model"
 	"github.com/tjper/rustcron/internal/event"
+	"github.com/tjper/rustcron/internal/stream"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type IStream interface {
-	Read(context.Context) (map[string]interface{}, error)
+	Read(context.Context) (*stream.Message, error)
 }
 
 type ISessionManager interface {
@@ -42,29 +43,41 @@ type Handler struct {
 
 func (h Handler) Launch(ctx context.Context) error {
 	for {
-		kv, err := h.stream.Read(ctx)
+		m, err := h.stream.Read(ctx)
 		if err != nil {
 			return fmt.Errorf("read stream; error: %w", err)
 		}
 
-		eventI, err := event.ParseHash(kv)
-		if err != nil {
-			h.logger.Error("parse event hash", zap.Error(err))
-		}
+		go func(ctx context.Context, m *stream.Message) {
+			eventI, err := event.Parse(m.Payload)
+			if err != nil {
+				h.logger.Error("parse event hash", zap.Error(err))
+				return
+			}
 
-		switch e := eventI.(type) {
-		case event.SubscriptionCreatedEvent:
-			go h.handleSubscriptionCreated(ctx, e)
-		case event.SubscriptionDeleteEvent:
-			go h.handleSubscriptionDelete(ctx, e)
-		}
+			switch e := eventI.(type) {
+			case event.SubscriptionCreatedEvent:
+				err = h.handleSubscriptionCreated(ctx, e)
+			case event.SubscriptionDeleteEvent:
+				err = h.handleSubscriptionDelete(ctx, e)
+			}
+			if err != nil {
+				h.logger.Error("handle stream event", zap.Error(err))
+				return
+			}
+
+			if err := m.Ack(ctx); err != nil {
+				h.logger.Error("acknowledge stream event", zap.Error(err))
+				return
+			}
+		}(ctx, m)
 	}
 }
 
 func (h Handler) handleSubscriptionCreated(
 	ctx context.Context,
 	e event.SubscriptionCreatedEvent,
-) {
+) error {
 	if err := h.gorm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var user model.User
 		if res := tx.First(&user, e.UserID); res.Error != nil {
@@ -81,24 +94,24 @@ func (h Handler) handleSubscriptionCreated(
 		}
 		return nil
 	}); err != nil {
-		h.logger.Error("create user subscription", zap.Error(err))
-		return
+		return fmt.Errorf(
+			"create user subscription; user-id: %s, subscription-id: %s, error: %w",
+			e.UserID,
+			e.SubscriptionID,
+			err,
+		)
 	}
 
 	if err := h.sessionManager.MarkStaleUserSessionsBefore(ctx, e.UserID, time.Now()); err != nil {
-		h.logger.Error(
-			"mark user sessions stale",
-			zap.Stringer("user-id", e.UserID),
-			zap.Error(err),
-		)
-		return
+		return fmt.Errorf("mark user sessions stale; user-id: %s, error: %w", e.UserID, err)
 	}
+	return nil
 }
 
 func (h Handler) handleSubscriptionDelete(
 	ctx context.Context,
 	e event.SubscriptionDeleteEvent,
-) {
+) error {
 	var subscription model.Subscription
 	if err := h.gorm.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if res := tx.
@@ -113,16 +126,11 @@ func (h Handler) handleSubscriptionDelete(
 
 		return nil
 	}); err != nil {
-		h.logger.Error("delete user subscription", zap.Error(err))
-		return
+		return fmt.Errorf("delete user subscription; subscription-id: %s, error: %w", e.SubscriptionID, err)
 	}
 
 	if err := h.sessionManager.MarkStaleUserSessionsBefore(ctx, subscription.UserID, time.Now()); err != nil {
-		h.logger.Error(
-			"mark user sessions stale",
-			zap.Stringer("user-id", subscription.UserID),
-			zap.Error(err),
-		)
-		return
+		return fmt.Errorf("mark user sessions stale; user-id: %s, error: %w", subscription.UserID, err)
 	}
+	return nil
 }

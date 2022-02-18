@@ -3,12 +3,9 @@
 package rest
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -17,40 +14,14 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/event"
 	ihttp "github.com/tjper/rustcron/internal/http"
-	"github.com/tjper/rustcron/internal/rand"
+	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/session"
-	"github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
 
-	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	stripev72 "github.com/stripe/stripe-go/v72"
-	"go.uber.org/zap"
-)
-
-var (
-	dsn = flag.String(
-		"dsn",
-		"host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC",
-		"DSN to be used to connect to user DB.",
-	)
-	migrations = flag.String(
-		"migrations",
-		"file://../db/migrations",
-		"Migrations to be used to migrate DB to correct schema.",
-	)
-	redisAddr = flag.String(
-		"redis-addr",
-		"redis:6379",
-		"Redis address to be used to establish Redis client.",
-	)
-	redisPassword = flag.String(
-		"redis-pass",
-		"",
-		"Redis password to be used to authenticate with Redis.",
-	)
 )
 
 func TestCreateCheckoutSession(t *testing.T) {
@@ -59,7 +30,7 @@ func TestCreateCheckoutSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.session(
+	sess := suite.NewSession(
 		ctx,
 		t,
 		session.User{
@@ -86,7 +57,7 @@ func TestCreateBillingPortalSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.session(
+	sess := suite.NewSession(
 		ctx,
 		t,
 		session.User{
@@ -101,12 +72,12 @@ func TestCreateBillingPortalSession(t *testing.T) {
 			"returnUrl": "http://rustpm.com",
 		}
 
-		resp := suite.request(ctx, t, http.MethodPost, "/v1/billing", body, cookie(sess))
+		resp := suite.Request(ctx, t, suite.API, http.MethodPost, "/v1/billing", body, sess)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-		session := suite.stripe.PopBillingPortalSession()
+		session := suite.Stripe.PopBillingPortalSession()
 		assert.Equal(t, "http://rustpm.com", *session.ReturnURL)
 	})
 }
@@ -117,7 +88,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.session(
+	sess := suite.NewSession(
 		ctx,
 		t,
 		session.User{
@@ -179,7 +150,7 @@ func TestInvoice(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.session(
+	sess := suite.NewSession(
 		ctx,
 		t,
 		session.User{
@@ -231,7 +202,7 @@ func TestInvoice(t *testing.T) {
 				{ID: event.SubscriptionID, ServerID: serverID},
 			}
 		}
-		_, err := suite.sessions.UpdateSession(ctx, sess.ID, updateFn)
+		_, err := suite.Sessions.UpdateSession(ctx, sess.ID, updateFn)
 		assert.Nil(t, err)
 	})
 
@@ -274,7 +245,7 @@ func TestInvoice(t *testing.T) {
 		assert.Equal(t, subscriptionID, event.SubscriptionID)
 
 		updateFn := func(sess *session.Session) { sess.User.Subscriptions = nil }
-		_, err := suite.sessions.UpdateSession(ctx, sess.ID, updateFn)
+		_, err := suite.Sessions.UpdateSession(ctx, sess.ID, updateFn)
 		assert.Nil(t, err)
 	})
 
@@ -287,7 +258,7 @@ func TestInvoice(t *testing.T) {
 func (s suite) readEvent(ctx context.Context, t *testing.T) interface{} {
 	t.Helper()
 
-	m, err := s.stream.Read(ctx)
+	m, err := s.Stream.Read(ctx)
 	assert.Nil(t, err)
 
 	eventI, err := event.Parse(m.Payload)
@@ -316,12 +287,12 @@ func (s suite) postSubscriptionCheckoutSession(
 		"priceId":    "prod_L1MFlCUj2bk2j0",
 	}
 
-	resp := s.request(ctx, t, http.MethodPost, "/v1/checkout", body, cookie(sess))
+	resp := s.Request(ctx, t, s.API, http.MethodPost, "/v1/checkout", body, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-	checkout := s.stripe.PopCheckoutSession()
+	checkout := s.Stripe.PopCheckoutSession()
 	assert.Equal(t, "http://rustpm.com/payment/cancel", *checkout.CancelURL)
 	assert.Equal(t, "http://rustpm.com/payment/success", *checkout.SuccessURL)
 	assert.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *checkout.Mode)
@@ -345,7 +316,7 @@ func (s suite) postCompleteCheckoutSession(
 
 	body := checkoutSessionCompleteBody(id, checkoutID, clientReferenceID, customerID, stripeSubscriptionID)
 
-	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(sess))
+	resp := s.Request(ctx, t, s.API, http.MethodPost, "/v1/stripe", body, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -365,7 +336,7 @@ func (s suite) postInvoice(
 
 	body := invoiceBody(id, eventType, invoiceID, status, stripeSubscriptionID)
 
-	resp := s.request(ctx, t, http.MethodPost, "/v1/stripe", body, cookie(sess))
+	resp := s.Request(ctx, t, s.API, http.MethodPost, "/v1/stripe", body, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -378,7 +349,7 @@ func (s suite) getSubscriptions(
 ) []Subscription {
 	t.Helper()
 
-	resp := s.request(ctx, t, http.MethodGet, "/v1/subscriptions", nil, cookie(sess))
+	resp := s.Request(ctx, t, s.API, http.MethodGet, "/v1/subscriptions", nil, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -393,120 +364,49 @@ func (s suite) getSubscriptions(
 func setup(ctx context.Context, t *testing.T) *suite {
 	t.Helper()
 
-	logger := zap.NewNop()
+	s := integration.InitSuite(ctx, t)
 
-	dbconn, err := db.Open(*dsn)
+	const (
+		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
+		migrations = "file://../db/migrations"
+	)
+	dbconn, err := db.Open(dsn)
 	require.Nil(t, err)
 
-	err = db.Migrate(dbconn, *migrations)
+	err = db.Migrate(dbconn, migrations)
 	require.Nil(t, err)
-
-	rdb := redisv8.NewClient(&redisv8.Options{
-		Addr:     *redisAddr,
-		Password: *redisPassword,
-	})
-	err = rdb.Ping(ctx).Err()
-	require.Nil(t, err)
-
-	err = rdb.FlushDB(ctx).Err()
-	require.Nil(t, err)
-
-	sessionManager := session.NewMock(time.Hour)
 
 	stripe := stripe.NewMock()
 
-	stream, err := stream.Init(ctx, rdb, "test")
-	require.Nil(t, err)
-
 	ctrl := controller.New(
-		logger,
+		s.Logger,
 		dbconn,
-		staging.NewClient(rdb),
+		staging.NewClient(s.Redis),
 		stripe,
-		stream,
+		s.Stream,
 	)
 
 	api := NewAPI(
-		logger,
+		s.Logger,
 		ctrl,
-		ihttp.NewSessionMiddleware(
-			logger,
-			sessionManager,
-		),
+		ihttp.NewSessionMiddleware(s.Logger, s.Sessions),
 		stripe,
 	)
 
 	return &suite{
-		api:      api.Mux,
-		stripe:   stripe,
-		stream:   stream,
-		sessions: sessionManager,
+		Suite:  *s,
+		API:    api.Mux,
+		Stripe: stripe,
 	}
 }
 
 type suite struct {
-	api      http.Handler
-	stripe   *stripe.Mock
-	stream   *stream.Client
-	sessions *session.Mock
-}
-
-func (s *suite) request(
-	ctx context.Context,
-	t *testing.T,
-	method string,
-	target string,
-	body interface{},
-	cookies ...*http.Cookie,
-) *http.Response {
-	t.Helper()
-
-	var req *http.Request
-	if body == nil {
-		req = httptest.NewRequest(method, target, nil)
-	} else {
-		buf := new(bytes.Buffer)
-		err := json.NewEncoder(buf).Encode(body)
-		assert.Nil(t, err)
-
-		req = httptest.NewRequest(method, target, buf)
-	}
-
-	req = req.WithContext(ctx)
-
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
-
-	rr := httptest.NewRecorder()
-	s.api.ServeHTTP(rr, req)
-
-	return rr.Result()
-}
-
-func (s *suite) session(
-	ctx context.Context,
-	t *testing.T,
-	user session.User,
-) *session.Session {
-	t.Helper()
-
-	id, err := rand.GenerateString(16)
-	require.Nil(t, err)
-
-	sess := session.New(id, user, time.Minute)
-
-	err = s.sessions.CreateSession(ctx, *sess)
-	require.Nil(t, err)
-
-	return sess
+	integration.Suite
+	API    http.Handler
+	Stripe *stripe.Mock
 }
 
 // --- helpers ---
-
-func cookie(sess *session.Session) *http.Cookie {
-	return ihttp.Cookie(sess.ID, ihttp.CookieOptions{})
-}
 
 func checkoutSessionCompleteBody(
 	id,
