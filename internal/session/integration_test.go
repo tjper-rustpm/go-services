@@ -110,37 +110,42 @@ func TestAddRemoveSessionVIPs(t *testing.T) {
 		assert.Nil(t, err)
 	})
 
-	subscriptions := []Subscription{
-		{ID: uuid.New()},
-		{ID: uuid.New()},
-	}
-
-	t.Run("add session VIPs", func(t *testing.T) {
-		updateFn := func(sess *Session) { sess.User.Subscriptions = subscriptions }
+	t.Run("update session refreshed at", func(t *testing.T) {
+		now := time.Now()
+		updateFn := func(sess *Session) { sess.RefreshedAt = now }
 
 		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn)
 		assert.Nil(t, err)
-		assert.Equal(t, subscriptions, sess.User.Subscriptions)
+		assert.Equal(t, now, sess.RefreshedAt)
+	})
+}
+
+func TestMarkStaleUserSessionsBefore(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	t.Run("create session", func(t *testing.T) {
+		err := suite.manager.CreateSession(ctx, suite.session)
+		assert.Nil(t, err)
 	})
 
-	t.Run("retrieve session w/ VIPs", func(t *testing.T) {
+	t.Run("retrieve session", func(t *testing.T) {
 		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
 		assert.Nil(t, err)
-		assert.Equal(t, subscriptions, sess.User.Subscriptions)
+		assert.True(t, suite.session.Equal(*sess))
 	})
 
-	t.Run("remove session VIPs", func(t *testing.T) {
-		updateFn := func(sess *Session) { sess.User.Subscriptions = nil }
-
-		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn)
+	t.Run("mark session as stale", func(t *testing.T) {
+		err := suite.manager.MarkStaleUserSessionsBefore(ctx, suite.session.User.ID, time.Now())
 		assert.Nil(t, err)
-		assert.Nil(t, sess.User.Subscriptions)
 	})
 
-	t.Run("retrieve session w/o VIPs", func(t *testing.T) {
+	t.Run("retrieve session stale session", func(t *testing.T) {
 		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
-		assert.Nil(t, err)
-		assert.Nil(t, sess.User.Subscriptions)
+		assert.ErrorIs(t, err, ErrSessionStale)
+		assert.True(t, suite.session.Equal(*sess))
 	})
 }
 

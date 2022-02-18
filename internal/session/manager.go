@@ -92,7 +92,7 @@ func (m Manager) RetrieveSession(
 		return nil, err
 	}
 	if !ok {
-		return nil, ErrSessionStale
+		return &sess, ErrSessionStale
 	}
 
 	return &sess, nil
@@ -220,7 +220,7 @@ func (m Manager) isSessionFresh(
 		return false, err
 	}
 
-	if sess.CreatedAt.After(staleAt) {
+	if sess.RefreshedAt.After(staleAt) {
 		goto fresh
 	}
 

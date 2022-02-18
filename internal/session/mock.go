@@ -126,3 +126,11 @@ func (m *Mock) InvalidateUserSessionsBefore(
 
 	return nil
 }
+
+// func (m *Mock) MarkStaleUserSessionsBefore(
+// 	ctx context.Context,
+// 	userID fmt.Stringer,
+// 	dt time.Time,
+// ) error {
+
+// }
