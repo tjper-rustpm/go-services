@@ -20,6 +20,7 @@ type Mock struct {
 	mutex         *sync.Mutex
 	sessions      map[string]MockSession
 	invalidations map[string]time.Time
+	stale         map[string]time.Time
 	expiration    time.Duration
 }
 
@@ -77,14 +78,12 @@ func (m *Mock) RetrieveSession(_ context.Context, id string) (*Session, error) {
 		return nil, ErrSessionDNE
 	}
 
-	invalidAt, ok := m.invalidations[keygen(invalidateUserSessionsPrefix, sess.User.ID.String())]
-	if !ok {
-		return &sess.Session, nil
+	if !m.isSessionValid(sess.Session) {
+		return nil, ErrSessionDNE
 	}
 
-	if sess.CreatedAt.Before(invalidAt) {
-		delete(m.sessions, keygen(sessionPrefix, id))
-		return nil, ErrSessionDNE
+	if !m.isSessionFresh(sess.Session) {
+		return &sess.Session, ErrSessionStale
 	}
 
 	return &sess.Session, nil
@@ -127,10 +126,38 @@ func (m *Mock) InvalidateUserSessionsBefore(
 	return nil
 }
 
-// func (m *Mock) MarkStaleUserSessionsBefore(
-// 	ctx context.Context,
-// 	userID fmt.Stringer,
-// 	dt time.Time,
-// ) error {
+func (m *Mock) MarkStaleUserSessionsBefore(
+	ctx context.Context,
+	userID fmt.Stringer,
+	dt time.Time,
+) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
-// }
+	m.stale[keygen(markStaleUserSessionsPrefix, userID.String())] = dt
+
+	return nil
+}
+
+func (m *Mock) isSessionValid(sess Session) bool {
+	invalidAt, ok := m.invalidations[keygen(invalidateUserSessionsPrefix, sess.User.ID.String())]
+	if !ok {
+		return true
+	}
+
+	if sess.CreatedAt.Before(invalidAt) {
+		delete(m.sessions, keygen(sessionPrefix, sess.ID))
+		return false
+	}
+
+	return true
+}
+
+func (m *Mock) isSessionFresh(sess Session) bool {
+	staleAt, ok := m.stale[keygen(markStaleUserSessionsPrefix, sess.User.ID.String())]
+	if !ok {
+		return true
+	}
+
+	return sess.RefreshedAt.After(staleAt)
+}
