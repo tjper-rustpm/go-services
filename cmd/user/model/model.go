@@ -13,13 +13,13 @@ import (
 
 type User struct {
 	model.Model
-	Email    string       `json:"email" gorm:"uniqueIndex"`
-	Password []byte       `json:"-"`
-	Salt     string       `json:"-"`
-	Role     session.Role `json:"role"`
+	Email    string       `json:"email" gorm:"uniqueIndex,not null"`
+	Password []byte       `json:"-" gorm:"not null"`
+	Salt     string       `json:"-" gorm:"not null"`
+	Role     session.Role `json:"role" gorm:"not null"`
 
-	VerificationHash   string       `json:"-" gorm:"uniqueIndex"`
-	VerificationSentAt time.Time    `json:"-"`
+	VerificationHash   string       `json:"-" gorm:"uniqueIndex,not null"`
+	VerificationSentAt time.Time    `json:"-" gorm:"not null"`
 	VerifiedAt         sql.NullTime `json:"verifiedAt"`
 
 	PasswordResets []PasswordReset `json:"-"`
@@ -66,11 +66,11 @@ func (u User) ToSessionUser() session.User {
 
 type PasswordReset struct {
 	model.Model
-	ResetHash   string `gorm:"uniqueIndex"`
-	RequestedAt time.Time
+	ResetHash   string    `gorm:"uniqueIndex,not null"`
+	RequestedAt time.Time `gorm:"not null"`
 	CompletedAt sql.NullTime
 
-	UserID uuid.UUID
+	UserID uuid.UUID `gorm:"not null"`
 }
 
 func (r PasswordReset) IsRequestStale() bool {
@@ -83,7 +83,7 @@ func (r PasswordReset) IsCompleted() bool {
 
 type Subscription struct {
 	model.Model
-	UserID         uuid.UUID
-	SubscriptionID uuid.UUID
-	ServerID       uuid.UUID
+	UserID         uuid.UUID `gorm:"not null"`
+	SubscriptionID uuid.UUID `gorm:"not null"`
+	ServerID       uuid.UUID `gorm:"not null"`
 }

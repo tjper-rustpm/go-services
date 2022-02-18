@@ -6,7 +6,7 @@ services:
       driver: none
     restart: "always"
     ports:
-      - "5432"
+      - "5432:5432"
     environment:
       POSTGRES_PASSWORD: "password"
     healthcheck:
@@ -23,7 +23,7 @@ services:
       driver: none
     restart: "always"
     ports:
-      - "6379"
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 1s

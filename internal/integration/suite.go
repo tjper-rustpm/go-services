@@ -20,15 +20,17 @@ import (
 	"go.uber.org/zap"
 )
 
-func InitSuite(ctx context.Context, t *testing.T) *Suite {
+func InitSuite(
+	ctx context.Context,
+	t *testing.T,
+	options ...Option,
+) *Suite {
 	t.Helper()
 
 	const (
 		redisAddr     = "redis:6379"
 		redisPassword = ""
 	)
-
-	logger := zap.NewNop()
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
@@ -46,13 +48,23 @@ func InitSuite(ctx context.Context, t *testing.T) *Suite {
 	require.Nil(t, err)
 
 	s := &Suite{
-		Logger:   logger,
+		Logger:   zap.NewNop(),
 		Redis:    rdb,
 		Stream:   stream,
 		Sessions: sessionManager,
 	}
 
+	for _, option := range options {
+		option(s)
+	}
+
 	return s
+}
+
+type Option func(*Suite)
+
+func WithLogger(logger *zap.Logger) Option {
+	return func(s *Suite) { s.Logger = logger }
 }
 
 type Suite struct {

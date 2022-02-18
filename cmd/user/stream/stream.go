@@ -56,10 +56,12 @@ func (h Handler) Launch(ctx context.Context) error {
 			}
 
 			switch e := eventI.(type) {
-			case event.SubscriptionCreatedEvent:
-				err = h.handleSubscriptionCreated(ctx, e)
-			case event.SubscriptionDeleteEvent:
-				err = h.handleSubscriptionDelete(ctx, e)
+			case *event.SubscriptionCreatedEvent:
+				err = h.handleSubscriptionCreated(ctx, *e)
+			case *event.SubscriptionDeleteEvent:
+				err = h.handleSubscriptionDelete(ctx, *e)
+			default:
+				h.logger.Sugar().Debugf("unrecognized event; type: %T", e)
 			}
 			if err != nil {
 				h.logger.Error("handle stream event", zap.Error(err))

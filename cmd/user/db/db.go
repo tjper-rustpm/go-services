@@ -51,5 +51,6 @@ func Migrate(db *gorm.DB, migrations string) error {
 	return db.AutoMigrate(
 		model.User{},
 		model.PasswordReset{},
+		model.Subscription{},
 	)
 }

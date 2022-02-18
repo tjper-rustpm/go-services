@@ -39,7 +39,6 @@ down: ## Shutdown rustcrons/crons in docker-compose.
 lint: ## Lint repo using golangci-lint. See .golangci.yml for configuration.
 	@golangci-lint run
 
-
 .PHONY: test-server-manager
 test-server-manager: ## Integration test server package against AWS.
 	@go test -v -count=1 -tags=awsintegration ./cmd/cronman/server
@@ -53,9 +52,14 @@ test-rcon: ## Integration test rcon package against Rust server running in Docke
 	@TEST="./cmd/cronman/rcon" docker-compose -f deploy/docker-compose.rust.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.rust.yml down
 
-.PHONY: test-user
-test-user: ## Integration test user API.
+.PHONY: test-user-rest
+test-user-rest: ## Integration test user REST API.
 	@TEST="./cmd/user/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
+
+.PHONY: test-user-stream
+test-user-stream: ## Integration test user stream handler.
+	@TEST="./cmd/user/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-payment
@@ -79,4 +83,4 @@ test-staging: ## Integration test staging package.
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-integration
-test-integration: test-staging test-stream test-session test-user test-payment ## Run all short integration tests.
+test-integration: test-staging test-stream test-session test-user-rest test-user-stream test-payment ## Run all short integration tests.

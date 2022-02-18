@@ -12,6 +12,7 @@ func NewMock(expiration time.Duration) *Mock {
 		mutex:         new(sync.Mutex),
 		sessions:      make(map[string]MockSession),
 		invalidations: make(map[string]time.Time),
+		stale:         make(map[string]time.Time),
 		expiration:    expiration,
 	}
 }
@@ -137,6 +138,17 @@ func (m *Mock) MarkStaleUserSessionsBefore(
 	m.stale[keygen(markStaleUserSessionsPrefix, userID.String())] = dt
 
 	return nil
+}
+
+func (m *Mock) StaleAt(userID fmt.Stringer) time.Time {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	staleAt, ok := m.stale[keygen(markStaleUserSessionsPrefix, userID.String())]
+	if !ok {
+		return time.Time{}
+	}
+	return staleAt
 }
 
 func (m *Mock) isSessionValid(sess Session) bool {
