@@ -77,3 +77,6 @@ test-stream: ## Integration test stream package.
 test-staging: ## Integration test staging package.
 	@TEST="./cmd/payment/staging" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
+
+.PHONY: test-integration
+test-integration: test-staging test-stream test-session test-user test-payment ## Run all short integration tests.

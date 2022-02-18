@@ -2,6 +2,8 @@ version: "3.8"
 services:
   db:
     image: "postgres:13.0"
+    logging:
+      driver: none
     restart: "always"
     ports:
       - "5432"
@@ -17,6 +19,8 @@ services:
       - integration
   redis:
     image: "redis"
+    logging:
+      driver: none
     restart: "always"
     ports:
       - "6379"
