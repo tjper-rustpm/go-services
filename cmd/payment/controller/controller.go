@@ -132,10 +132,10 @@ func (ctrl Controller) CheckoutSessionComplete(
 	if err := ctrl.gorm.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
-		event := model.Event{
+		sub := model.Subscription{
 			StripeEventID: stripeEvent.ID,
 		}
-		exists, err := event.Exists(ctx, tx)
+		exists, err := sub.ExistsWithStripeEventID(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -147,7 +147,7 @@ func (ctrl Controller) CheckoutSessionComplete(
 			StripeCheckoutID:     checkout.ID,
 			StripeCustomerID:     checkout.Customer.ID,
 			StripeSubscriptionID: checkout.Subscription.ID,
-			Event:                event,
+			StripeEventID:        stripeEvent.ID,
 		}
 		return tx.Create(&subscription).Error
 	}); err != nil {
@@ -174,10 +174,10 @@ func (ctrl Controller) ProcessInvoice(
 	if err := ctrl.gorm.Transaction(func(tx *gorm.DB) error {
 		tx = tx.WithContext(ctx)
 
-		event := model.Event{
+		invoice = model.Invoice{
 			StripeEventID: stripeEvent.ID,
 		}
-		exists, err := event.Exists(ctx, tx)
+		exists, err := invoice.ExistsWithStripeEventID(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -200,7 +200,7 @@ func (ctrl Controller) ProcessInvoice(
 		invoice = model.Invoice{
 			SubscriptionID: subscription.ID,
 			Status:         model.InvoiceStatus(string(invoiceEvent.Status)),
-			Event:          event,
+			StripeEventID:  stripeEvent.ID,
 		}
 		return tx.Create(&invoice).Error
 	}); err != nil {
@@ -226,8 +226,6 @@ func (ctrl Controller) UserSubscriptions(
 	subscriptions := make([]model.Subscription, 0)
 	if res := ctrl.gorm.
 		Preload("Invoices").
-		Preload("Invoices.Event").
-		Preload("Event").
 		Where("id IN ?", iuuid.Strings(subscriptionIDs)).
 		Find(&subscriptions); res.Error != nil {
 		return nil, res.Error

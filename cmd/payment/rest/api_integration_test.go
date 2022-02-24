@@ -15,7 +15,9 @@ import (
 	"github.com/tjper/rustcron/internal/event"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
+	"github.com/tjper/rustcron/internal/redis"
 	"github.com/tjper/rustcron/internal/session"
+	"github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
 
 	"github.com/google/uuid"
@@ -30,24 +32,10 @@ func TestCreateCheckoutSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.NewSession(
-		ctx,
-		t,
-		session.User{
-			ID:    uuid.New(),
-			Email: "rustcron@gmail.com",
-			Role:  session.RoleStandard,
-		},
-	)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
 
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		suite.postSubscriptionCheckoutSession(
-			ctx,
-			t,
-			uuid.New(),
-			uuid.New(),
-			sess,
-		)
+		suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), uuid.New(), sess)
 	})
 }
 
@@ -57,27 +45,19 @@ func TestCreateBillingPortalSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.NewSession(
-		ctx,
-		t,
-		session.User{
-			ID:    uuid.New(),
-			Email: "rustcron@gmail.com",
-			Role:  session.RoleStandard,
-		},
-	)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
 
 	t.Run("create billing portal session", func(t *testing.T) {
 		body := map[string]interface{}{
 			"returnUrl": "http://rustpm.com",
 		}
 
-		resp := suite.Request(ctx, t, suite.API, http.MethodPost, "/v1/billing", body, sess)
+		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/billing", body, sess)
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-		session := suite.Stripe.PopBillingPortalSession()
+		session := suite.stripe.PopBillingPortalSession()
 		assert.Equal(t, "http://rustpm.com", *session.ReturnURL)
 	})
 }
@@ -88,15 +68,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.NewSession(
-		ctx,
-		t,
-		session.User{
-			ID:    uuid.New(),
-			Email: "rustcron@gmail.com",
-			Role:  session.RoleStandard,
-		},
-	)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
 
 	var clientReferenceID uuid.UUID
 	t.Run("create subscription checkout session", func(t *testing.T) {
@@ -105,42 +77,26 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	eventID := uuid.New()
 	t.Run("complete checkout session", func(t *testing.T) {
-		suite.postCompleteCheckoutSession(
-			ctx,
-			t,
-			eventID,
-			uuid.New(),
-			clientReferenceID,
-			uuid.New(),
-			uuid.New(),
-			sess,
-		)
+		suite.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
+
+		stagingCheckout, err := suite.staging.FetchCheckout(ctx, clientReferenceID.String())
+		assert.Nil(t, err)
+
+		eventI := suite.stream.ReadEvent(ctx, t)
+		event, ok := eventI.(*event.SubscriptionCreatedEvent)
+		assert.True(t, ok)
+		assert.Equal(t, stagingCheckout.ServerID, event.ServerID)
+		assert.Equal(t, stagingCheckout.UserID, event.UserID)
 	})
 
 	t.Run("duplicate complete checkout session", func(t *testing.T) {
-		suite.postCompleteCheckoutSession(
-			ctx,
-			t,
-			eventID,
-			uuid.New(),
-			clientReferenceID,
-			uuid.New(),
-			uuid.New(),
-			sess,
-		)
+		suite.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
+		suite.stream.AssertNoEvent(ctx, t)
 	})
 
 	t.Run("complete checkout session w/ invalid client reference ID", func(t *testing.T) {
-		suite.postCompleteCheckoutSession(
-			ctx,
-			t,
-			uuid.New(),
-			uuid.New(),
-			uuid.New(),
-			uuid.New(),
-			uuid.New(),
-			sess,
-		)
+		suite.postCompleteCheckoutSession(ctx, t, uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), sess)
+		suite.stream.AssertNoEvent(ctx, t)
 	})
 }
 
@@ -150,15 +106,7 @@ func TestInvoice(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.NewSession(
-		ctx,
-		t,
-		session.User{
-			ID:    uuid.New(),
-			Email: "rustcron@gmail.com",
-			Role:  session.RoleStandard,
-		},
-	)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
 
 	var (
 		clientReferenceID uuid.UUID
@@ -190,7 +138,7 @@ func TestInvoice(t *testing.T) {
 			sess,
 		)
 
-		eventI := suite.readEvent(ctx, t)
+		eventI := suite.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.SubscriptionCreatedEvent)
 		assert.True(t, ok)
 		assert.Equal(t, serverID.String(), event.ServerID.String())
@@ -202,7 +150,7 @@ func TestInvoice(t *testing.T) {
 				{ID: event.SubscriptionID, ServerID: serverID},
 			}
 		}
-		_, err := suite.Sessions.UpdateSession(ctx, sess.ID, updateFn)
+		_, err := suite.sessions.Manager.UpdateSession(ctx, sess.ID, updateFn)
 		assert.Nil(t, err)
 	})
 
@@ -239,13 +187,13 @@ func TestInvoice(t *testing.T) {
 			sess,
 		)
 
-		eventI := suite.readEvent(ctx, t)
+		eventI := suite.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.SubscriptionDeleteEvent)
 		assert.True(t, ok)
 		assert.Equal(t, subscriptionID, event.SubscriptionID)
 
 		updateFn := func(sess *session.Session) { sess.User.Subscriptions = nil }
-		_, err := suite.Sessions.UpdateSession(ctx, sess.ID, updateFn)
+		_, err := suite.sessions.Manager.UpdateSession(ctx, sess.ID, updateFn)
 		assert.Nil(t, err)
 	})
 
@@ -253,21 +201,6 @@ func TestInvoice(t *testing.T) {
 		subs := suite.getSubscriptions(ctx, t, sess)
 		assert.Len(t, subs, 0)
 	})
-}
-
-func (s suite) readEvent(ctx context.Context, t *testing.T) interface{} {
-	t.Helper()
-
-	m, err := s.Stream.Read(ctx)
-	assert.Nil(t, err)
-
-	eventI, err := event.Parse(m.Payload)
-	assert.Nil(t, err)
-
-	err = m.Ack(ctx)
-	assert.Nil(t, err)
-
-	return eventI
 }
 
 func (s suite) postSubscriptionCheckoutSession(
@@ -287,19 +220,24 @@ func (s suite) postSubscriptionCheckoutSession(
 		"priceId":    "prod_L1MFlCUj2bk2j0",
 	}
 
-	resp := s.Request(ctx, t, s.API, http.MethodPost, "/v1/checkout", body, sess)
+	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/checkout", body, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-	checkout := s.Stripe.PopCheckoutSession()
-	assert.Equal(t, "http://rustpm.com/payment/cancel", *checkout.CancelURL)
-	assert.Equal(t, "http://rustpm.com/payment/success", *checkout.SuccessURL)
-	assert.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *checkout.Mode)
-	assert.Equal(t, "prod_L1MFlCUj2bk2j0", *checkout.LineItems[0].Price)
-	assert.Equal(t, int64(1), *checkout.LineItems[0].Quantity)
+	stripeCheckout := s.stripe.PopCheckoutSession()
+	assert.Equal(t, "http://rustpm.com/payment/cancel", *stripeCheckout.CancelURL)
+	assert.Equal(t, "http://rustpm.com/payment/success", *stripeCheckout.SuccessURL)
+	assert.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *stripeCheckout.Mode)
+	assert.Equal(t, "prod_L1MFlCUj2bk2j0", *stripeCheckout.LineItems[0].Price)
+	assert.Equal(t, int64(1), *stripeCheckout.LineItems[0].Quantity)
 
-	return uuid.MustParse(*checkout.ClientReferenceID)
+	stagingCheckout, err := s.staging.FetchCheckout(ctx, *stripeCheckout.ClientReferenceID)
+	assert.Nil(t, err)
+	assert.Equal(t, stagingCheckout.ServerID, serverID)
+	assert.Equal(t, stagingCheckout.UserID, userID)
+
+	return uuid.MustParse(*stripeCheckout.ClientReferenceID)
 }
 
 func (s suite) postCompleteCheckoutSession(
@@ -316,7 +254,7 @@ func (s suite) postCompleteCheckoutSession(
 
 	body := checkoutSessionCompleteBody(id, checkoutID, clientReferenceID, customerID, stripeSubscriptionID)
 
-	resp := s.Request(ctx, t, s.API, http.MethodPost, "/v1/stripe", body, sess)
+	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/stripe", body, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -336,7 +274,7 @@ func (s suite) postInvoice(
 
 	body := invoiceBody(id, eventType, invoiceID, status, stripeSubscriptionID)
 
-	resp := s.Request(ctx, t, s.API, http.MethodPost, "/v1/stripe", body, sess)
+	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/stripe", body, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -349,7 +287,7 @@ func (s suite) getSubscriptions(
 ) []Subscription {
 	t.Helper()
 
-	resp := s.Request(ctx, t, s.API, http.MethodGet, "/v1/subscriptions", nil, sess)
+	resp := s.Request(ctx, t, s.api, http.MethodGet, "/v1/subscriptions", nil, sess)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -364,46 +302,54 @@ func (s suite) getSubscriptions(
 func setup(ctx context.Context, t *testing.T) *suite {
 	t.Helper()
 
+	redis := redis.InitSuite(ctx, t)
+	err := redis.Redis.FlushAll(ctx).Err()
+	require.Nil(t, err)
+
 	s := integration.InitSuite(ctx, t)
+	sessions := session.InitSuite(ctx, t)
+	stream := stream.InitSuite(ctx, t)
 
 	const (
 		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
 		migrations = "file://../db/migrations"
 	)
+
 	dbconn, err := db.Open(dsn)
 	require.Nil(t, err)
 
 	err = db.Migrate(dbconn, migrations)
 	require.Nil(t, err)
 
+	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
-
-	ctrl := controller.New(
-		s.Logger,
-		dbconn,
-		staging.NewClient(s.Redis),
-		stripe,
-		s.Stream,
-	)
+	ctrl := controller.New(s.Logger, dbconn, staging, stripe, s.Stream)
 
 	api := NewAPI(
 		s.Logger,
 		ctrl,
-		ihttp.NewSessionMiddleware(s.Logger, s.Sessions),
+		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
 		stripe,
 	)
 
 	return &suite{
-		Suite:  *s,
-		API:    api.Mux,
-		Stripe: stripe,
+		Suite:    *s,
+		sessions: sessions,
+		stream:   stream,
+		api:      api.Mux,
+		staging:  staging,
+		stripe:   stripe,
 	}
 }
 
 type suite struct {
 	integration.Suite
-	API    http.Handler
-	Stripe *stripe.Mock
+	sessions *session.Suite
+	stream   *stream.Suite
+
+	api     http.Handler
+	staging *staging.Client
+	stripe  *stripe.Mock
 }
 
 // --- helpers ---

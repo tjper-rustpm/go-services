@@ -16,9 +16,9 @@ type Subscription struct {
 
 	StripeCheckoutID     string
 	StripeCustomerID     string
-	StripeSubscriptionID string `gorm:"uniqueIndex"`
+	StripeSubscriptionID string
+	StripeEventID        string
 
-	Event    Event `gorm:"polymorphic:Owner;"`
 	Invoices []Invoice
 }
 
@@ -37,13 +37,41 @@ func (sub Subscription) IsActive() bool {
 	return latest.Status == InvoiceStatusPaid
 }
 
+func (sub Subscription) ExistsWithStripeEventID(ctx context.Context, db *gorm.DB) (bool, error) {
+	res := db.
+		WithContext(ctx).
+		Where("stripe_event_id = ?", sub.StripeEventID).
+		First(&sub)
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return false, fmt.Errorf("subscription exists with stripe event id; error: %w", res.Error)
+	}
+	return true, nil
+}
+
 type Invoice struct {
 	model.Model
 
 	SubscriptionID uuid.UUID
+	StripeEventID  string
 
-	Event  Event `gorm:"polymorphic:Owner;"`
 	Status InvoiceStatus
+}
+
+func (i Invoice) ExistsWithStripeEventID(ctx context.Context, db *gorm.DB) (bool, error) {
+	res := db.
+		WithContext(ctx).
+		Where("stripe_event_id = ?", i.StripeEventID).
+		First(&i)
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return false, fmt.Errorf("invoice exists with stripe event id; error: %w", res.Error)
+	}
+	return true, nil
 }
 
 type InvoiceStatus string
@@ -52,26 +80,3 @@ const (
 	InvoiceStatusPaid          InvoiceStatus = "paid"
 	InvoiceStatusPaymentFailed InvoiceStatus = "payment_failed"
 )
-
-type Event struct {
-	model.Model
-
-	StripeEventID string `gorm:"uniqueIndex"`
-
-	OwnerID   uuid.UUID
-	OwnerType string
-}
-
-func (e Event) Exists(ctx context.Context, db *gorm.DB) (bool, error) {
-	res := db.
-		WithContext(ctx).
-		Where("stripe_event_id = ?", e.StripeEventID).
-		First(&e)
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return false, nil
-	}
-	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return false, fmt.Errorf("event exists; error: %w", res.Error)
-	}
-	return true, nil
-}
