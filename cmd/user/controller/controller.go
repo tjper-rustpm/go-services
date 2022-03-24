@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -135,10 +134,7 @@ func (ctrl Controller) UpdateUserPassword(ctx context.Context, input UpdateUserP
 		return nil, err
 	}
 
-	if !bytes.Equal(
-		user.Password,
-		hash([]byte(input.CurrentPassword), []byte(user.Salt)),
-	) {
+	if !user.IsPassword(hash([]byte(input.CurrentPassword), []byte(user.Salt))) {
 		return nil, usererrors.AuthError("invalid credentials")
 	}
 
@@ -166,10 +162,7 @@ func (ctrl Controller) LoginUser(
 		return nil, err
 	}
 
-	if !bytes.Equal(
-		user.Password,
-		hash([]byte(input.Password), []byte(user.Salt)),
-	) {
+	if !user.IsPassword(hash([]byte(input.Password), []byte(user.Salt))) {
 		return nil, usererrors.AuthError("invalid credentials")
 	}
 

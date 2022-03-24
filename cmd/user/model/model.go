@@ -1,6 +1,7 @@
 package model
 
 import (
+	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"time"
@@ -46,6 +47,10 @@ func (u User) IsVerified() bool {
 
 func (u User) IsVerificationHashStale() bool {
 	return time.Since(u.VerificationSentAt) > 30*time.Minute
+}
+
+func (u User) IsPassword(password []byte) bool {
+	return subtle.ConstantTimeCompare(u.Password, password) == 1
 }
 
 func (u User) ToSessionUser() session.User {
