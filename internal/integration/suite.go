@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	ihttp "github.com/tjper/rustcron/internal/http"
-	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/stream"
 
@@ -39,19 +37,13 @@ func InitSuite(
 	err := rdb.Ping(ctx).Err()
 	require.Nil(t, err)
 
-	err = rdb.FlushDB(ctx).Err()
-	require.Nil(t, err)
-
-	sessionManager := session.NewMock(time.Hour)
-
 	stream, err := stream.Init(ctx, rdb, "test")
 	require.Nil(t, err)
 
 	s := &Suite{
-		Logger:   zap.NewNop(),
-		Redis:    rdb,
-		Stream:   stream,
-		Sessions: sessionManager,
+		Logger: zap.NewNop(),
+		Redis:  rdb,
+		Stream: stream,
 	}
 
 	for _, option := range options {
@@ -68,24 +60,9 @@ func WithLogger(logger *zap.Logger) Option {
 }
 
 type Suite struct {
-	Logger   *zap.Logger
-	Redis    *redis.Client
-	Stream   *stream.Client
-	Sessions *session.Mock
-}
-
-func (s Suite) NewSession(ctx context.Context, t *testing.T, u session.User) *session.Session {
-	t.Helper()
-
-	id, err := rand.GenerateString(16)
-	require.Nil(t, err)
-
-	sess := session.New(id, u, time.Minute)
-
-	err = s.Sessions.CreateSession(ctx, *sess)
-	require.Nil(t, err)
-
-	return sess
+	Logger *zap.Logger
+	Redis  *redis.Client
+	Stream *stream.Client
 }
 
 func (s Suite) Request(

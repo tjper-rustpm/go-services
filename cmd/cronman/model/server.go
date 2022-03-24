@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	LiveServerState    = "rustpm.live_servers"
-	DormantServerState = "rustpm.dormant_servers"
+	LiveServerState    = "servers.live_servers"
+	DormantServerState = "servers.dormant_servers"
 )
 
 type Server struct {

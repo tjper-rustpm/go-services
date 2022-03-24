@@ -4,7 +4,6 @@ package rest
 
 import (
 	"context"
-	"flag"
 	"net/http"
 	"testing"
 	"time"
@@ -20,30 +19,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-)
-
-var (
-	dsn = flag.String(
-		"dsn",
-		"host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC",
-		"DSN to be used to connect to user DB.",
-	)
-	migrations = flag.String(
-		"migrations",
-		"file://../db/migrations",
-		"Migrations to be used to migrate DB to correct schema.",
-	)
-	redisAddr = flag.String(
-		"redis-addr",
-		"redis:6379",
-		"Redis address to be used to establish Redis client.",
-	)
-	redisPassword = flag.String(
-		"redis-pass",
-		"",
-		"Redis password to be used to authenticate with Redis.",
-	)
-	admins = []string{"rustcron@gmail.com"}
 )
 
 func TestCreateUser(t *testing.T) {
@@ -219,7 +194,7 @@ func TestLogin(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		sess = suite.session(t, ctx, resp.Cookies())
+		sess = suite.session(ctx, t, resp.Cookies())
 	})
 
 	t.Run("fetch session", func(t *testing.T) {
@@ -261,7 +236,7 @@ func TestUpdateUserPassword(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		sess = suite.session(t, ctx, resp.Cookies())
+		sess = suite.session(ctx, t, resp.Cookies())
 	})
 
 	t.Run("update user's password w/ invalid password", func(t *testing.T) {
@@ -327,7 +302,7 @@ func TestVerifyEmail(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		sess = suite.session(t, ctx, resp.Cookies())
+		sess = suite.session(ctx, t, resp.Cookies())
 	})
 
 	t.Run("resend verification email", func(t *testing.T) {
@@ -372,10 +347,7 @@ func TestLogout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	suite := setup(
-		ctx,
-		t,
-	)
+	suite := setup(ctx, t)
 
 	t.Run("create user", func(t *testing.T) {
 		body := map[string]interface{}{
@@ -402,7 +374,7 @@ func TestLogout(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		sess = suite.session(t, ctx, resp.Cookies())
+		sess = suite.session(ctx, t, resp.Cookies())
 	})
 
 	t.Run("fetch session", func(t *testing.T) {
@@ -458,7 +430,7 @@ func TestLogoutAll(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
 
-		sess = suite.session(t, ctx, resp.Cookies())
+		sess = suite.session(ctx, t, resp.Cookies())
 	})
 
 	t.Run("fetch session", func(t *testing.T) {
@@ -505,11 +477,17 @@ func setup(
 	t.Helper()
 
 	s := integration.InitSuite(ctx, t)
+	sessions := session.InitSuite(ctx, t)
 
-	dbconn, err := db.Open(*dsn)
+	const (
+		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
+		migrations = "file://../db/migrations"
+	)
+
+	dbconn, err := db.Open(dsn)
 	require.Nil(t, err)
 
-	err = db.Migrate(dbconn, *migrations)
+	err = db.Migrate(dbconn, migrations)
 	require.Nil(t, err)
 
 	emailer := email.NewMock()
@@ -517,7 +495,7 @@ func setup(
 	ctrl := controller.New(
 		db.NewStore(s.Logger, dbconn),
 		emailer,
-		admin.NewAdminSet(admins),
+		admin.NewAdminSet([]string{"rustcron@gmail.com"}),
 	)
 
 	api := NewAPI(
@@ -528,31 +506,36 @@ func setup(
 			Secure:   config.CookieSecure(),
 			SameSite: config.CookieSameSite(),
 		},
-		s.Sessions,
-		ihttp.NewSessionMiddleware(s.Logger, s.Sessions),
+		sessions.Manager,
+		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
 	)
 
 	return &suite{
-		Suite:   *s,
-		emailer: emailer,
-		api:     api.Mux,
+		Suite:    *s,
+		sessions: sessions,
+		emailer:  emailer,
+		api:      api.Mux,
 	}
 }
 
 type suite struct {
 	integration.Suite
+	sessions *session.Suite
+
 	emailer *email.Mock
 	api     http.Handler
 }
 
 func (s suite) session(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	cookies []*http.Cookie,
 ) *session.Session {
+	t.Helper()
+
 	sessID := cookies[0].Value
 
-	sess, err := s.Sessions.RetrieveSession(ctx, sessID)
+	sess, err := s.sessions.Manager.RetrieveSession(ctx, sessID)
 	assert.Nil(t, err)
 
 	return sess

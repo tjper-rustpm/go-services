@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS payment.subscriptions (
+CREATE TABLE IF NOT EXISTS payments.subscriptions (
   id                     UUID         NOT NULL DEFAULT gen_random_uuid(),
   stripe_checkout_id     VARCHAR(128) NOT NULL,
   stripe_customer_id     VARCHAR(128) NOT NULL,
@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS payment.subscriptions (
   PRIMARY KEY (id)
 );
 
-CREATE UNIQUE INDEX IdxSubscriptionsStripeSubscriptionID ON payment.subscriptions (stripe_subscription_id);
+CREATE UNIQUE INDEX IdxSubscriptionsStripeSubscriptionID ON payments.subscriptions (stripe_subscription_id);
 
-CREATE TABLE IF NOT EXISTS payment.invoices (
+CREATE TABLE IF NOT EXISTS payments.invoices (
   id              UUID         NOT NULL DEFAULT gen_random_uuid(),
   subscription_id UUID         NOT NULL,
   stripe_event_id VARCHAR(128) NOT NULL,
@@ -25,5 +25,5 @@ CREATE TABLE IF NOT EXISTS payment.invoices (
   deleted_at TIMESTAMP WITH TIME ZONE,
 
   PRIMARY KEY (id),
-  FOREIGN KEY (subscription_id) REFERENCES payment.subscriptions (id)
+  FOREIGN KEY (subscription_id) REFERENCES payments.subscriptions (id)
 );

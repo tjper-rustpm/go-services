@@ -9,38 +9,36 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-// New creates a new Migration object.
-func New(dbconn *sql.DB, migrations string) (*Migration, error) {
-	driver, err := postgres.WithInstance(dbconn, &postgres.Config{})
-	if err != nil {
-		return nil, err
+// Migrate migrates the DB with the specified migrations files.
+func Migrate(dbconn *sql.DB, migrations string, options ...Option) error {
+	cfg := &postgres.Config{
+		MigrationsTable: "migrations",
 	}
-	migration, err := migrate.NewWithDatabaseInstance(
-		migrations,
-		"postgres",
-		driver,
-	)
-	if err != nil {
-		return nil, err
+	for _, option := range options {
+		option(cfg)
 	}
-	return &Migration{
-		Migrate: migration,
-	}, nil
-}
 
-// Migration represents a DB migration.
-type Migration struct {
-	*migrate.Migrate
-}
-
-// Up applies all up migrations to the latest version.
-func (m Migration) Up() error {
-	err := m.Migrate.Up()
-	if errors.Is(err, migrate.ErrNoChange) {
-		return nil
-	}
+	driver, err := postgres.WithInstance(dbconn, cfg)
 	if err != nil {
 		return err
 	}
+
+	migration, err := migrate.NewWithDatabaseInstance(migrations, "postgres", driver)
+	if err != nil {
+		return err
+	}
+
+	if err := migration.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return err
+	}
+
 	return nil
+}
+
+type Option func(*postgres.Config)
+
+func WithMigrationsTable(name string) Option {
+	return func(c *postgres.Config) {
+		c.MigrationsTable = name
+	}
 }

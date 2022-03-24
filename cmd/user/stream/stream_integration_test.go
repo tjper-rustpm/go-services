@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package stream
@@ -12,6 +13,8 @@ import (
 	"github.com/tjper/rustcron/cmd/user/model"
 	"github.com/tjper/rustcron/internal/event"
 	"github.com/tjper/rustcron/internal/integration"
+	"github.com/tjper/rustcron/internal/rand"
+	"github.com/tjper/rustcron/internal/redis"
 	"github.com/tjper/rustcron/internal/session"
 
 	"github.com/google/uuid"
@@ -28,9 +31,18 @@ func TestHandleSubscriptionCreated(t *testing.T) {
 
 	s := setup(ctx, t)
 
-	var user model.User
-	t.Run("create user", func(t *testing.T) {
+	var (
+		user model.User
+		sess session.Session
+	)
+	t.Run("setup", func(t *testing.T) {
 		user = s.createUser(t, "subscription-create-user@gmail.com")
+
+		sess = *s.sessions.NewSession(ctx, t, "subscription-create-user@gmail.com")
+		sess.User.ID = user.ID
+
+		err := s.sessions.Manager.CreateSession(ctx, sess)
+		assert.Nil(t, err)
 	})
 
 	t.Run("handle subscription create event", func(t *testing.T) {
@@ -54,8 +66,8 @@ func TestHandleSubscriptionCreated(t *testing.T) {
 		assert.Equal(t, serverID, actual.Subscriptions[0].ServerID)
 
 		// session has been marked stale
-		staleAt := s.Sessions.StaleAt(user.ID)
-		assert.WithinDuration(t, time.Now(), staleAt, time.Second)
+		_, err := s.sessions.Manager.RetrieveSession(ctx, sess.ID)
+		assert.ErrorIs(t, err, session.ErrSessionStale)
 	})
 }
 
@@ -65,9 +77,12 @@ func TestHandleSubscriptionDelete(t *testing.T) {
 
 	s := setup(ctx, t)
 
-	var user model.User
-	subscriptionID := uuid.New()
-	t.Run("create user", func(t *testing.T) {
+	var (
+		subscriptionID = uuid.New()
+		user           model.User
+		sess           session.Session
+	)
+	t.Run("setup", func(t *testing.T) {
 		user = s.createUser(t, "subscription-delete-user@gmail.com")
 		user.Subscriptions = []model.Subscription{
 			{SubscriptionID: subscriptionID, ServerID: uuid.New()},
@@ -75,6 +90,12 @@ func TestHandleSubscriptionDelete(t *testing.T) {
 
 		res := s.db.Save(&user)
 		assert.Nil(t, res.Error)
+
+		sess = *s.sessions.NewSession(ctx, t, "subscription-delete-user@gmail.com")
+		sess.User.ID = user.ID
+
+		err := s.sessions.Manager.CreateSession(ctx, sess)
+		assert.Nil(t, err)
 	})
 
 	t.Run("handle subscription delete event", func(t *testing.T) {
@@ -88,15 +109,20 @@ func TestHandleSubscriptionDelete(t *testing.T) {
 
 		assert.Empty(t, actual.Subscriptions)
 
-		staleAt := s.Sessions.StaleAt(user.ID)
-		assert.WithinDuration(t, time.Now(), staleAt, time.Second)
+		_, err := s.sessions.Manager.RetrieveSession(ctx, sess.ID)
+		assert.ErrorIs(t, err, session.ErrSessionStale)
 	})
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
 	t.Helper()
 
+	redis := redis.InitSuite(ctx, t)
+	err := redis.Redis.FlushAll(ctx).Err()
+	require.Nil(t, err)
+
 	s := integration.InitSuite(ctx, t, integration.WithLogger(zap.NewExample()))
+	sessions := session.InitSuite(ctx, t)
 
 	const (
 		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
@@ -109,7 +135,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	err = db.Migrate(dbconn, migrations)
 	require.Nil(t, err)
 
-	handler := NewHandler(s.Logger, s.Stream, dbconn, s.Sessions)
+	handler := NewHandler(s.Logger, s.Stream, dbconn, sessions.Manager)
 
 	go func() {
 		err := handler.Launch(ctx)
@@ -117,14 +143,17 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	}()
 
 	return &suite{
-		Suite:   *s,
-		db:      dbconn,
-		handler: handler,
+		Suite:    *s,
+		sessions: sessions,
+		db:       dbconn,
+		handler:  handler,
 	}
 }
 
 type suite struct {
 	integration.Suite
+	sessions *session.Suite
+
 	db      *gorm.DB
 	handler *Handler
 }
@@ -132,12 +161,18 @@ type suite struct {
 func (s suite) createUser(t *testing.T, email string) model.User {
 	t.Helper()
 
+	salt, err := rand.GenerateString(32)
+	require.Nil(t, err)
+
+	hash, err := rand.GenerateString(32)
+	require.Nil(t, err)
+
 	user := model.User{
 		Email:              email,
 		Password:           []byte("test-password"),
-		Salt:               "test-salt",
+		Salt:               salt,
 		Role:               session.RoleStandard,
-		VerificationHash:   uuid.New().String(),
+		VerificationHash:   hash,
 		VerificationSentAt: time.Now(),
 	}
 

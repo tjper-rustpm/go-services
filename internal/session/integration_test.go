@@ -4,30 +4,13 @@ package session
 
 import (
 	"context"
-	"flag"
 	"testing"
 	"time"
 
-	"github.com/tjper/rustcron/internal/rand"
+	"github.com/tjper/rustcron/internal/redis"
 
-	"github.com/go-redis/redis/v8"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-)
-
-var (
-	redisAddr = flag.String(
-		"redis-addr",
-		"redis:6379",
-		"address of redis instance to be used for integration testing",
-	)
-	redisPassword = flag.String(
-		"redis-password",
-		"",
-		"password to access redis instance to be used for integration testing",
-	)
 )
 
 func TestIntegration(t *testing.T) {
@@ -36,77 +19,80 @@ func TestIntegration(t *testing.T) {
 
 	suite := setup(ctx, t)
 
+	sess := suite.NewSession(ctx, t, "session-testing@gmail.com")
+
 	t.Run("touch session that dne", func(t *testing.T) {
-		_, err := suite.manager.TouchSession(ctx, suite.session.ID)
+		_, err := suite.Manager.TouchSession(ctx, sess.ID)
 		assert.ErrorIs(t, err, ErrSessionDNE, err.Error())
 	})
 
 	t.Run("delete session that dne", func(t *testing.T) {
-		err := suite.manager.DeleteSession(ctx, suite.session)
+		err := suite.Manager.DeleteSession(ctx, *sess)
 		assert.Nil(t, err)
 	})
 
 	t.Run("retrieve session that dne", func(t *testing.T) {
-		_, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		_, err := suite.Manager.RetrieveSession(ctx, sess.ID)
 		assert.ErrorIs(t, err, ErrSessionDNE)
 	})
 
 	t.Run("create session", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session)
+		err := suite.Manager.CreateSession(ctx, *sess)
 		assert.Nil(t, err)
 	})
 
 	t.Run("create session that already exists", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session)
+		err := suite.Manager.CreateSession(ctx, *sess)
 		assert.ErrorIs(t, err, ErrSessionIDNotUnique)
 	})
 
 	t.Run("retrieve session", func(t *testing.T) {
-		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		actual, err := suite.Manager.RetrieveSession(ctx, sess.ID)
 		assert.Nil(t, err)
-		assert.True(t, suite.session.Equal(*sess))
+		assert.True(t, sess.Equal(*actual))
 	})
 
-	time.Sleep(time.Second)
 	t.Run("touch session", func(t *testing.T) {
-		sess, err := suite.manager.TouchSession(ctx, suite.session.ID)
+		sess, err := suite.Manager.TouchSession(ctx, sess.ID)
 		assert.Nil(t, err)
 		assert.WithinDuration(t, time.Now(), sess.LastActivityAt, time.Second)
 	})
 
 	t.Run("delete session", func(t *testing.T) {
-		err := suite.manager.DeleteSession(ctx, suite.session)
+		err := suite.Manager.DeleteSession(ctx, *sess)
 		assert.Nil(t, err)
 	})
 
 	t.Run("create session", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session)
+		err := suite.Manager.CreateSession(ctx, *sess)
 		assert.Nil(t, err)
 	})
 
 	t.Run("invalidate user's sessions", func(t *testing.T) {
-		err := suite.manager.InvalidateUserSessionsBefore(
+		err := suite.Manager.InvalidateUserSessionsBefore(
 			ctx,
-			suite.session.User.ID,
+			sess.User.ID,
 			time.Now(),
 		)
 		assert.Nil(t, err)
 	})
 
 	t.Run("retrieve invalidated session", func(t *testing.T) {
-		_, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		_, err := suite.Manager.RetrieveSession(ctx, sess.ID)
 		assert.ErrorIs(t, err, ErrSessionDNE)
 	})
 }
 
-func TestAddRemoveSessionVIPs(t *testing.T) {
+func TestUpdateSession(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	suite := setup(ctx, t)
 
+	sess := suite.NewSession(ctx, t, "session-testing@gmail.com")
+
 	t.Run("create session", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session)
+		err := suite.Manager.CreateSession(ctx, *sess)
 		assert.Nil(t, err)
 	})
 
@@ -114,7 +100,7 @@ func TestAddRemoveSessionVIPs(t *testing.T) {
 		now := time.Now()
 		updateFn := func(sess *Session) { sess.RefreshedAt = now }
 
-		sess, err := suite.manager.UpdateSession(ctx, suite.session.ID, updateFn)
+		sess, err := suite.Manager.UpdateSession(ctx, sess.ID, updateFn)
 		assert.Nil(t, err)
 		assert.Equal(t, now, sess.RefreshedAt)
 	})
@@ -126,62 +112,47 @@ func TestMarkStaleUserSessionsBefore(t *testing.T) {
 
 	suite := setup(ctx, t)
 
+	sess := suite.NewSession(ctx, t, "session-testing@gmail.com")
+
 	t.Run("create session", func(t *testing.T) {
-		err := suite.manager.CreateSession(ctx, suite.session)
+		err := suite.Manager.CreateSession(ctx, *sess)
 		assert.Nil(t, err)
 	})
 
 	t.Run("retrieve session", func(t *testing.T) {
-		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		actual, err := suite.Manager.RetrieveSession(ctx, sess.ID)
 		assert.Nil(t, err)
-		assert.True(t, suite.session.Equal(*sess))
+		assert.True(t, sess.Equal(*actual))
 	})
 
 	t.Run("mark session as stale", func(t *testing.T) {
-		err := suite.manager.MarkStaleUserSessionsBefore(ctx, suite.session.User.ID, time.Now())
+		err := suite.Manager.MarkStaleUserSessionsBefore(ctx, sess.User.ID, time.Now())
 		assert.Nil(t, err)
 	})
 
 	t.Run("retrieve session stale session", func(t *testing.T) {
-		sess, err := suite.manager.RetrieveSession(ctx, suite.session.ID)
+		sess, err := suite.Manager.RetrieveSession(ctx, sess.ID)
 		assert.ErrorIs(t, err, ErrSessionStale)
-		assert.True(t, suite.session.Equal(*sess))
+		assert.True(t, sess.Equal(*sess))
 	})
 }
 
 // --- suite ---
 
 type suite struct {
-	manager *Manager
-
-	session Session
+	Suite
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
-	redis := redis.NewClient(
-		&redis.Options{
-			Addr:     *redisAddr,
-			Password: *redisPassword,
-		},
-	)
-	err := redis.Ping(ctx).Err()
+	t.Helper()
+
+	redis := redis.InitSuite(ctx, t)
+	err := redis.Redis.FlushAll(ctx).Err()
 	require.Nil(t, err)
 
-	id, err := rand.GenerateString(16)
-	require.Nil(t, err)
+	s := InitSuite(ctx, t)
 
 	return &suite{
-		manager: NewManager(zap.NewNop(), redis, time.Hour),
-		session: Session{
-			ID: id,
-			User: User{
-				ID:    uuid.New(),
-				Email: "fake@email.com",
-				Role:  RoleStandard,
-			},
-			AbsoluteExpiration: time.Now().UTC().Add(time.Hour),
-			LastActivityAt:     time.Now().UTC(),
-			CreatedAt:          time.Now().UTC(),
-		},
+		Suite: *s,
 	}
 }

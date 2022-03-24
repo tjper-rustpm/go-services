@@ -1,2 +1,2 @@
-DROP TABLE IF EXISTS payment.invoices;
-DROP TABLE IF EXISTS payment.subscriptions;
+DROP TABLE IF EXISTS payments.invoices;
+DROP TABLE IF EXISTS payments.subscriptions;

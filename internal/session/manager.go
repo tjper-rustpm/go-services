@@ -285,7 +285,6 @@ func (m Manager) update(
 			}
 
 			updateFn(&sess)
-			// sess.LastActivityAt = time.Now()
 
 			b, err := encode(sess)
 			if err != nil {

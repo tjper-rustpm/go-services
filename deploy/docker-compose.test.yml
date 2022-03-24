@@ -34,7 +34,7 @@ services:
   test:
     image: "golang:1.16"
     working_dir: "/app"
-    command: "go test -v -count=1 -tags=integration ${TEST}"
+    command: "${COMMAND}"
     restart: "no"
     volumes:
       - ../:/app

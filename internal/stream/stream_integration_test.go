@@ -5,27 +5,13 @@ package stream
 import (
 	"context"
 	"errors"
-	"flag"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-)
-
-var (
-	redisAddr = flag.String(
-		"redis-addr",
-		"redis:6379",
-		"address of redis instance to be used for integration testing",
-	)
-	redisPassword = flag.String(
-		"redis-password",
-		"",
-		"password to access redis instance to be used for integration testing",
-	)
+	"github.com/tjper/rustcron/internal/redis"
 )
 
 func TestRead(t *testing.T) {
@@ -38,17 +24,17 @@ func TestRead(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, time.Second)
 		defer cancel()
 
-		_, err := suite.stream.Read(ctx)
+		_, err := suite.Client.Read(ctx)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
 
 	t.Run("write", func(t *testing.T) {
-		err := suite.stream.Write(ctx, []byte("message"))
+		err := suite.Client.Write(ctx, []byte("message"))
 		assert.Nil(t, err)
 	})
 
 	t.Run("read", func(t *testing.T) {
-		m, err := suite.stream.Read(ctx)
+		m, err := suite.Client.Read(ctx)
 		assert.Nil(t, err)
 		assert.Equal(t, []byte("message"), m.Payload)
 
@@ -82,18 +68,18 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 			receivec := make(chan []byte, test.messages)
 
 			for i := 0; i < test.writers; i++ {
-				go func(i int) {
+				go func() {
 					for msg := range sendc {
-						err := suite.stream.Write(ctx, []byte(strconv.Itoa(msg)))
+						err := suite.Client.Write(ctx, []byte(strconv.Itoa(msg)))
 						assert.Nil(t, err)
 					}
-				}(i)
+				}()
 			}
 
 			for i := 0; i < test.readers; i++ {
-				go func(i int) {
+				go func() {
 					for {
-						m, err := suite.stream.Read(ctx)
+						m, err := suite.Client.Read(ctx)
 						if errors.Is(err, context.DeadlineExceeded) {
 							return
 						}
@@ -104,7 +90,7 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 						err = m.Ack(ctx)
 						assert.Nil(t, err)
 					}
-				}(i)
+				}()
 			}
 
 			for i := 0; i < test.messages; i++ {
@@ -137,12 +123,12 @@ func TestFatalRecovery(t *testing.T) {
 	bravo := setup(ctx, t)
 
 	t.Run("alpha write", func(t *testing.T) {
-		err := alpha.stream.Write(ctx, []byte("message"))
+		err := alpha.Client.Write(ctx, []byte("message"))
 		assert.Nil(t, err)
 	})
 
 	t.Run("alpha read w/ no ack", func(t *testing.T) {
-		m, err := alpha.stream.Read(ctx)
+		m, err := alpha.Client.Read(ctx)
 		assert.Nil(t, err)
 		assert.Equal(t, []byte("message"), m.Payload)
 	})
@@ -151,12 +137,12 @@ func TestFatalRecovery(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, time.Second)
 		defer cancel()
 
-		_, err := bravo.stream.Read(ctx)
+		_, err := bravo.Client.Read(ctx)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
 
 	t.Run("bravo claim", func(t *testing.T) {
-		m, err := bravo.stream.Claim(ctx, time.Second)
+		m, err := bravo.Client.Claim(ctx, time.Second)
 		assert.Nil(t, err)
 		assert.Equal(t, []byte("message"), m.Payload)
 
@@ -165,34 +151,23 @@ func TestFatalRecovery(t *testing.T) {
 	})
 
 	t.Run("alpha claim w/ empty stream", func(t *testing.T) {
-		_, err := alpha.stream.Claim(ctx, time.Second)
+		_, err := alpha.Client.Claim(ctx, time.Second)
 		assert.ErrorIs(t, err, ErrNoPending)
 	})
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
-	rdb := redis.NewClient(
-		&redis.Options{
-			Addr:     *redisAddr,
-			Password: *redisPassword,
-		},
-	)
-	err := rdb.Ping(ctx).Err()
+	t.Helper()
+
+	redis := redis.InitSuite(ctx, t)
+	err := redis.Redis.FlushAll(ctx).Err()
 	require.Nil(t, err)
 
-	err = rdb.FlushDB(ctx).Err()
-	require.Nil(t, err)
+	s := InitSuite(ctx, t)
 
-	stream, err := Init(ctx, rdb, "test")
-	require.Nil(t, err)
-
-	return &suite{
-		rdb:    rdb,
-		stream: stream,
-	}
+	return &suite{Suite: *s}
 }
 
 type suite struct {
-	rdb    *redis.Client
-	stream *Client
+	Suite
 }

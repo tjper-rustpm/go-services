@@ -8,10 +8,10 @@ import (
 )
 
 type Model struct {
-	ID        uuid.UUID      `json:"id" gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	ID        uuid.UUID      `json:"id" gorm:"default:gen_random_uuid()"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `json:"deletedAt" gorm:"index"`
+	DeletedAt gorm.DeletedAt `json:"deletedAt"`
 }
 
 func (m *Model) Scrub() {

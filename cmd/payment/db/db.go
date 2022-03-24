@@ -8,7 +8,7 @@ import (
 )
 
 func Open(dsn string) (*gorm.DB, error) {
-	return igorm.Open(dsn, igorm.WithTablePrefix("payment."))
+	return igorm.Open(dsn, igorm.WithTablePrefix("payments."))
 }
 
 func Migrate(db *gorm.DB, migrations string) error {
@@ -20,6 +20,6 @@ func Migrate(db *gorm.DB, migrations string) error {
 	return migrate.Migrate(
 		dbconn,
 		migrations,
-		migrate.WithMigrationsTable("payment_migrations"),
+		migrate.WithMigrationsTable("payments_migrations"),
 	)
 }

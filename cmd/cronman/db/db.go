@@ -1,38 +1,15 @@
 package db
 
 import (
-	"log"
-	"os"
-	"time"
-
-	"github.com/tjper/rustcron/cmd/cronman/model"
+	igorm "github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/migrate"
 
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
 )
 
 // Open opens a connection with crons' Postgres DB.
 func Open(dsn string) (*gorm.DB, error) {
-	return gorm.Open(
-		postgres.Open(dsn),
-		&gorm.Config{
-			NamingStrategy: schema.NamingStrategy{
-				TablePrefix: "server.",
-			},
-			Logger: logger.New(
-				log.New(os.Stdout, "\r\n", log.LstdFlags),
-				logger.Config{
-					SlowThreshold:             200 * time.Millisecond,
-					Colorful:                  false,
-					IgnoreRecordNotFoundError: true,
-					LogLevel:                  logger.Error,
-				},
-			),
-		},
-	)
+	return igorm.Open(dsn, igorm.WithTablePrefix("servers."))
 }
 
 func Migrate(db *gorm.DB, migrations string) error {
@@ -40,22 +17,9 @@ func Migrate(db *gorm.DB, migrations string) error {
 	if err != nil {
 		return err
 	}
-	migration, err := migrate.New(dbconn, migrations)
-	if err != nil {
-		return err
-	}
-	if err := migration.Up(); err != nil {
-		return err
-	}
-
-	return db.AutoMigrate(
-		model.Server{},
-		model.Wipe{},
-		model.Tag{},
-		model.Moderator{},
-		model.Event{},
-		model.LiveServer{},
-		model.DormantServer{},
-		model.ArchivedServer{},
+	return migrate.Migrate(
+		dbconn,
+		migrations,
+		migrate.WithMigrationsTable("servers_migrations"),
 	)
 }

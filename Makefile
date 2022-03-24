@@ -39,6 +39,7 @@ down: ## Shutdown rustcrons/crons in docker-compose.
 lint: ## Lint repo using golangci-lint. See .golangci.yml for configuration.
 	@golangci-lint run
 
+
 .PHONY: test-server-manager
 test-server-manager: ## Integration test server package against AWS.
 	@go test -v -count=1 -tags=awsintegration ./cmd/cronman/server
@@ -49,38 +50,41 @@ test-mailgun: ## Integration test email package against mailgun.
 
 .PHONY: test-rcon
 test-rcon: ## Integration test rcon package against Rust server running in Docker.
-	@TEST="./cmd/cronman/rcon" docker-compose -f deploy/docker-compose.rust.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=longintegration ./cmd/cronman/rcon" docker-compose -f deploy/docker-compose.rust.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.rust.yml down
 
+	docker-compose -f deploy/docker-compose.test.yml down
 .PHONY: test-user-rest
 test-user-rest: ## Integration test user REST API.
-	@TEST="./cmd/user/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=integration ./cmd/user/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-user-stream
 test-user-stream: ## Integration test user stream handler.
-	@TEST="./cmd/user/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=integration ./cmd/user/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-payment
 test-payment: ## Integration test payment API.
-	@TEST="./cmd/payment/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=integration ./cmd/payment/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-session
 test-session: ## Integration test session package.
-	@TEST="./internal/session" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=integration ./internal/session" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-stream
 test-stream: ## Integration test stream package.
-	@TEST="./internal/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=integration ./internal/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-staging
 test-staging: ## Integration test staging package.
-	@TEST="./cmd/payment/staging" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=integration ./cmd/payment/staging" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-integration
-test-integration: test-staging test-stream test-session test-user-rest test-user-stream test-payment ## Run all short integration tests.
+test-integration:  ## Integration test all short integration tests.
+	@COMMAND="go test -p=1 -count=1 -tags=integration ./..." docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
