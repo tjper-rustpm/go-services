@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package session
@@ -9,7 +10,6 @@ import (
 
 	"github.com/tjper/rustcron/internal/redis"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,49 +23,49 @@ func TestIntegration(t *testing.T) {
 
 	t.Run("touch session that dne", func(t *testing.T) {
 		_, err := suite.Manager.TouchSession(ctx, sess.ID)
-		assert.ErrorIs(t, err, ErrSessionDNE, err.Error())
+		require.ErrorIs(t, err, ErrSessionDNE, err.Error())
 	})
 
 	t.Run("delete session that dne", func(t *testing.T) {
 		err := suite.Manager.DeleteSession(ctx, *sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("retrieve session that dne", func(t *testing.T) {
 		_, err := suite.Manager.RetrieveSession(ctx, sess.ID)
-		assert.ErrorIs(t, err, ErrSessionDNE)
+		require.ErrorIs(t, err, ErrSessionDNE)
 	})
 
 	t.Run("create session", func(t *testing.T) {
 		err := suite.Manager.CreateSession(ctx, *sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("create session that already exists", func(t *testing.T) {
 		err := suite.Manager.CreateSession(ctx, *sess)
-		assert.ErrorIs(t, err, ErrSessionIDNotUnique)
+		require.ErrorIs(t, err, ErrSessionIDNotUnique)
 	})
 
 	t.Run("retrieve session", func(t *testing.T) {
 		actual, err := suite.Manager.RetrieveSession(ctx, sess.ID)
-		assert.Nil(t, err)
-		assert.True(t, sess.Equal(*actual))
+		require.Nil(t, err)
+		require.True(t, sess.Equal(*actual))
 	})
 
 	t.Run("touch session", func(t *testing.T) {
 		sess, err := suite.Manager.TouchSession(ctx, sess.ID)
-		assert.Nil(t, err)
-		assert.WithinDuration(t, time.Now(), sess.LastActivityAt, time.Second)
+		require.Nil(t, err)
+		require.WithinDuration(t, time.Now(), sess.LastActivityAt, time.Second)
 	})
 
 	t.Run("delete session", func(t *testing.T) {
 		err := suite.Manager.DeleteSession(ctx, *sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("create session", func(t *testing.T) {
 		err := suite.Manager.CreateSession(ctx, *sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("invalidate user's sessions", func(t *testing.T) {
@@ -74,12 +74,12 @@ func TestIntegration(t *testing.T) {
 			sess.User.ID,
 			time.Now(),
 		)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("retrieve invalidated session", func(t *testing.T) {
 		_, err := suite.Manager.RetrieveSession(ctx, sess.ID)
-		assert.ErrorIs(t, err, ErrSessionDNE)
+		require.ErrorIs(t, err, ErrSessionDNE)
 	})
 }
 
@@ -93,7 +93,7 @@ func TestUpdateSession(t *testing.T) {
 
 	t.Run("create session", func(t *testing.T) {
 		err := suite.Manager.CreateSession(ctx, *sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("update session refreshed at", func(t *testing.T) {
@@ -101,8 +101,8 @@ func TestUpdateSession(t *testing.T) {
 		updateFn := func(sess *Session) { sess.RefreshedAt = now }
 
 		sess, err := suite.Manager.UpdateSession(ctx, sess.ID, updateFn)
-		assert.Nil(t, err)
-		assert.Equal(t, now, sess.RefreshedAt)
+		require.Nil(t, err)
+		require.Equal(t, now, sess.RefreshedAt)
 	})
 }
 
@@ -116,24 +116,24 @@ func TestMarkStaleUserSessionsBefore(t *testing.T) {
 
 	t.Run("create session", func(t *testing.T) {
 		err := suite.Manager.CreateSession(ctx, *sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("retrieve session", func(t *testing.T) {
 		actual, err := suite.Manager.RetrieveSession(ctx, sess.ID)
-		assert.Nil(t, err)
-		assert.True(t, sess.Equal(*actual))
+		require.Nil(t, err)
+		require.True(t, sess.Equal(*actual))
 	})
 
 	t.Run("mark session as stale", func(t *testing.T) {
 		err := suite.Manager.MarkStaleUserSessionsBefore(ctx, sess.User.ID, time.Now())
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("retrieve session stale session", func(t *testing.T) {
 		sess, err := suite.Manager.RetrieveSession(ctx, sess.ID)
-		assert.ErrorIs(t, err, ErrSessionStale)
-		assert.True(t, sess.Equal(*sess))
+		require.ErrorIs(t, err, ErrSessionStale)
+		require.True(t, sess.Equal(*sess))
 	})
 }
 

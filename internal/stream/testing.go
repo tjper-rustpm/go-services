@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-redis/redis/v8"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/tjper/rustcron/internal/event"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/stretchr/testify/require"
 )
 
 func InitSuite(ctx context.Context, t *testing.T) *Suite {
@@ -43,13 +43,13 @@ func (s Suite) ReadEvent(
 	t.Helper()
 
 	m, err := s.Client.Read(ctx)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	eventI, err := event.Parse(m.Payload)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	err = m.Ack(ctx)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	return eventI
 }
@@ -61,5 +61,5 @@ func (s Suite) AssertNoEvent(ctx context.Context, t *testing.T) {
 	defer cancel()
 
 	_, err := s.Client.Read(ctx)
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }

@@ -1,3 +1,4 @@
+//go:build awsintegration
 // +build awsintegration
 
 package server
@@ -11,7 +12,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -25,13 +25,13 @@ func TestIntegration(t *testing.T) {
 	var createInstanceOutput CreateInstanceOutput
 	t.Run("create instance", func(t *testing.T) {
 		out, err := suite.manager.CreateInstance(ctx, model.InstanceKindStandard)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 		createInstanceOutput = *out
 	})
 
 	t.Run("start instance", func(t *testing.T) {
 		err := suite.manager.StartInstance(ctx, *createInstanceOutput.Instance.InstanceId, "")
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	var associationOutput AssociationOutput
@@ -41,17 +41,17 @@ func TestIntegration(t *testing.T) {
 			*createInstanceOutput.Instance.InstanceId,
 			*createInstanceOutput.Address.AllocationId,
 		)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 		associationOutput = *out
 	})
 
 	t.Run("make instance unavailable", func(t *testing.T) {
 		err := suite.manager.MakeInstanceUnavailable(ctx, *associationOutput.AssociationId)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 	t.Run("stop instance", func(t *testing.T) {
 		err := suite.manager.StopInstance(ctx, *createInstanceOutput.Instance.InstanceId)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 	t.Run("terminate instance", func(t *testing.T) {
 		err := suite.manager.TerminateInstance(
@@ -59,7 +59,7 @@ func TestIntegration(t *testing.T) {
 			*createInstanceOutput.Instance.InstanceId,
 			*createInstanceOutput.Address.AllocationId,
 		)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 }
 

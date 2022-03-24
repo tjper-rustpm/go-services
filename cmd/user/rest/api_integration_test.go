@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package rest
@@ -17,7 +18,6 @@ import (
 	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/session"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,8 +36,8 @@ func TestCreateUser(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("create-user@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("create-user@gmail.com"))
 	})
 
 	t.Run("create user that already exists", func(t *testing.T) {
@@ -49,7 +49,7 @@ func TestCreateUser(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusConflict, resp.StatusCode)
+		require.Equal(t, http.StatusConflict, resp.StatusCode)
 	})
 
 	t.Run("create user w/ invalid email", func(t *testing.T) {
@@ -61,7 +61,7 @@ func TestCreateUser(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
 	t.Run("create user w/ invalid password", func(t *testing.T) {
@@ -73,7 +73,7 @@ func TestCreateUser(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 }
 
@@ -92,8 +92,8 @@ func TestForgotPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("forgot-password@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("forgot-password@gmail.com"))
 	})
 
 	t.Run("forgot password", func(t *testing.T) {
@@ -104,8 +104,8 @@ func TestForgotPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/forgot-password", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.PasswordResetHash("forgot-password@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.PasswordResetHash("forgot-password@gmail.com"))
 	})
 
 	t.Run("forgot password w/ unknown email", func(t *testing.T) {
@@ -116,7 +116,7 @@ func TestForgotPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/forgot-password", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
 	t.Run("update password", func(t *testing.T) {
@@ -128,7 +128,7 @@ func TestForgotPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/reset-password", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
 	t.Run("update password w/ invalid hash", func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestForgotPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/reset-password", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 }
 
@@ -159,15 +159,15 @@ func TestLogin(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("login@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("login@gmail.com"))
 	})
 
 	t.Run("fetch session w/ invalid id", func(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
 
 	t.Run("login user w/ invalid credentials", func(t *testing.T) {
@@ -179,7 +179,7 @@ func TestLogin(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/login", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 
 	var sess *session.Session
@@ -192,7 +192,7 @@ func TestLogin(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/login", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		sess = suite.session(ctx, t, resp.Cookies())
 	})
@@ -201,7 +201,7 @@ func TestLogin(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }
 
@@ -220,8 +220,8 @@ func TestUpdateUserPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("update-user-password@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("update-user-password@gmail.com"))
 	})
 
 	var sess *session.Session
@@ -234,7 +234,7 @@ func TestUpdateUserPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/login", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		sess = suite.session(ctx, t, resp.Cookies())
 	})
@@ -248,7 +248,7 @@ func TestUpdateUserPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/update-password", body, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	})
 
 	t.Run("update user's password", func(t *testing.T) {
@@ -260,14 +260,14 @@ func TestUpdateUserPassword(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/update-password", body, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
 	t.Run("fetch session", func(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
 }
 
@@ -286,8 +286,8 @@ func TestVerifyEmail(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("verify-email@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("verify-email@gmail.com"))
 	})
 
 	var sess *session.Session
@@ -300,7 +300,7 @@ func TestVerifyEmail(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/login", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		sess = suite.session(ctx, t, resp.Cookies())
 	})
@@ -309,8 +309,8 @@ func TestVerifyEmail(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/resend-verification-email", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("verify-email@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("verify-email@gmail.com"))
 	})
 
 	t.Run("verify email w/ invalid hash", func(t *testing.T) {
@@ -321,7 +321,7 @@ func TestVerifyEmail(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/verify-email", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 
 	t.Run("verify email", func(t *testing.T) {
@@ -332,14 +332,14 @@ func TestVerifyEmail(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/verify-email", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
 	t.Run("resend verification email w/ already verified email", func(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/resend-verification-email", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusConflict, resp.StatusCode)
+		require.Equal(t, http.StatusConflict, resp.StatusCode)
 	})
 }
 
@@ -358,8 +358,8 @@ func TestLogout(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("logout@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("logout@gmail.com"))
 	})
 
 	var sess *session.Session
@@ -372,7 +372,7 @@ func TestLogout(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/login", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		sess = suite.session(ctx, t, resp.Cookies())
 	})
@@ -381,21 +381,21 @@ func TestLogout(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
 	t.Run("logout", func(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/logout", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 	})
 
 	t.Run("fetch session", func(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
 }
 
@@ -414,8 +414,8 @@ func TestLogoutAll(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-		assert.NotEmpty(t, suite.emailer.VerifyEmailHash("logout-all@gmail.com"))
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.NotEmpty(t, suite.emailer.VerifyEmailHash("logout-all@gmail.com"))
 	})
 
 	var sess *session.Session
@@ -428,7 +428,7 @@ func TestLogoutAll(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/login", body)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		sess = suite.session(ctx, t, resp.Cookies())
 	})
@@ -437,7 +437,7 @@ func TestLogoutAll(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
 	t.Run("login & logout all", func(t *testing.T) {
@@ -449,24 +449,24 @@ func TestLogoutAll(t *testing.T) {
 		loginResp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/login", body)
 		defer loginResp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, loginResp.StatusCode)
+		require.Equal(t, http.StatusCreated, loginResp.StatusCode)
 
 		logoutAllResp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/user/logout-all", body, sess)
 		defer logoutAllResp.Body.Close()
 
-		assert.Equal(t, http.StatusCreated, logoutAllResp.StatusCode)
+		require.Equal(t, http.StatusCreated, logoutAllResp.StatusCode)
 
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
 
 	t.Run("fetch session afters logout all", func(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodGet, "/v1/user/session", nil, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	})
 }
 
@@ -536,7 +536,7 @@ func (s suite) session(
 	sessID := cookies[0].Value
 
 	sess, err := s.sessions.Manager.RetrieveSession(ctx, sessID)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	return sess
 }

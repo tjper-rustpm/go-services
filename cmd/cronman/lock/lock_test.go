@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -79,20 +79,20 @@ func TestLock(t *testing.T) {
 					defer wg.Done()
 					err := lock.Lock(ctx)
 					if err != nil {
-						assert.Equal(t, context.DeadlineExceeded, err)
+						require.Equal(t, context.DeadlineExceeded, err)
 					}
 					if err == nil {
 						defer lock.Unlock(ctx)
 					}
 					<-ctx.Done()
-					assert.Equal(t, context.DeadlineExceeded, ctx.Err())
+					require.Equal(t, context.DeadlineExceeded, ctx.Err())
 				}(lock)
 			}
 			wg.Wait()
 
-			assert.Equal(t, test.exp.attempted, redis.attempted, "attempted")
-			assert.Equal(t, test.exp.acquired, redis.acquired, "acquired")
-			assert.Equal(t, test.exp.maintained, redis.maintained, "maintained")
+			require.Equal(t, test.exp.attempted, redis.attempted, "attempted")
+			require.Equal(t, test.exp.acquired, redis.acquired, "acquired")
+			require.Equal(t, test.exp.maintained, redis.maintained, "maintained")
 		})
 	}
 }
@@ -151,16 +151,16 @@ func TestUnlock(t *testing.T) {
 			for i := 0; i < test.locks; i++ {
 				lock := NewDistributed(zap.NewNop(), redis, key, test.expiration)
 				err := lock.Lock(ctx)
-				assert.Nil(t, err)
+				require.Nil(t, err)
 				time.AfterFunc(test.wait, func() {
 					lock.Unlock(ctx)
 				})
 			}
 
 			<-ctx.Done()
-			assert.Equal(t, context.DeadlineExceeded, ctx.Err())
+			require.Equal(t, context.DeadlineExceeded, ctx.Err())
 
-			assert.Equal(t, test.exp.acquired, redis.acquired, "acquired")
+			require.Equal(t, test.exp.acquired, redis.acquired, "acquired")
 		})
 	}
 }

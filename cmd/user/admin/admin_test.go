@@ -3,7 +3,7 @@ package admin
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContains(t *testing.T) {
@@ -40,7 +40,7 @@ func TestContains(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			set := NewAdminSet(test.admins)
-			assert.Equal(t, test.exp.contains, set.Contains(test.admin))
+			require.Equal(t, test.exp.contains, set.Contains(test.admin))
 		})
 	}
 }

@@ -3,7 +3,7 @@ package hash
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFromStruct(t *testing.T) {
@@ -23,8 +23,8 @@ func TestFromStruct(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			actual, err := FromStruct(test.src)
-			assert.Nil(t, err)
-			assert.Equal(t, test.hash, actual)
+			require.Nil(t, err)
+			require.Equal(t, test.hash, actual)
 		})
 	}
 }
@@ -56,8 +56,8 @@ func TestToStruct(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			err := ToStruct(test.dst, test.src)
-			assert.Nil(t, err)
-			assert.Equal(t, test.exp.dst, test.dst)
+			require.Nil(t, err)
+			require.Equal(t, test.exp.dst, test.dst)
 		})
 	}
 }

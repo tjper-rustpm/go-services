@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package staging
@@ -10,7 +11,6 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,21 +40,21 @@ func TestIntegration(t *testing.T) {
 
 	var id string
 	t.Run("stage checkout", func(t *testing.T) {
-		res, err := suite.client.StageCheckout(ctx, expected, time.Now().Add(2*time.Second))
-		assert.Nil(t, err)
+		res, err := suite.client.StageCheckout(ctx, expected, time.Now().Add(time.Second))
+		require.Nil(t, err)
 		id = res
 	})
 
 	t.Run("fetch checkout", func(t *testing.T) {
 		actual, err := suite.client.FetchCheckout(ctx, id)
-		assert.Nil(t, err)
-		assert.Equal(t, expected, *actual)
+		require.Nil(t, err)
+		require.Equal(t, expected, *actual)
 	})
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(1500 * time.Millisecond)
 	t.Run("fetch expired checkout", func(t *testing.T) {
 		_, err := suite.client.FetchCheckout(ctx, id)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 

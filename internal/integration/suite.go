@@ -13,7 +13,6 @@ import (
 	"github.com/tjper/rustcron/internal/stream"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -82,7 +81,7 @@ func (s Suite) Request(
 	} else {
 		buf := new(bytes.Buffer)
 		err := json.NewEncoder(buf).Encode(body)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 
 		req = httptest.NewRequest(method, target, buf)
 	}

@@ -18,7 +18,6 @@ import (
 	"github.com/tjper/rustcron/internal/session"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -42,7 +41,7 @@ func TestHandleSubscriptionCreated(t *testing.T) {
 		sess.User.ID = user.ID
 
 		err := s.sessions.Manager.CreateSession(ctx, sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("handle subscription create event", func(t *testing.T) {
@@ -59,15 +58,15 @@ func TestHandleSubscriptionCreated(t *testing.T) {
 		// susbcription is on user
 		var actual model.User
 		res := s.db.Preload(clause.Associations).First(&actual, user.ID)
-		assert.Nil(t, res.Error)
+		require.Nil(t, res.Error)
 
-		assert.Len(t, actual.Subscriptions, 1)
-		assert.Equal(t, subscriptionID, actual.Subscriptions[0].SubscriptionID)
-		assert.Equal(t, serverID, actual.Subscriptions[0].ServerID)
+		require.Len(t, actual.Subscriptions, 1)
+		require.Equal(t, subscriptionID, actual.Subscriptions[0].SubscriptionID)
+		require.Equal(t, serverID, actual.Subscriptions[0].ServerID)
 
 		// session has been marked stale
 		_, err := s.sessions.Manager.RetrieveSession(ctx, sess.ID)
-		assert.ErrorIs(t, err, session.ErrSessionStale)
+		require.ErrorIs(t, err, session.ErrSessionStale)
 	})
 }
 
@@ -89,13 +88,13 @@ func TestHandleSubscriptionDelete(t *testing.T) {
 		}
 
 		res := s.db.Save(&user)
-		assert.Nil(t, res.Error)
+		require.Nil(t, res.Error)
 
 		sess = *s.sessions.NewSession(ctx, t, "subscription-delete-user@gmail.com")
 		sess.User.ID = user.ID
 
 		err := s.sessions.Manager.CreateSession(ctx, sess)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("handle subscription delete event", func(t *testing.T) {
@@ -105,12 +104,12 @@ func TestHandleSubscriptionDelete(t *testing.T) {
 
 		var actual model.User
 		res := s.db.Preload(clause.Associations).First(&actual, user.ID)
-		assert.Nil(t, res.Error)
+		require.Nil(t, res.Error)
 
-		assert.Empty(t, actual.Subscriptions)
+		require.Empty(t, actual.Subscriptions)
 
 		_, err := s.sessions.Manager.RetrieveSession(ctx, sess.ID)
-		assert.ErrorIs(t, err, session.ErrSessionStale)
+		require.ErrorIs(t, err, session.ErrSessionStale)
 	})
 }
 
@@ -139,7 +138,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 
 	go func() {
 		err := handler.Launch(ctx)
-		assert.ErrorIs(t, err, context.Canceled)
+		require.ErrorIs(t, err, context.Canceled)
 	}()
 
 	return &suite{
@@ -177,7 +176,7 @@ func (s suite) createUser(t *testing.T, email string) model.User {
 	}
 
 	res := s.db.Create(&user)
-	assert.Nil(t, res.Error)
+	require.Nil(t, res.Error)
 
 	return user
 }
@@ -186,10 +185,10 @@ func (s suite) writeEvent(ctx context.Context, t *testing.T, e interface{}) {
 	t.Helper()
 
 	b, err := json.Marshal(&e)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	err = s.Stream.Write(ctx, b)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	time.Sleep(100 * time.Millisecond) // wait to allow handler to process event
 }

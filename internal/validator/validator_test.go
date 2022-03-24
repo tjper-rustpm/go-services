@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidator(t *testing.T) {
@@ -38,14 +38,14 @@ func TestValidator(t *testing.T) {
 			err := valid.Var(&test.value, test.tag)
 			if test.err {
 				errors := make(validator.ValidationErrors, 0)
-				assert.ErrorAs(t, err, &errors)
+				require.ErrorAs(t, err, &errors)
 
 				for _, err := range errors {
-					assert.Equal(t, err.Tag(), test.tag)
+					require.Equal(t, err.Tag(), test.tag)
 				}
 				return
 			}
-			assert.Nil(t, err)
+			require.Nil(t, err)
 		})
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEventsNextEvent(t *testing.T) {
@@ -130,9 +130,9 @@ func TestEventsNextEvent(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			event, when, err := test.events.NextEvent(test.dt, test.kind)
-			assert.Nil(t, err)
-			assert.Equal(t, test.exp.event, *event)
-			assert.Equal(t, test.exp.when, *when)
+			require.Nil(t, err)
+			require.Equal(t, test.exp.event, *event)
+			require.Equal(t, test.exp.when, *when)
 		})
 	}
 }
@@ -192,8 +192,8 @@ func TestEventNext(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			next, err := test.event.Next(test.after)
-			assert.Nil(t, err)
-			assert.True(
+			require.Nil(t, err)
+			require.True(
 				t,
 				test.exp.next.Equal(next),
 				"exp: %s\nnext: %s",
@@ -249,8 +249,8 @@ func TestEventOccurrences(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			occurrences, err := test.event.Occurrences(test.after, test.until)
-			assert.Nil(t, err)
-			assert.Equal(t, test.exp.occurrences, occurrences)
+			require.Nil(t, err)
+			require.Equal(t, test.exp.occurrences, occurrences)
 		})
 	}
 }

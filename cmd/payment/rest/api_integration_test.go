@@ -22,7 +22,6 @@ import (
 	"github.com/tjper/rustcron/internal/stripe"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	stripev72 "github.com/stripe/stripe-go/v72"
 )
@@ -56,10 +55,10 @@ func TestCreateBillingPortalSession(t *testing.T) {
 		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/billing", body, sess)
 		defer resp.Body.Close()
 
-		assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
+		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
 		session := suite.stripe.PopBillingPortalSession()
-		assert.Equal(t, "http://rustpm.com", *session.ReturnURL)
+		require.Equal(t, "http://rustpm.com", *session.ReturnURL)
 	})
 }
 
@@ -81,13 +80,13 @@ func TestCheckoutSessionComplete(t *testing.T) {
 		suite.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
 
 		stagingCheckout, err := suite.staging.FetchCheckout(ctx, clientReferenceID.String())
-		assert.Nil(t, err)
+		require.Nil(t, err)
 
 		eventI := suite.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.SubscriptionCreatedEvent)
-		assert.True(t, ok)
-		assert.Equal(t, stagingCheckout.ServerID, event.ServerID)
-		assert.Equal(t, stagingCheckout.UserID, event.UserID)
+		require.True(t, ok)
+		require.Equal(t, stagingCheckout.ServerID, event.ServerID)
+		require.Equal(t, stagingCheckout.UserID, event.UserID)
 	})
 
 	t.Run("duplicate complete checkout session", func(t *testing.T) {
@@ -141,9 +140,9 @@ func TestInvoice(t *testing.T) {
 
 		eventI := suite.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.SubscriptionCreatedEvent)
-		assert.True(t, ok)
-		assert.Equal(t, serverID.String(), event.ServerID.String())
-		assert.Equal(t, sess.User.ID.String(), event.UserID.String())
+		require.True(t, ok)
+		require.Equal(t, serverID.String(), event.ServerID.String())
+		require.Equal(t, sess.User.ID.String(), event.UserID.String())
 		subscriptionID = event.SubscriptionID
 
 		updateFn := func(sess *session.Session) {
@@ -152,7 +151,7 @@ func TestInvoice(t *testing.T) {
 			}
 		}
 		_, err := suite.sessions.Manager.UpdateSession(ctx, sess.ID, updateFn)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("invoice paid", func(t *testing.T) {
@@ -170,10 +169,10 @@ func TestInvoice(t *testing.T) {
 
 	t.Run("get session's subscription", func(t *testing.T) {
 		subs := suite.getSubscriptions(ctx, t, sess)
-		assert.Len(t, subs, 1)
+		require.Len(t, subs, 1)
 
 		sub := subs[0]
-		assert.Equal(t, subscriptionID, sub.ID)
+		require.Equal(t, subscriptionID, sub.ID)
 	})
 
 	t.Run("invoice payment failed", func(t *testing.T) {
@@ -190,17 +189,17 @@ func TestInvoice(t *testing.T) {
 
 		eventI := suite.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.SubscriptionDeleteEvent)
-		assert.True(t, ok)
-		assert.Equal(t, subscriptionID, event.SubscriptionID)
+		require.True(t, ok)
+		require.Equal(t, subscriptionID, event.SubscriptionID)
 
 		updateFn := func(sess *session.Session) { sess.User.Subscriptions = nil }
 		_, err := suite.sessions.Manager.UpdateSession(ctx, sess.ID, updateFn)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("check session has no subscription", func(t *testing.T) {
 		subs := suite.getSubscriptions(ctx, t, sess)
-		assert.Len(t, subs, 0)
+		require.Len(t, subs, 0)
 	})
 }
 
@@ -224,19 +223,19 @@ func (s suite) postSubscriptionCheckoutSession(
 	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/checkout", body, sess)
 	defer resp.Body.Close()
 
-	assert.Equal(t, http.StatusSeeOther, resp.StatusCode)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
 	stripeCheckout := s.stripe.PopCheckoutSession()
-	assert.Equal(t, "http://rustpm.com/payment/cancel", *stripeCheckout.CancelURL)
-	assert.Equal(t, "http://rustpm.com/payment/success", *stripeCheckout.SuccessURL)
-	assert.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *stripeCheckout.Mode)
-	assert.Equal(t, "prod_L1MFlCUj2bk2j0", *stripeCheckout.LineItems[0].Price)
-	assert.Equal(t, int64(1), *stripeCheckout.LineItems[0].Quantity)
+	require.Equal(t, "http://rustpm.com/payment/cancel", *stripeCheckout.CancelURL)
+	require.Equal(t, "http://rustpm.com/payment/success", *stripeCheckout.SuccessURL)
+	require.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *stripeCheckout.Mode)
+	require.Equal(t, "prod_L1MFlCUj2bk2j0", *stripeCheckout.LineItems[0].Price)
+	require.Equal(t, int64(1), *stripeCheckout.LineItems[0].Quantity)
 
 	stagingCheckout, err := s.staging.FetchCheckout(ctx, *stripeCheckout.ClientReferenceID)
-	assert.Nil(t, err)
-	assert.Equal(t, stagingCheckout.ServerID, serverID)
-	assert.Equal(t, stagingCheckout.UserID, userID)
+	require.Nil(t, err)
+	require.Equal(t, stagingCheckout.ServerID, serverID)
+	require.Equal(t, stagingCheckout.UserID, userID)
 
 	return uuid.MustParse(*stripeCheckout.ClientReferenceID)
 }
@@ -258,7 +257,7 @@ func (s suite) postCompleteCheckoutSession(
 	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/stripe", body, sess)
 	defer resp.Body.Close()
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func (s suite) postInvoice(
@@ -278,7 +277,7 @@ func (s suite) postInvoice(
 	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/stripe", body, sess)
 	defer resp.Body.Close()
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func (s suite) getSubscriptions(
@@ -291,11 +290,11 @@ func (s suite) getSubscriptions(
 	resp := s.Request(ctx, t, s.api, http.MethodGet, "/v1/subscriptions", nil, sess)
 	defer resp.Body.Close()
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var subs []Subscription
 	err := json.NewDecoder(resp.Body).Decode(&subs)
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	return subs
 }

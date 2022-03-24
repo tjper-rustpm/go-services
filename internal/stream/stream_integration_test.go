@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package stream
@@ -9,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/tjper/rustcron/internal/redis"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestRead(t *testing.T) {
@@ -25,21 +26,21 @@ func TestRead(t *testing.T) {
 		defer cancel()
 
 		_, err := suite.Client.Read(ctx)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
 	})
 
 	t.Run("write", func(t *testing.T) {
 		err := suite.Client.Write(ctx, []byte("message"))
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("read", func(t *testing.T) {
 		m, err := suite.Client.Read(ctx)
-		assert.Nil(t, err)
-		assert.Equal(t, []byte("message"), m.Payload)
+		require.Nil(t, err)
+		require.Equal(t, []byte("message"), m.Payload)
 
 		err = m.Ack(ctx)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 }
 
@@ -71,7 +72,7 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 				go func() {
 					for msg := range sendc {
 						err := suite.Client.Write(ctx, []byte(strconv.Itoa(msg)))
-						assert.Nil(t, err)
+						require.Nil(t, err)
 					}
 				}()
 			}
@@ -84,11 +85,11 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 							return
 						}
 
-						assert.Nil(t, err)
+						require.Nil(t, err)
 						receivec <- m.Payload
 
 						err = m.Ack(ctx)
-						assert.Nil(t, err)
+						require.Nil(t, err)
 					}
 				}()
 			}
@@ -102,11 +103,11 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 			for {
 				select {
 				case <-ctx.Done():
-					assert.Equal(t, test.messages, len(received))
+					require.Equal(t, test.messages, len(received))
 					return
 				case msg := <-receivec:
 					i, err := strconv.Atoi(string(msg))
-					assert.Nil(t, err)
+					require.Nil(t, err)
 
 					received = append(received, i)
 				}
@@ -124,13 +125,13 @@ func TestFatalRecovery(t *testing.T) {
 
 	t.Run("alpha write", func(t *testing.T) {
 		err := alpha.Client.Write(ctx, []byte("message"))
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("alpha read w/ no ack", func(t *testing.T) {
 		m, err := alpha.Client.Read(ctx)
-		assert.Nil(t, err)
-		assert.Equal(t, []byte("message"), m.Payload)
+		require.Nil(t, err)
+		require.Equal(t, []byte("message"), m.Payload)
 	})
 
 	t.Run("bravo read", func(t *testing.T) {
@@ -138,21 +139,21 @@ func TestFatalRecovery(t *testing.T) {
 		defer cancel()
 
 		_, err := bravo.Client.Read(ctx)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
 	})
 
 	t.Run("bravo claim", func(t *testing.T) {
 		m, err := bravo.Client.Claim(ctx, time.Second)
-		assert.Nil(t, err)
-		assert.Equal(t, []byte("message"), m.Payload)
+		require.Nil(t, err)
+		require.Equal(t, []byte("message"), m.Payload)
 
 		err = m.Ack(ctx)
-		assert.Nil(t, err)
+		require.Nil(t, err)
 	})
 
 	t.Run("alpha claim w/ empty stream", func(t *testing.T) {
 		_, err := alpha.Client.Claim(ctx, time.Second)
-		assert.ErrorIs(t, err, ErrNoPending)
+		require.ErrorIs(t, err, ErrNoPending)
 	})
 }
 

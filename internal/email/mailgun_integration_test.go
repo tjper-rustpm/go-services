@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tjper/rustcron/cmd/user/config"
 
 	"github.com/mailgun/mailgun-go/v4"
@@ -32,7 +32,7 @@ func TestSendPasswordReset(t *testing.T) {
 			emailer := NewMailgunEmailer(mg, cfg.MailgunHost())
 
 			err := emailer.SendPasswordReset(ctx, test.to, test.hash)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 		})
 	}
 }
@@ -56,7 +56,7 @@ func TestSendVerifyEmail(t *testing.T) {
 			emailer := NewMailgunEmailer(mg, cfg.MailgunHost())
 
 			err := emailer.SendVerifyEmail(ctx, test.to, test.hash)
-			assert.Nil(t, err)
+			require.Nil(t, err)
 		})
 	}
 }
