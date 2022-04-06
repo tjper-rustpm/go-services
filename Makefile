@@ -25,15 +25,15 @@ build-nc: ## Build an app's docker image without caching.
 
 .PHONY: up
 up: ## Launch rustcron/crons in docker-compose.
-	@docker-compose -f deploy/docker-compose.yaml up
+	@docker-compose -f deploy/docker-compose.yml up -V
 
 .PHONY: up-nc
 up-nc: ## Launch rustcron/crons in docker-compose without caching.
-	@docker-compose -f deploy/docker-compose.yaml up --build
+	@docker-compose -f deploy/docker-compose.yml up --build -V
 
 .PHONY: down
 down: ## Shutdown rustcrons/crons in docker-compose.
-	@docker-compose -f deploy/docker-compose.yaml down
+	@docker-compose -f deploy/docker-compose.yml down
 
 .PHONY: lint
 lint: ## Lint repo using golangci-lint. See .golangci.yml for configuration.

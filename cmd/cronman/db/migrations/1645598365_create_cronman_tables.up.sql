@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS servers.moderators (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
   deleted_at TIMESTAMP WITH TIME ZONE,
 
-  PRIMARY KEY (id)
+  PRIMARY KEY (id),
   FOREIGN KEY (server_id) REFERENCES servers.servers (id)
 );
 
