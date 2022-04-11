@@ -60,8 +60,8 @@ CREATE TABLE IF NOT EXISTS servers.archived_servers (
 );
 
 CREATE TABLE IF NOT EXISTS servers.wipes (
-  id        SERIAL NOT NULL,
-  server_id UUID   NOT NULL,
+  id        UUID NOT NULL DEFAULT gen_random_uuid(),
+  server_id UUID NOT NULL,
 
   map_seed SMALLINT NOT NULL,
   map_salt SMALLINT NOT NULL,
@@ -75,8 +75,8 @@ CREATE TABLE IF NOT EXISTS servers.wipes (
 );
 
 CREATE TABLE IF NOT EXISTS servers.tags (
-  id        SERIAL NOT NULL,
-  server_id UUID   NOT NULL,
+  id        UUID NOT NULL DEFAULT gen_random_uuid(),
+  server_id UUID NOT NULL,
 
   description VARCHAR NOT NULL,
   icon        VARCHAR NOT NULL,
@@ -91,8 +91,8 @@ CREATE TABLE IF NOT EXISTS servers.tags (
 );
 
 CREATE TABLE IF NOT EXISTS servers.moderators (
-  id        SERIAL NOT NULL,
-  server_id UUID   NOT NULL,
+  id        UUID NOT NULL DEFAULT gen_random_uuid(),
+  server_id UUID NOT NULL,
 
   steam_id VARCHAR NOT NULL,
 
@@ -105,8 +105,8 @@ CREATE TABLE IF NOT EXISTS servers.moderators (
 );
 
 CREATE TABLE IF NOT EXISTS servers.events (
-  id        SERIAL NOT NULL,
-  server_id UUID   NOT NULL,
+  id        UUID NOT NULL DEFAULT gen_random_uuid(),
+  server_id UUID NOT NULL,
 
   schedule VARCHAR NOT NULL,
   weekday  SMALLINT,
