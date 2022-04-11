@@ -36,7 +36,7 @@ type Suite struct {
 	Manager *Manager
 }
 
-func (s Suite) NewSession(ctx context.Context, t *testing.T, email string) *Session {
+func (s Suite) NewSession(ctx context.Context, t *testing.T, email string, role Role) *Session {
 	t.Helper()
 
 	id, err := rand.GenerateString(16)
@@ -47,7 +47,7 @@ func (s Suite) NewSession(ctx context.Context, t *testing.T, email string) *Sess
 		User{
 			ID:    uuid.New(),
 			Email: email,
-			Role:  RoleStandard,
+			Role:  role,
 		},
 		time.Minute,
 	)
@@ -55,10 +55,10 @@ func (s Suite) NewSession(ctx context.Context, t *testing.T, email string) *Sess
 	return sess
 }
 
-func (s Suite) CreateSession(ctx context.Context, t *testing.T, email string) *Session {
+func (s Suite) CreateSession(ctx context.Context, t *testing.T, email string, role Role) *Session {
 	t.Helper()
 
-	sess := s.NewSession(ctx, t, email)
+	sess := s.NewSession(ctx, t, email, role)
 
 	err := s.Manager.CreateSession(ctx, *sess)
 	require.Nil(t, err)

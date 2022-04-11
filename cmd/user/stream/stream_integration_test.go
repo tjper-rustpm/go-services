@@ -37,7 +37,7 @@ func TestHandleSubscriptionCreated(t *testing.T) {
 	t.Run("setup", func(t *testing.T) {
 		user = s.createUser(t, "subscription-create-user@gmail.com")
 
-		sess = *s.sessions.NewSession(ctx, t, "subscription-create-user@gmail.com")
+		sess = *s.sessions.NewSession(ctx, t, "subscription-create-user@gmail.com", session.RoleStandard)
 		sess.User.ID = user.ID
 
 		err := s.sessions.Manager.CreateSession(ctx, sess)
@@ -90,7 +90,7 @@ func TestHandleSubscriptionDelete(t *testing.T) {
 		res := s.db.Save(&user)
 		require.Nil(t, res.Error)
 
-		sess = *s.sessions.NewSession(ctx, t, "subscription-delete-user@gmail.com")
+		sess = *s.sessions.NewSession(ctx, t, "subscription-delete-user@gmail.com", session.RoleStandard)
 		sess.User.ID = user.ID
 
 		err := s.sessions.Manager.CreateSession(ctx, sess)

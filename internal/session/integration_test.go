@@ -19,7 +19,7 @@ func TestIntegration(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.NewSession(ctx, t, "session-testing@gmail.com")
+	sess := suite.NewSession(ctx, t, "session-testing@gmail.com", RoleStandard)
 
 	t.Run("touch session that dne", func(t *testing.T) {
 		_, err := suite.Manager.TouchSession(ctx, sess.ID)
@@ -89,7 +89,7 @@ func TestUpdateSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.NewSession(ctx, t, "session-testing@gmail.com")
+	sess := suite.NewSession(ctx, t, "session-testing@gmail.com", RoleStandard)
 
 	t.Run("create session", func(t *testing.T) {
 		err := suite.Manager.CreateSession(ctx, *sess)
@@ -112,7 +112,7 @@ func TestMarkStaleUserSessionsBefore(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.NewSession(ctx, t, "session-testing@gmail.com")
+	sess := suite.NewSession(ctx, t, "session-testing@gmail.com", RoleStandard)
 
 	t.Run("create session", func(t *testing.T) {
 		err := suite.Manager.CreateSession(ctx, *sess)

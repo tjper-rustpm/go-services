@@ -32,7 +32,7 @@ func TestCreateCheckoutSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
 
 	t.Run("create subscription checkout session", func(t *testing.T) {
 		suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), uuid.New(), sess)
@@ -45,7 +45,7 @@ func TestCreateBillingPortalSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
 
 	t.Run("create billing portal session", func(t *testing.T) {
 		body := map[string]interface{}{
@@ -68,7 +68,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
 
 	var clientReferenceID uuid.UUID
 	t.Run("create subscription checkout session", func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestInvoice(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com")
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
 
 	var (
 		clientReferenceID uuid.UUID
