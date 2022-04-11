@@ -6,7 +6,6 @@ package rest
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -57,7 +56,19 @@ func TestCreateServer(t *testing.T) {
 			nil,
 		)
 
-		suite.postCreateServer(ctx, t, sess)
+		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+	})
+
+	sess = suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
+
+	t.Run("create server with standard user", func(t *testing.T) {
+		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 }
 
@@ -122,10 +133,10 @@ type suite struct {
 	serverManager *server.MockManager
 }
 
-func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session.Session) {
+func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session.Session, path string) *http.Response {
 	t.Helper()
 
-	fd, err := os.Open(fmt.Sprintf("testdata/%s.json", t.Name()))
+	fd, err := os.Open(path)
 	require.Nil(t, err)
 	defer fd.Close()
 
@@ -133,8 +144,5 @@ func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session
 	err = json.NewDecoder(fd).Decode(&body)
 	require.Nil(t, err)
 
-	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/server", body, sess)
-	defer resp.Body.Close()
-
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server", body, sess)
 }
