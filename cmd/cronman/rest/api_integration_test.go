@@ -21,6 +21,7 @@ import (
 	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/redis"
 	"github.com/tjper/rustcron/internal/session"
+	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -72,6 +73,86 @@ func TestCreateServer(t *testing.T) {
 	})
 }
 
+func TestStartServer(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleAdmin)
+
+	var serverID string
+	t.Run("create server with admin user", func(t *testing.T) {
+		instanceID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		allocationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetCreateInstanceOutput(
+			&server.CreateInstanceOutput{
+				Instance: types.Instance{
+					InstanceId: aws.String(instanceID),
+				},
+				Address: ec2.AllocateAddressOutput{
+					AllocationId: aws.String(allocationID),
+					PublicIp:     aws.String("127.0.0.1"),
+				},
+			},
+			nil,
+		)
+
+		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
+		defer createResp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+		var server map[string]interface{}
+		err = json.NewDecoder(createResp.Body).Decode(&server)
+		require.Nil(t, err)
+
+		iServerID, ok := server["id"]
+		require.True(t, ok)
+		serverID, ok = iServerID.(string)
+		require.True(t, ok)
+	})
+
+	t.Run("start server with admin user", func(t *testing.T) {
+		associationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetMakeInstanceAvailableOutput(
+			&server.AssociationOutput{
+				AssociateAddressOutput: ec2.AssociateAddressOutput{
+					AssociationId: aws.String(associationID),
+				},
+			},
+			nil,
+		)
+
+		resp := suite.postStartServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+	})
+
+	t.Run("start server that is live", func(t *testing.T) {
+		resp := suite.postStartServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusConflict, resp.StatusCode)
+	})
+
+	sess = suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
+
+	t.Run("start server with standard user", func(t *testing.T) {
+		resp := suite.postStartServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+}
+
 func setup(
 	ctx context.Context,
 	t *testing.T,
@@ -84,6 +165,8 @@ func setup(
 
 	s := integration.InitSuite(ctx, t)
 	sessions := session.InitSuite(ctx, t)
+
+	logger := zap.NewExample()
 
 	const (
 		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
@@ -99,8 +182,8 @@ func setup(
 	serverManager := server.NewMockManager()
 
 	ctrl := controller.New(
-		s.Logger,
-		db.NewStore(s.Logger, dbconn),
+		logger,
+		db.NewStore(logger, dbconn),
 		controller.NewServerDirector(
 			serverManager,
 			serverManager,
@@ -108,13 +191,13 @@ func setup(
 		),
 		controller.NewRconHubMock(),
 		rcon.NewWaiterMock(time.Millisecond),
-		director.NewNotifier(s.Logger, redis.Redis),
+		director.NewNotifier(logger, redis.Redis),
 	)
 
 	api := NewAPI(
 		s.Logger,
 		ctrl,
-		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
+		ihttp.NewSessionMiddleware(logger, sessions.Manager),
 	)
 
 	return &suite{
@@ -145,4 +228,13 @@ func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session
 	require.Nil(t, err)
 
 	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server", body, sess)
+}
+
+func (s suite) postStartServer(ctx context.Context, t *testing.T, sess *session.Session, serverID string) *http.Response {
+	t.Helper()
+
+	body := map[string]interface{}{
+		"serverId": serverID,
+	}
+	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server/start", body, sess)
 }

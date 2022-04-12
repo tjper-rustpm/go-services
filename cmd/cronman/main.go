@@ -119,7 +119,7 @@ func run() int {
 			server.NewManager(logger, euCentralEC2),
 		),
 		controller.NewRconHub(logger),
-		rcon.NewWaiter(logger),
+		rcon.NewWaiter(logger, time.Minute),
 		director.NewNotifier(logger, rdb),
 	)
 	logger.Info("[Startup] Created controller.")

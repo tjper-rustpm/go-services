@@ -68,8 +68,8 @@ func TestIntegration(t *testing.T) {
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
-	waiter := NewWaiter(zap.NewNop())
-	err := waiter.UntilReady(ctx, *url, 10*time.Second)
+	waiter := NewWaiter(zap.NewNop(), 10*time.Second)
+	err := waiter.UntilReady(ctx, *url)
 	require.Nil(t, err)
 
 	client, err := Dial(ctx, zap.NewNop(), *url)

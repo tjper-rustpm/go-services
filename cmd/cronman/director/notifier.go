@@ -25,6 +25,5 @@ type Notifier struct {
 // Notify notifies the acting director that there has been a schedule cahange
 // and the upcoming events should be re-evaluated.
 func (n Notifier) Notify(ctx context.Context) error {
-	n.logger.Info("notifying director")
 	return n.redis.Publish(ctx, refreshSubj, "notify").Err()
 }

@@ -13,16 +13,18 @@ import (
 	"go.uber.org/zap"
 )
 
-func NewWaiter(logger *zap.Logger) *Waiter {
+func NewWaiter(logger *zap.Logger, interval time.Duration) *Waiter {
 	return &Waiter{
-		logger: logger,
+		logger:   logger,
+		interval: interval,
 	}
 }
 
 // Waiter is responsible for functionality that allows clients to wait for
 // Rcon servers to be in a particular state.
 type Waiter struct {
-	logger *zap.Logger
+	logger   *zap.Logger
+	interval time.Duration
 }
 
 var (
@@ -30,14 +32,13 @@ var (
 	errReadyCheck = errors.New("error performing rcon ready check")
 )
 
-// WaitUntilReady waits until the specified URL is accepting connections. The
+// UntilReady waits until the specified URL is accepting connections. The
 // wait argument specifies the period of time to wait between retries. This
 // process may be cancelled by cancelling context.Context. On success, a
 // nil-error is returned.
 func (w Waiter) UntilReady(
 	ctx context.Context,
 	url string,
-	wait time.Duration,
 ) error {
 	logger := w.logger.With(logger.ContextFields(ctx)...)
 
@@ -65,7 +66,7 @@ func (w Waiter) UntilReady(
 		return nil
 	}
 
-	logger.Info("waiting for RCON to be ready", zap.String("url", url), zap.Duration("retry", wait))
+	logger.Info("waiting for RCON to be ready", zap.String("url", url), zap.Duration("retry", w.interval))
 	for {
 		err := readyCheck()
 		if errors.Is(err, io.ErrUnexpectedEOF) {
@@ -83,7 +84,7 @@ func (w Waiter) UntilReady(
 		break
 
 	retry:
-		time.Sleep(wait)
+		time.Sleep(w.interval)
 		continue
 	}
 	return nil

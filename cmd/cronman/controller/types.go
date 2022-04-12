@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
@@ -30,7 +29,7 @@ type IHub interface {
 // IWaiter represents the API by which the Controller waits for Rcon endpoints
 // to be ready.
 type IWaiter interface {
-	UntilReady(ctx context.Context, url string, wait time.Duration) error
+	UntilReady(ctx context.Context, url string) error
 }
 
 // IRcon represents the API by which the Controller communicates and interacts

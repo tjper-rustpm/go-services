@@ -453,7 +453,6 @@ func (ctrl *Controller) pingUntilReady(ctx context.Context, ip, password string)
 	if err := ctrl.waiter.UntilReady(
 		pingctx,
 		rconURL(ip, password),
-		time.Minute,
 	); err != nil {
 		return fmt.Errorf("unable to ping server instance; %w", err)
 	}

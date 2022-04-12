@@ -7,28 +7,24 @@ import (
 
 // NewWaiterMock creates a WaiterMock instance.
 func NewWaiterMock(until time.Duration) *WaiterMock {
-	return &WaiterMock{readyAt: time.Now().Add(until)}
+	return &WaiterMock{until: until}
 }
 
 // WaiterMock mocks Waiter functionality. Typically used in testing.
 type WaiterMock struct {
-	readyAt time.Time
+	until time.Duration
 }
 
 // UntilReady mocks waiting until the specified URL is accepting websocket
 // connections.
-func (m WaiterMock) UntilReady(ctx context.Context, _ string, wait time.Duration) error {
-	ticker := time.NewTicker(wait)
-	defer ticker.Stop()
-
+func (m WaiterMock) UntilReady(ctx context.Context, _ string) error {
+	ready := time.After(m.until)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
-			if time.Now().After(m.readyAt) {
-				return nil
-			}
+		case <-ready:
+			return nil
 		}
 	}
 }
