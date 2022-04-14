@@ -38,25 +38,6 @@ func TestCreateServer(t *testing.T) {
 	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleAdmin)
 
 	t.Run("create server with admin user", func(t *testing.T) {
-		instanceID, err := rand.GenerateString(16)
-		require.Nil(t, err)
-
-		allocationID, err := rand.GenerateString(16)
-		require.Nil(t, err)
-
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
-				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
-
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer resp.Body.Close()
 
@@ -83,32 +64,13 @@ func TestStartServer(t *testing.T) {
 
 	var serverID string
 	t.Run("create server with admin user", func(t *testing.T) {
-		instanceID, err := rand.GenerateString(16)
-		require.Nil(t, err)
-
-		allocationID, err := rand.GenerateString(16)
-		require.Nil(t, err)
-
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
-				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
-
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
 
 		require.Equal(t, http.StatusCreated, createResp.StatusCode)
 
 		var server map[string]interface{}
-		err = json.NewDecoder(createResp.Body).Decode(&server)
+		err := json.NewDecoder(createResp.Body).Decode(&server)
 		require.Nil(t, err)
 
 		iServerID, ok := server["id"]
@@ -118,18 +80,6 @@ func TestStartServer(t *testing.T) {
 	})
 
 	t.Run("start server with admin user", func(t *testing.T) {
-		associationID, err := rand.GenerateString(16)
-		require.Nil(t, err)
-
-		suite.serverManager.SetMakeInstanceAvailableOutput(
-			&server.AssociationOutput{
-				AssociateAddressOutput: ec2.AssociateAddressOutput{
-					AssociationId: aws.String(associationID),
-				},
-			},
-			nil,
-		)
-
 		resp := suite.postStartServer(ctx, t, sess, serverID)
 		defer resp.Body.Close()
 
@@ -150,6 +100,62 @@ func TestStartServer(t *testing.T) {
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+}
+
+func TestStopServer(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleAdmin)
+
+	var serverID string
+	t.Run("create server with admin user", func(t *testing.T) {
+		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
+		defer createResp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+		var server map[string]interface{}
+		err := json.NewDecoder(createResp.Body).Decode(&server)
+		require.Nil(t, err)
+
+		iServerID, ok := server["id"]
+		require.True(t, ok)
+		serverID, ok = iServerID.(string)
+		require.True(t, ok)
+	})
+
+	t.Run("start server with admin user", func(t *testing.T) {
+		resp := suite.postStartServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+	})
+
+	standardSess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
+
+	t.Run("stop server with standard user", func(t *testing.T) {
+		resp := suite.postStopServer(ctx, t, standardSess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("stop server with admin user", func(t *testing.T) {
+		resp := suite.postStopServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+	})
+
+	t.Run("stop server that is dormant", func(t *testing.T) {
+		resp := suite.postStopServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusConflict, resp.StatusCode)
 	})
 }
 
@@ -219,6 +225,25 @@ type suite struct {
 func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session.Session, path string) *http.Response {
 	t.Helper()
 
+	instanceID, err := rand.GenerateString(16)
+	require.Nil(t, err)
+
+	allocationID, err := rand.GenerateString(16)
+	require.Nil(t, err)
+
+	s.serverManager.SetCreateInstanceOutput(
+		&server.CreateInstanceOutput{
+			Instance: types.Instance{
+				InstanceId: aws.String(instanceID),
+			},
+			Address: ec2.AllocateAddressOutput{
+				AllocationId: aws.String(allocationID),
+				PublicIp:     aws.String("127.0.0.1"),
+			},
+		},
+		nil,
+	)
+
 	fd, err := os.Open(path)
 	require.Nil(t, err)
 	defer fd.Close()
@@ -233,8 +258,29 @@ func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session
 func (s suite) postStartServer(ctx context.Context, t *testing.T, sess *session.Session, serverID string) *http.Response {
 	t.Helper()
 
+	associationID, err := rand.GenerateString(16)
+	require.Nil(t, err)
+
+	s.serverManager.SetMakeInstanceAvailableOutput(
+		&server.AssociationOutput{
+			AssociateAddressOutput: ec2.AssociateAddressOutput{
+				AssociationId: aws.String(associationID),
+			},
+		},
+		nil,
+	)
+
 	body := map[string]interface{}{
 		"serverId": serverID,
 	}
 	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server/start", body, sess)
+}
+
+func (s suite) postStopServer(ctx context.Context, t *testing.T, sess *session.Session, serverID string) *http.Response {
+	t.Helper()
+
+	body := map[string]interface{}{
+		"serverId": serverID,
+	}
+	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server/stop", body, sess)
 }
