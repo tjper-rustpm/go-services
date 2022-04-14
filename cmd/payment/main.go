@@ -97,7 +97,7 @@ func run() int {
 	logger.Info("[Startup] Created stripe clients.")
 
 	logger.Info("[Startup] Creating stream client ...")
-	stream, err := stream.Init(ctx, rdb, "payment")
+	stream, err := stream.Init(ctx, logger, rdb, "payment")
 	if err != nil {
 		logger.Error(
 			"[Startup] Failed to initialze stream client.",

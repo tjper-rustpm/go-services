@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func InitSuite(ctx context.Context, t *testing.T) *Suite {
@@ -26,7 +27,7 @@ func InitSuite(ctx context.Context, t *testing.T) *Suite {
 	err := rdb.Ping(ctx).Err()
 	require.Nil(t, err)
 
-	client, err := Init(ctx, rdb, "test-suite")
+	client, err := Init(ctx, zap.NewNop(), rdb, "test-suite")
 	require.Nil(t, err)
 
 	return &Suite{Client: client}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 var (
@@ -26,13 +27,14 @@ const (
 	maxlen = 20000
 )
 
-func Init(ctx context.Context, rdb *redis.Client, group string) (*Client, error) {
+func Init(ctx context.Context, logger *zap.Logger, rdb *redis.Client, group string) (*Client, error) {
 	err := rdb.XGroupCreateMkStream(ctx, stream, group, start).Err()
 	if err != nil && !(err.Error() == errBusyGroup.Error()) {
 		return nil, fmt.Errorf("initializing stream; error: %w", err)
 	}
 
 	return &Client{
+		logger:     logger,
 		rdb:        rdb,
 		group:      group,
 		consumer:   uuid.New().String(),
@@ -42,7 +44,8 @@ func Init(ctx context.Context, rdb *redis.Client, group string) (*Client, error)
 }
 
 type Client struct {
-	rdb *redis.Client
+	logger *zap.Logger
+	rdb    *redis.Client
 
 	group    string
 	consumer string
@@ -52,6 +55,8 @@ type Client struct {
 }
 
 func (c Client) Write(ctx context.Context, b []byte) error {
+	c.logger.Debug("write stream", zap.ByteString("bytes", b))
+
 	args := &redis.XAddArgs{
 		Stream:       stream,
 		MaxLenApprox: maxlen,
@@ -121,7 +126,19 @@ read:
 		)
 	}
 
-	return c.extractMessage(streams[0].Messages)
+	m, err := c.extractMessage(streams[0].Messages)
+	if err != nil {
+		return nil, err
+	}
+
+	c.logger.Debug(
+		"read stream",
+		zap.String("message-id", m.ID),
+		zap.String("group", c.group),
+		zap.String("consumer", c.consumer),
+		zap.ByteString("payload", m.Payload),
+	)
+	return m, nil
 }
 
 func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {

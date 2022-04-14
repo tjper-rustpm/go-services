@@ -54,7 +54,7 @@ func NewAPI(
 		)
 
 		router.Group(func(router chi.Router) {
-			api.Mux.Use(sessionMiddleware.IsAuthenticated())
+			router.Use(sessionMiddleware.IsAuthenticated())
 
 			router.Method(http.MethodPost, "/checkout", Checkout{API: api})
 			router.Method(http.MethodPost, "/billing", Billing{API: api})

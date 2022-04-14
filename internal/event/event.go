@@ -30,6 +30,8 @@ func Parse(b []byte) (interface{}, error) {
 		event = &SubscriptionCreatedEvent{}
 	case SubscriptionDeleted:
 		event = &SubscriptionDeleteEvent{}
+	case CustomerCreated:
+		event = &CustomerCreatedEvent{}
 	default:
 		return nil, fmt.Errorf("unexpected event; kind: %s, error: %w", str, errKindInvalid)
 	}
@@ -46,6 +48,7 @@ type Kind string
 const (
 	SubscriptionCreated Kind = "subscription_created"
 	SubscriptionDeleted Kind = "subscription_deleted"
+	CustomerCreated     Kind = "customer_created"
 )
 
 func New(kind Kind) Event {
@@ -92,4 +95,18 @@ func NewSubscriptionDeleteEvent(subscriptionID uuid.UUID) SubscriptionDeleteEven
 type SubscriptionDeleteEvent struct {
 	Event
 	SubscriptionID uuid.UUID
+}
+
+func NewCustomerCreatedEvent(userID uuid.UUID, customerID string) CustomerCreatedEvent {
+	return CustomerCreatedEvent{
+		Event:      New(CustomerCreated),
+		UserID:     userID,
+		CustomerID: customerID,
+	}
+}
+
+type CustomerCreatedEvent struct {
+	Event
+	UserID     uuid.UUID
+	CustomerID string
 }

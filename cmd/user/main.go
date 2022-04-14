@@ -13,9 +13,11 @@ import (
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/db"
 	"github.com/tjper/rustcron/cmd/user/rest"
+	userstream "github.com/tjper/rustcron/cmd/user/stream"
 	"github.com/tjper/rustcron/internal/email"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
+	"github.com/tjper/rustcron/internal/stream"
 
 	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/mailgun/mailgun-go/v4"
@@ -32,6 +34,7 @@ const (
 	ecDatabaseConnection
 	ecMigration
 	ecRedisConnection
+	ecStreamInit
 )
 
 func run() int {
@@ -78,6 +81,14 @@ func run() int {
 	}
 	logger.Info("[Startup] Connected to Redis.")
 
+	logger.Info("[Startup] Connecting to stream ...")
+	streamClient, err := stream.Init(ctx, logger, rdb, "user")
+	if err != nil {
+		logger.Error("[Startup] Failed connect to stream.", zap.Error(err))
+		return ecStreamInit
+	}
+	logger.Info("[Startup] Connected to stream.")
+
 	logger.Info("[Startup] Creating emailer ...")
 	mg := mailgun.NewMailgun(config.MailgunDomain(), config.MailgunAPIKey())
 	logger.Info("[Startup] Created emailer.")
@@ -85,6 +96,15 @@ func run() int {
 	logger.Info("[Startup] Creating session manager ...")
 	sessionManager := session.NewManager(logger, rdb, 48*time.Hour)
 	logger.Info("[Startup] Created session manager.")
+
+	logger.Info("[Startup] Creating stream handler ...")
+	streamHandler := userstream.NewHandler(logger, streamClient, dbconn, sessionManager)
+	go func() {
+		if err := streamHandler.Launch(ctx); err != nil {
+			logger.Error("handling stream", zap.Error(err))
+		}
+	}()
+	logger.Info("[Startup] Created stream handler.")
 
 	logger.Info("[Startup] Creating controller ...")
 	ctrl := controller.New(

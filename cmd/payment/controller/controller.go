@@ -58,6 +58,7 @@ type CheckoutSessionInput struct {
 	UserID     uuid.UUID
 	CancelURL  string
 	SuccessURL string
+	CustomerID string
 	PriceID    string
 }
 
@@ -76,6 +77,11 @@ func (ctrl Controller) CheckoutSession(
 		return "", fmt.Errorf("stage checkout session; error: %w", err)
 	}
 
+	var customerID *string
+	if input.CustomerID != "" {
+		customerID = &input.CustomerID
+	}
+
 	params := &stripe.CheckoutSessionParams{
 		CancelURL:  stripe.String(input.CancelURL),
 		SuccessURL: stripe.String(input.SuccessURL),
@@ -88,6 +94,7 @@ func (ctrl Controller) CheckoutSession(
 		},
 		ClientReferenceID: stripe.String(clientReferenceID),
 		ExpiresAt:         stripe.Int64(expiresAt.Unix()),
+		Customer:          customerID,
 	}
 
 	return ctrl.stripe.CheckoutSession(params)
@@ -158,7 +165,16 @@ func (ctrl Controller) CheckoutSessionComplete(
 		)
 	}
 
-	return ctrl.subscriptionCreated(ctx, subscription.ID, stagedCheckout.UserID, stagedCheckout.ServerID)
+	if err := ctrl.customerCreated(ctx, stagedCheckout.UserID, checkout.Customer.ID); err != nil {
+		return err
+	}
+
+	return ctrl.subscriptionCreated(
+		ctx,
+		subscription.ID,
+		stagedCheckout.UserID,
+		stagedCheckout.ServerID,
+	)
 }
 
 func (ctrl Controller) ProcessInvoice(
@@ -234,18 +250,17 @@ func (ctrl Controller) UserSubscriptions(
 	return subscriptions, nil
 }
 
-func (ctrl Controller) subscriptionCreated(
+func (ctrl Controller) customerCreated(
 	ctx context.Context,
-	subscriptionID uuid.UUID,
 	userID uuid.UUID,
-	serverID uuid.UUID,
+	customerID string,
 ) error {
-	event := event.NewSubscriptionCreatedEvent(subscriptionID, userID, serverID)
+	event := event.NewCustomerCreatedEvent(userID, customerID)
 
 	b, err := json.Marshal(&event)
 	if err != nil {
 		return fmt.Errorf(
-			"marshal event; event-id: %s, error: %w",
+			"marshal customer created event; event-id: %s, error: %w",
 			event.ID.String(),
 			err,
 		)
@@ -258,20 +273,44 @@ func (ctrl Controller) subscriptionCreated(
 	return nil
 }
 
-func (ctrl Controller) subscriptionDeleted(ctx context.Context, id uuid.UUID) error {
-	event := event.NewSubscriptionDeleteEvent(id)
+func (ctrl Controller) subscriptionCreated(
+	ctx context.Context,
+	subscriptionID uuid.UUID,
+	userID uuid.UUID,
+	serverID uuid.UUID,
+) error {
+	event := event.NewSubscriptionCreatedEvent(subscriptionID, userID, serverID)
 
 	b, err := json.Marshal(&event)
 	if err != nil {
 		return fmt.Errorf(
-			"marshal event; event-id: %s, error: %w",
+			"marshal subscription created event; event-id: %s, error: %w",
 			event.ID.String(),
 			err,
 		)
 	}
 
 	if err := ctrl.stream.Write(ctx, b); err != nil {
-		return fmt.Errorf("stream write; event-id: %s, error: %w", event.ID.String(), err)
+		return fmt.Errorf("stream subscription created write; event-id: %s, error: %w", event.ID.String(), err)
+	}
+
+	return nil
+}
+
+func (ctrl Controller) subscriptionDeleted(ctx context.Context, id uuid.UUID) error {
+	event := event.NewSubscriptionDeleteEvent(id)
+
+	b, err := json.Marshal(&event)
+	if err != nil {
+		return fmt.Errorf(
+			"marshal subscription deleted event; event-id: %s, error: %w",
+			event.ID.String(),
+			err,
+		)
+	}
+
+	if err := ctrl.stream.Write(ctx, b); err != nil {
+		return fmt.Errorf("stream subscription deleted write; event-id: %s, error: %w", event.ID.String(), err)
 	}
 
 	return nil

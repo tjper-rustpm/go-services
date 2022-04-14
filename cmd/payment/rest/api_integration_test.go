@@ -35,7 +35,7 @@ func TestCreateCheckoutSession(t *testing.T) {
 	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
 
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), uuid.New(), sess)
+		suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), sess)
 	})
 }
 
@@ -72,7 +72,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	var clientReferenceID uuid.UUID
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		clientReferenceID = suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), uuid.New(), sess)
+		clientReferenceID = suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), sess)
 	})
 
 	eventID := uuid.New()
@@ -117,7 +117,6 @@ func TestInvoice(t *testing.T) {
 			ctx,
 			t,
 			serverID,
-			sess.User.ID,
 			sess,
 		)
 	})
@@ -207,14 +206,12 @@ func (s suite) postSubscriptionCheckoutSession(
 	ctx context.Context,
 	t *testing.T,
 	serverID uuid.UUID,
-	userID uuid.UUID,
 	sess *session.Session,
 ) uuid.UUID {
 	t.Helper()
 
 	body := map[string]interface{}{
 		"serverId":   serverID,
-		"userId":     userID,
 		"cancelUrl":  "http://rustpm.com/payment/cancel",
 		"successUrl": "http://rustpm.com/payment/success",
 		"priceId":    "prod_L1MFlCUj2bk2j0",
@@ -235,7 +232,7 @@ func (s suite) postSubscriptionCheckoutSession(
 	stagingCheckout, err := s.staging.FetchCheckout(ctx, *stripeCheckout.ClientReferenceID)
 	require.Nil(t, err)
 	require.Equal(t, stagingCheckout.ServerID, serverID)
-	require.Equal(t, stagingCheckout.UserID, userID)
+	require.Equal(t, stagingCheckout.UserID, sess.User.ID)
 
 	return uuid.MustParse(*stripeCheckout.ClientReferenceID)
 }

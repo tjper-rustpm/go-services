@@ -6,6 +6,7 @@ import (
 
 	"github.com/tjper/rustcron/cmd/payment/controller"
 	ihttp "github.com/tjper/rustcron/internal/http"
+	"github.com/tjper/rustcron/internal/session"
 )
 
 type Billing struct{ API }
@@ -26,11 +27,17 @@ func (ep Billing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sess, ok := session.FromContext(r.Context())
+	if !ok {
+		ihttp.ErrUnauthorized(w)
+		return
+	}
+
 	url, err := ep.ctrl.BillingPortalSession(
 		r.Context(),
 		controller.BillingPortalSessionInput{
 			ReturnURL:  b.ReturnURL,
-			CustomerID: "",
+			CustomerID: sess.User.CustomerID,
 		},
 	)
 	if err != nil {

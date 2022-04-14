@@ -11,7 +11,8 @@ type User struct {
 	Email string    `json:"email"`
 	Role  Role      `json:"role"`
 
-	Subscriptions []Subscription `json:"subscriptions"`
+	CustomerID    string         `json:"-"`
+	Subscriptions []Subscription `json:"-"`
 }
 
 func (u User) Equal(u2 User) bool {
@@ -19,6 +20,7 @@ func (u User) Equal(u2 User) bool {
 	equal = equal && (u.ID == u2.ID)
 	equal = equal && (u.Email == u2.Email)
 	equal = equal && (u.Role == u2.Role)
+	equal = equal && (u.CustomerID == u2.CustomerID)
 
 	for i := range u.Subscriptions {
 		equal = equal && (u.Subscriptions[i] == u2.Subscriptions[i])
