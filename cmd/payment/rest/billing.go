@@ -2,9 +2,12 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/tjper/rustcron/cmd/payment/controller"
+	"github.com/tjper/rustcron/cmd/payment/model"
+	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 )
@@ -33,11 +36,24 @@ func (ep Billing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	customer := &model.Customer{
+		UserID: sess.User.ID,
+	}
+	err := ep.store.First(r.Context(), customer)
+	if errors.Is(err, gorm.ErrNotFound) {
+		ihttp.ErrNotFound(w)
+		return
+	}
+	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
 	url, err := ep.ctrl.BillingPortalSession(
 		r.Context(),
 		controller.BillingPortalSessionInput{
 			ReturnURL:  b.ReturnURL,
-			CustomerID: sess.User.CustomerID,
+			CustomerID: customer.StripeCustomerID,
 		},
 	)
 	if err != nil {
