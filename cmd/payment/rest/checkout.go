@@ -1,10 +1,17 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
-	"github.com/tjper/rustcron/cmd/payment/controller"
+	"github.com/stripe/stripe-go/v72"
+	"github.com/tjper/rustcron/cmd/payment/model"
+	"github.com/tjper/rustcron/cmd/payment/staging"
+	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 
@@ -38,16 +45,20 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := ep.ctrl.CheckoutSession(
+	customerID, err := ep.customerID(r.Context(), sess.User.ID)
+	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	url, err := ep.checkout(
 		r.Context(),
-		controller.CheckoutSessionInput{
-			ServerID:   b.ServerID,
-			UserID:     sess.User.ID,
-			CancelURL:  b.CancelURL,
-			SuccessURL: b.SuccessURL,
-			CustomerID: sess.User.CustomerID,
-			PriceID:    b.PriceID,
-		},
+		b.ServerID,
+		sess.User.ID,
+		customerID,
+		b.PriceID,
+		b.CancelURL,
+		b.SuccessURL,
 	)
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
@@ -55,4 +66,62 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, url, http.StatusSeeOther)
+}
+
+func (ep Checkout) customerID(ctx context.Context, userID uuid.UUID) (string, error) {
+	customer := &model.Customer{
+		UserID: userID,
+	}
+	err := ep.store.First(ctx, customer)
+	if errors.Is(err, gorm.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("fetch customer ID; error: %w", err)
+	}
+
+	return customer.StripeCustomerID, nil
+}
+
+func (ep Checkout) checkout(
+	ctx context.Context,
+	serverID uuid.UUID,
+	userID uuid.UUID,
+	customerID string,
+	priceID string,
+	cancelURL string,
+	successURL string,
+) (string, error) {
+	expiresAt := time.Now().Add(time.Hour)
+
+	clientReferenceID, err := ep.staging.StageCheckout(
+		ctx,
+		staging.Checkout{ServerID: serverID, UserID: userID},
+		expiresAt,
+	)
+	if err != nil {
+		return "", fmt.Errorf("stage checkout session; error: %w", err)
+	}
+
+	var ptrCustomerID *string
+	if customerID != "" {
+		ptrCustomerID = &customerID
+	}
+
+	params := &stripe.CheckoutSessionParams{
+		CancelURL:  stripe.String(cancelURL),
+		SuccessURL: stripe.String(successURL),
+		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		LineItems: []*stripe.CheckoutSessionLineItemParams{
+			{
+				Price:    stripe.String(priceID),
+				Quantity: stripe.Int64(1),
+			},
+		},
+		ClientReferenceID: stripe.String(clientReferenceID),
+		ExpiresAt:         stripe.Int64(expiresAt.Unix()),
+		Customer:          ptrCustomerID,
+	}
+
+	return ep.stripe.CheckoutSession(params)
 }

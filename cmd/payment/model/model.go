@@ -120,3 +120,17 @@ type Customer struct {
 
 	model.At
 }
+
+// First fetches the Customer entity. If it not found, 
+// internal/gorm.ErrNotFound is returned.
+func (c *Customer) First(ctx context.Context, db *gorm.DB) error {
+  err := db.WithContext(ctx).First(c, c.UserID).Error
+  if errors.Is(err, gorm.ErrRecordNotFound) {
+    return igorm.ErrNotFound 
+  }
+  if err != nil {
+    return fmt.Errorf("first customer; error: %w", err)
+  }
+
+  return nil
+}

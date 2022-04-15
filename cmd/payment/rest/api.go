@@ -6,6 +6,7 @@ import (
 
 	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/model"
+	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
@@ -15,12 +16,19 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	validatorv10 "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/stripe/stripe-go/v72"
 	stripev72 "github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 )
 
 type IStore interface {
 	Create(context.Context, gorm.Creator) error
+	First(context.Context, gorm.Firster) error
+}
+
+type IStripe interface {
+	CheckoutSession(*stripe.CheckoutSessionParams) (string, error)
+	BillingPortalSession(*stripe.BillingPortalSessionParams) (string, error)
 }
 
 type IController interface {
@@ -79,5 +87,8 @@ type API struct {
 	logger *zap.Logger
 	valid  *validatorv10.Validate
 	ctrl   IController
-	store  IStore
+
+	staging *staging.Client
+	store   IStore
+	stripe  IStripe
 }
