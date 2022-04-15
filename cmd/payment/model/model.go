@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/tjper/rustcron/internal/model"
+	igorm "github.com/tjper/rustcron/internal/gorm"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -15,9 +16,11 @@ type Subscription struct {
 	model.Model
 
 	StripeCheckoutID     string
-	StripeCustomerID     string
 	StripeSubscriptionID string
 	StripeEventID        string
+
+	ServerSubscriptionLimitID uuid.UUID
+	CustomerID                uuid.UUID
 
 	Invoices []Invoice
 }
@@ -80,3 +83,40 @@ const (
 	InvoiceStatusPaid          InvoiceStatus = "paid"
 	InvoiceStatusPaymentFailed InvoiceStatus = "payment_failed"
 )
+
+type ServerSubscriptionLimit struct {
+	ServerID      uuid.UUID
+	Maximum       uint8
+	Subscriptions []Subscription `gorm:"foreignKey:ServerSubscriptionLimitID"`
+
+	model.At
+}
+
+// Create creates the ServerSubscriptionLimit in the specified db. If the 
+// ServerSubscriptionLimit already exists, the internal/gorm.ErrAlreadyExists 
+// is returned.
+func (l *ServerSubscriptionLimit) Create(ctx context.Context, db *gorm.DB) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Find(ctx, &ServerSubscriptionLimit{}, l.ServerID).Error
+		if err == nil {
+			return igorm.ErrAlreadyExists
+		}
+		if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		if err := tx.Create(l).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+type Customer struct {
+	UserID           uuid.UUID
+	StripeCustomerID string
+	Subscriptions    []Subscription `gorm:"foreignKey:CustomerID"`
+
+	model.At
+}

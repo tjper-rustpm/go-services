@@ -1,3 +1,5 @@
+// Package gorm contains general logic for interacting with a Postgres
+// datastore with GORM (https://gorm.io/).
 package gorm
 
 import (
@@ -32,8 +34,12 @@ func Open(dsn string, options ...Option) (*gorm.DB, error) {
 	return gorm.Open(postgres.Open(dsn), cfg)
 }
 
+// Option is a function that mutates the passed *gorm.Config instance. This is
+// typically used with Open.
 type Option func(*gorm.Config)
 
+// WithTablePrefix creates an Option that configures *gorm.Config to use the
+// specified table prefix.
 func WithTablePrefix(prefix string) Option {
 	return func(c *gorm.Config) {
 		c.NamingStrategy = schema.NamingStrategy{TablePrefix: prefix}

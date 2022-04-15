@@ -6,7 +6,9 @@ import (
 
 	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/model"
+	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
+	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/validator"
 
 	"github.com/go-chi/chi/v5"
@@ -16,6 +18,10 @@ import (
 	stripev72 "github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 )
+
+type IStore interface {
+	Create(context.Context, gorm.Creator) error
+}
 
 type IController interface {
 	CheckoutSession(context.Context, controller.CheckoutSessionInput) (string, error)
@@ -47,11 +53,7 @@ func NewAPI(
 	)
 
 	api.Mux.Route("/v1", func(router chi.Router) {
-		router.Method(
-			http.MethodPost,
-			"/stripe",
-			Stripe{API: api, constructor: eventConstructor},
-		)
+		router.Method(http.MethodPost, "/stripe", Stripe{API: api, constructor: eventConstructor})
 
 		router.Group(func(router chi.Router) {
 			router.Use(sessionMiddleware.IsAuthenticated())
@@ -59,6 +61,12 @@ func NewAPI(
 			router.Method(http.MethodPost, "/checkout", Checkout{API: api})
 			router.Method(http.MethodPost, "/billing", Billing{API: api})
 			router.Method(http.MethodGet, "/subscriptions", Subscriptions{API: api})
+
+			router.Group(func(router chi.Router) {
+				router.Use(sessionMiddleware.HasRole(session.RoleAdmin))
+
+				router.Method(http.MethodPost, "/server-subscription-limits", ServerSubscriptionLimits{API: api})
+			})
 		})
 	})
 
@@ -71,4 +79,5 @@ type API struct {
 	logger *zap.Logger
 	valid  *validatorv10.Validate
 	ctrl   IController
+	store  IStore
 }
