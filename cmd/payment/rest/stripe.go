@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/internal/event"
 	"github.com/tjper/rustcron/internal/gorm"
@@ -20,14 +19,8 @@ import (
 	"go.uber.org/zap"
 )
 
-type EventConstructor interface {
-	ConstructEvent([]byte, string) (stripe.Event, error)
-}
-
 type Stripe struct {
 	API
-
-	constructor EventConstructor
 }
 
 func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +30,7 @@ func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := ep.constructor.ConstructEvent(
+	event, err := ep.stripe.ConstructEvent(
 		b,
 		r.Header.Get("Stripe-Signature"),
 	)
@@ -62,9 +55,6 @@ func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	err = handler(r.Context(), event)
-	if errors.Is(err, controller.ErrEventAlreadyProcessed) {
-		return
-	}
 	if err != nil {
 		ep.logger.Error("stripe event handling", zap.Error(err))
 	}
@@ -91,7 +81,7 @@ func (ep Stripe) processCheckoutSessionComplete(ctx context.Context, event strip
 		StripeEventID:        event.ID,
 	}
 
-	err = ep.store.FindByStripeEventID(ctx, subscription)
+	err = ep.store.FirstByStripeEventID(ctx, subscription)
 	if err == nil {
 		// Subscription has already been processed, return early.
 		return nil
@@ -131,7 +121,7 @@ func (ep Stripe) processInvoice(ctx context.Context, event stripe.Event) error {
 		StripeEventID: event.ID,
 	}
 
-	err := ep.store.FindByStripeEventID(ctx, invoice)
+	err := ep.store.FirstByStripeEventID(ctx, invoice)
 	if err == nil {
 		// Invoice has already been processed, return early.
 		return nil

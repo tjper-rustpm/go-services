@@ -5,11 +5,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
+  
+	"github.com/stripe/stripe-go/v72"
 )
 
 type Billing struct{ API }
@@ -49,11 +50,10 @@ func (ep Billing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := ep.ctrl.BillingPortalSession(
-		r.Context(),
-		controller.BillingPortalSessionInput{
-			ReturnURL:  b.ReturnURL,
-			CustomerID: customer.StripeCustomerID,
+	url, err := ep.stripe.BillingPortalSession(
+		&stripe.BillingPortalSessionParams{
+			ReturnURL:  stripe.String(b.ReturnURL),
+			Customer: stripe.String(customer.StripeCustomerID),
 		},
 	)
 	if err != nil {

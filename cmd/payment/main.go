@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/cmd/payment/config"
-	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/rest"
 	"github.com/tjper/rustcron/cmd/payment/staging"
@@ -81,6 +80,10 @@ func run() int {
 	}
 	logger.Info("[Startup] Connected to Redis.")
 
+	logger.Info("[Startup] Creating store client ...")
+	store := db.NewStore(dbconn)
+	logger.Info("[Startup] Created store client.")
+
 	stripeClient := &client.API{}
 	stripeClient.Init(cfg.StripeKey(), nil)
 
@@ -107,25 +110,17 @@ func run() int {
 	}
 	logger.Info("[Startup] Created stream client.")
 
-	logger.Info("[Startup] Creating controller ...")
-	ctrl := controller.New(
-		logger,
-		dbconn,
-		staging.NewClient(rdb),
-		stripeWrapper,
-		stream,
-	)
-	logger.Info("[Startup] Created controller.")
-
 	logger.Info("[Startup] Creating REST API ...")
 	api := rest.NewAPI(
 		logger,
-		ctrl,
+		store,
+		staging.NewClient(rdb),
+		stream,
+		stripeWrapper,
 		ihttp.NewSessionMiddleware(
 			logger,
 			sessionManager,
 		),
-		stripeWrapper,
 	)
 	logger.Info("[Startup] Created REST API.")
 

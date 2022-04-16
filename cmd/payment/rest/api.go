@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
@@ -18,7 +17,6 @@ import (
 	validatorv10 "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v72"
-	stripev72 "github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 )
 
@@ -27,8 +25,9 @@ type IStore interface {
 	First(context.Context, gorm.Firster) error
 
 	CreateSubscription(context.Context, *model.Subscription, *model.Customer, uuid.UUID) error
-  CreateInvoice(context.Context, *model.Invoice, string) error
-	FindByStripeEventID(context.Context, db.FinderByStripeEventID) error
+	CreateInvoice(context.Context, *model.Invoice, string) error
+	FirstByStripeEventID(context.Context, db.FirsterByStripeEventID) error
+	FindByUserID(context.Context, gorm.FinderByUserID, uuid.UUID) error
 }
 
 type IStream interface {
@@ -38,29 +37,25 @@ type IStream interface {
 type IStripe interface {
 	CheckoutSession(*stripe.CheckoutSessionParams) (string, error)
 	BillingPortalSession(*stripe.BillingPortalSessionParams) (string, error)
-}
-
-type IController interface {
-	CheckoutSession(context.Context, controller.CheckoutSessionInput) (string, error)
-	BillingPortalSession(context.Context, controller.BillingPortalSessionInput) (string, error)
-
-	UserSubscriptions(context.Context, []uuid.UUID) ([]model.Subscription, error)
-
-	CheckoutSessionComplete(context.Context, stripev72.Event) error
-	ProcessInvoice(context.Context, stripev72.Event) error
+	ConstructEvent([]byte, string) (stripe.Event, error)
 }
 
 func NewAPI(
 	logger *zap.Logger,
-	ctrl IController,
+	store IStore,
+	staging *staging.Client,
+	stream IStream,
+	stripe IStripe,
 	sessionMiddleware *ihttp.SessionMiddleware,
-	eventConstructor EventConstructor,
 ) *API {
 	api := API{
-		Mux:    chi.NewRouter(),
-		logger: logger,
-		valid:  validator.New(),
-		ctrl:   ctrl,
+		Mux:     chi.NewRouter(),
+		logger:  logger,
+		valid:   validator.New(),
+		staging: staging,
+		store:   store,
+		stripe:  stripe,
+		stream:  stream,
 	}
 
 	api.Mux.Use(
@@ -70,7 +65,7 @@ func NewAPI(
 	)
 
 	api.Mux.Route("/v1", func(router chi.Router) {
-		router.Method(http.MethodPost, "/stripe", Stripe{API: api, constructor: eventConstructor})
+		router.Method(http.MethodPost, "/stripe", Stripe{API: api})
 
 		router.Group(func(router chi.Router) {
 			router.Use(sessionMiddleware.IsAuthenticated())
@@ -95,7 +90,6 @@ type API struct {
 
 	logger *zap.Logger
 	valid  *validatorv10.Validate
-	ctrl   IController
 
 	staging *staging.Client
 	store   IStore

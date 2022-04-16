@@ -45,13 +45,13 @@ func (s Store) CreateInvoice(
 	return invoice.Create(ctx, s.db, stripeSubscriptionID)
 }
 
-// FinderByStripeEventID encompasses a type that is able to retrieve itself
+// FirstByStripeEventID encompasses a type that is able to retrieve itself
 // from *gorm.DB by its Stripe event ID.
-type FinderByStripeEventID interface {
-	FindByStripeEventID(context.Context, *gorm.DB) error
+type FirsterByStripeEventID interface {
+	FirstByStripeEventID(context.Context, *gorm.DB) error
 }
 
-// FindByStripeEventID retrieves the entity by its Stripe event ID.
-func (s Store) FindByStripeEventID(ctx context.Context, entity FinderByStripeEventID) error {
-	return entity.FindByStripeEventID(ctx, s.db)
+// FirstByStripeEventID wraps execution of entity.FindByStripeEventID.
+func (s Store) FirstByStripeEventID(ctx context.Context, entity FirsterByStripeEventID) error {
+	return entity.FirstByStripeEventID(ctx, s.db)
 }

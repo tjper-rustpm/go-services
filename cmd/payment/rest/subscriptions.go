@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/tjper/rustcron/cmd/payment/model"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 )
@@ -17,18 +18,14 @@ func (ep Subscriptions) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	modelSubscriptions, err := ep.ctrl.UserSubscriptions(
-		r.Context(),
-		sess.User.SubscriptionIDs(),
-	)
-	if err != nil {
+	var subs model.Subscriptions
+	if err := ep.store.FindByUserID(r.Context(), &subs, sess.User.ID); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
-		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	subscriptions := SubscriptionsFromModel(modelSubscriptions)
+	subscriptions := SubscriptionsFromModel(subs)
 	if err := json.NewEncoder(w).Encode(subscriptions); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 	}

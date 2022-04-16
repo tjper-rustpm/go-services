@@ -68,18 +68,33 @@ func (sub *Subscription) Create(
 	})
 }
 
-// FindByStripeEventID retrieves the Subscription entity based on the
+// FirstByStripeEventID retrieves the Subscription entity based on the
 // populated StripeEventID. If no Subscription is found,
 // internal/gorm.ErrNotFound is returned.
-func (sub *Subscription) FindByStripeEventID(ctx context.Context, db *gorm.DB) error {
+func (sub *Subscription) FirstByStripeEventID(ctx context.Context, db *gorm.DB) error {
 	err := db.WithContext(ctx).Where("stripe_event_id = ?", sub.StripeEventID).First(sub).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return igorm.ErrNotFound
-	}
 	if err != nil {
 		return fmt.Errorf("find subscription by event ID; error: %w", err)
 	}
 
+	return nil
+}
+
+// Subscription many Subscription entities.
+type Subscriptions []Subscription
+
+// FindByUserID retrieves Subscriptions that belong the specified userID.
+func (subs *Subscriptions) FindByUserID(ctx context.Context, db *gorm.DB, userID uuid.UUID) error {
+	err := db.
+		WithContext(ctx).
+		Preload("Customer").
+		Preload("ServerSubscriptionLimit").
+		Preload("Invoices").
+		Where("customer_id = ?", userID).
+		Find(subs).Error
+	if err != nil {
+		return fmt.Errorf("Find: %w", err)
+	}
 	return nil
 }
 
@@ -92,9 +107,6 @@ func (sub *Subscription) First(ctx context.Context, db *gorm.DB) error {
 		Preload("ServerSubscriptionLimit").
 		Preload("Invoices").
 		First(sub, sub.ID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return igorm.ErrNotFound
-	}
 	if err != nil {
 		return fmt.Errorf("First: %w", err)
 	}
@@ -132,16 +144,13 @@ func (i *Invoice) Create(ctx context.Context, db *gorm.DB, stripeSubscriptionID 
 	})
 }
 
-// FindByStripeEventID retrieves the Invoice entity based on the populated
+// FirstByStripeEventID retrieves the Invoice entity based on the populated
 // StripeEventID. If no Invoice is found, internal/gorm.ErrNotFound is
 // returned.
-func (i *Invoice) FindByStripeEventID(ctx context.Context, db *gorm.DB) error {
+func (i *Invoice) FirstByStripeEventID(ctx context.Context, db *gorm.DB) error {
 	err := db.WithContext(ctx).Where("stripe_event_id = ?", i.StripeEventID).First(i).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return igorm.ErrNotFound
-	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("find invoice by event ID; error: %w", err)
+	if err != nil {
+		return fmt.Errorf("First: %w", err)
 	}
 	return nil
 }
@@ -186,9 +195,6 @@ func (l *ServerSubscriptionLimit) Create(ctx context.Context, db *gorm.DB) error
 // internal/gorm.ErrNotFound is returned.
 func (l *ServerSubscriptionLimit) First(ctx context.Context, db *gorm.DB) error {
 	err := db.WithContext(ctx).First(l, l.ServerID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return igorm.ErrNotFound
-	}
 	if err != nil {
 		return fmt.Errorf("first server subscription limit; error: %w", err)
 	}
@@ -208,9 +214,6 @@ type Customer struct {
 // internal/gorm.ErrNotFound is returned.
 func (c *Customer) First(ctx context.Context, db *gorm.DB) error {
 	err := db.WithContext(ctx).First(c, c.UserID).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return igorm.ErrNotFound
-	}
 	if err != nil {
 		return fmt.Errorf("first customer; error: %w", err)
 	}
