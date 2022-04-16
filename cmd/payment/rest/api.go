@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/tjper/rustcron/cmd/payment/controller"
+	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/gorm"
@@ -24,6 +25,14 @@ import (
 type IStore interface {
 	Create(context.Context, gorm.Creator) error
 	First(context.Context, gorm.Firster) error
+
+	CreateSubscription(context.Context, *model.Subscription, *model.Customer, uuid.UUID) error
+  CreateInvoice(context.Context, *model.Invoice, string) error
+	FindByStripeEventID(context.Context, db.FinderByStripeEventID) error
+}
+
+type IStream interface {
+	Write(context.Context, []byte) error
 }
 
 type IStripe interface {
@@ -91,4 +100,5 @@ type API struct {
 	staging *staging.Client
 	store   IStore
 	stripe  IStripe
+	stream  IStream
 }

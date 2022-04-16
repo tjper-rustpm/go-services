@@ -45,6 +45,11 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !sess.User.IsSteamIDAssociated() {
+		ihttp.ErrForbidden(w)
+		return
+	}
+
 	customerID, err := ep.customerID(r.Context(), sess.User.ID)
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
@@ -55,6 +60,7 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		b.ServerID,
 		sess.User.ID,
+		sess.User.SteamID,
 		customerID,
 		b.PriceID,
 		b.CancelURL,
@@ -87,6 +93,7 @@ func (ep Checkout) checkout(
 	ctx context.Context,
 	serverID uuid.UUID,
 	userID uuid.UUID,
+	steamID string,
 	customerID string,
 	priceID string,
 	cancelURL string,
@@ -96,7 +103,11 @@ func (ep Checkout) checkout(
 
 	clientReferenceID, err := ep.staging.StageCheckout(
 		ctx,
-		staging.Checkout{ServerID: serverID, UserID: userID},
+		staging.Checkout{
+			ServerID: serverID,
+			UserID:   userID,
+			SteamID:  steamID,
+		},
 		expiresAt,
 	)
 	if err != nil {

@@ -68,6 +68,7 @@ func (c Client) FetchCheckout(
 type Checkout struct {
 	ServerID uuid.UUID
 	UserID   uuid.UUID
+	SteamID  string
 }
 
 // --- helpers ---

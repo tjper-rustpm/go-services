@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS payments.invoices (
 
 CREATE TABLE IF NOT EXISTS payments.customers (
   user_id            UUID         NOT NULL,
+  steam_id           VARCHAR(128) NOT NULL,
   stripe_customer_id VARCHAR(128) NOT NULL,
 
   created_at TIMESTAMP WITH TIME ZONE NOT NULL,

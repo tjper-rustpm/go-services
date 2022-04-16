@@ -26,12 +26,10 @@ func Parse(b []byte) (interface{}, error) {
 
 	var event interface{}
 	switch Kind(str) {
-	case SubscriptionCreated:
-		event = &SubscriptionCreatedEvent{}
-	case SubscriptionDeleted:
-		event = &SubscriptionDeleteEvent{}
-	case CustomerCreated:
-		event = &CustomerCreatedEvent{}
+	case InvoicePaid:
+		event = &InvoicePaidEvent{}
+	case InvoicePaymentFailure:
+		event = &InvoicePaymentFailureEvent{}
 	default:
 		return nil, fmt.Errorf("unexpected event; kind: %s, error: %w", str, errKindInvalid)
 	}
@@ -46,9 +44,8 @@ func Parse(b []byte) (interface{}, error) {
 type Kind string
 
 const (
-	SubscriptionCreated Kind = "subscription_created"
-	SubscriptionDeleted Kind = "subscription_deleted"
-	CustomerCreated     Kind = "customer_created"
+	InvoicePaid           Kind = "invoice_paid"
+	InvoicePaymentFailure Kind = "invoice_payment_failure"
 )
 
 func New(kind Kind) Event {
@@ -65,48 +62,34 @@ type Event struct {
 	CreatedAt time.Time
 }
 
-func NewSubscriptionCreatedEvent(
-	subscriptionID uuid.UUID,
-	userID uuid.UUID,
-	serverID uuid.UUID,
-) SubscriptionCreatedEvent {
-	return SubscriptionCreatedEvent{
-		Event:          New(SubscriptionCreated),
-		SubscriptionID: subscriptionID,
-		UserID:         userID,
-		ServerID:       serverID,
-	}
-}
-
-type SubscriptionCreatedEvent struct {
+type InvoicePaidEvent struct {
 	Event
 	SubscriptionID uuid.UUID
-	UserID         uuid.UUID
 	ServerID       uuid.UUID
+	SteamID        string
 }
 
-func NewSubscriptionDeleteEvent(subscriptionID uuid.UUID) SubscriptionDeleteEvent {
-	return SubscriptionDeleteEvent{
-		Event:          New(SubscriptionDeleted),
+func NewInvoicePaidEvent(
+	subscriptionID uuid.UUID,
+	serverID uuid.UUID,
+	steamID string,
+) InvoicePaidEvent {
+	return InvoicePaidEvent{
+		Event:          New(InvoicePaid),
 		SubscriptionID: subscriptionID,
+		ServerID:       serverID,
+		SteamID:        steamID,
 	}
 }
 
-type SubscriptionDeleteEvent struct {
+type InvoicePaymentFailureEvent struct {
 	Event
 	SubscriptionID uuid.UUID
 }
 
-func NewCustomerCreatedEvent(userID uuid.UUID, customerID string) CustomerCreatedEvent {
-	return CustomerCreatedEvent{
-		Event:      New(CustomerCreated),
-		UserID:     userID,
-		CustomerID: customerID,
+func NewInvoicePaymentFailure(subscriptionID uuid.UUID) InvoicePaymentFailureEvent {
+	return InvoicePaymentFailureEvent{
+		Event:          New(InvoicePaymentFailure),
+		SubscriptionID: subscriptionID,
 	}
-}
-
-type CustomerCreatedEvent struct {
-	Event
-	UserID     uuid.UUID
-	CustomerID string
 }
