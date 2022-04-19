@@ -1,15 +1,26 @@
-CREATE TABLE IF NOT EXISTS payments.server_subscription_limits (
-  server_id UUID     NOT NULL,
-  maximum   SMALLINT NOT NULL,
+CREATE TABLE IF NOT EXISTS payments.servers (
+  id                 UUID     NOT NULL,
+  subscription_limit SMALLINT NOT NULL,
 
   created_at TIMESTAMP WITH TIME ZONE NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
   deleted_at TIMESTAMP WITH TIME ZONE,
 
-  PRIMARY KEY (server_id)
+  PRIMARY KEY (id)
 );
 
-CREATE UNIQUE INDEX IdxServerSubscriptionLimitsServerID ON payments.server_subscription_limits (server_id);
+CREATE TABLE IF NOT EXISTS payments.customers (
+  user_id            UUID         NOT NULL,
+  steam_id           VARCHAR(128) NOT NULL,
+  stripe_customer_id VARCHAR(128) NOT NULL,
+
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+
+  PRIMARY KEY (user_id)
+);
+
 
 CREATE TABLE IF NOT EXISTS payments.subscriptions (
   id                     UUID         NOT NULL DEFAULT gen_random_uuid(),
@@ -17,15 +28,15 @@ CREATE TABLE IF NOT EXISTS payments.subscriptions (
   stripe_subscription_id VARCHAR(128) NOT NULL,
   stripe_event_id        VARCHAR(128) NOT NULL,
 
-  server_subscription_limit_id SERIAL NOT NULL,
-  customer_id                  UUID   NOT NULL,
+  server_id   UUID NOT NULL,
+  customer_id UUID NOT NULL,
 
   created_at TIMESTAMP WITH TIME ZONE NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
   deleted_at TIMESTAMP WITH TIME ZONE,
 
   PRIMARY KEY (id),
-  FOREIGN KEY (server_subscription_limit_id) REFERENCES payments.server_subscription_limits (server_id),
+  FOREIGN KEY (server_id) REFERENCES payments.servers (id),
   FOREIGN KEY (customer_id) REFERENCES payments.customers(user_id)
 );
 
@@ -46,14 +57,3 @@ CREATE TABLE IF NOT EXISTS payments.invoices (
   FOREIGN KEY (subscription_id) REFERENCES payments.subscriptions (id)
 );
 
-CREATE TABLE IF NOT EXISTS payments.customers (
-  user_id            UUID         NOT NULL,
-  steam_id           VARCHAR(128) NOT NULL,
-  stripe_customer_id VARCHAR(128) NOT NULL,
-
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  deleted_at TIMESTAMP WITH TIME ZONE,
-
-  PRIMARY KEY (user_id)
-)

@@ -45,11 +45,28 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !sess.User.IsSteamIDAssociated() {
+  // User must have SteamID associated with Session in order to checkout.
+  if !sess.User.IsSteamIDAssociated() {
 		ihttp.ErrForbidden(w)
 		return
 	}
 
+	// Ensure ServerID used in checkout has an associated Server.
+	limit := &model.Server{
+		ID: b.ServerID,
+	}
+	err := ep.store.First(r.Context(), limit)
+	if errors.Is(err, gorm.ErrNotFound) {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
+	// customerID will be empty "", if user has not made a purchase before. The
+	// ep.checkout method should be able to handle an empty customerID.
 	customerID, err := ep.customerID(r.Context(), sess.User.ID)
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)

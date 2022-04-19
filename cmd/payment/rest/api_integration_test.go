@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/payment/controller"
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/event"
@@ -32,7 +31,7 @@ func TestCreateCheckoutSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
 
 	t.Run("create subscription checkout session", func(t *testing.T) {
 		suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), sess)
@@ -45,7 +44,7 @@ func TestCreateBillingPortalSession(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
 
 	t.Run("create billing portal session", func(t *testing.T) {
 		body := map[string]interface{}{
@@ -68,7 +67,7 @@ func TestCheckoutSessionComplete(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
 
 	var clientReferenceID uuid.UUID
 	t.Run("create subscription checkout session", func(t *testing.T) {
@@ -83,10 +82,11 @@ func TestCheckoutSessionComplete(t *testing.T) {
 		require.Nil(t, err)
 
 		eventI := suite.stream.ReadEvent(ctx, t)
-		event, ok := eventI.(*event.SubscriptionCreatedEvent)
+		event, ok := eventI.(*event.InvoicePaidEvent)
 		require.True(t, ok)
+		require.NotEmpty(t, event.SubscriptionID)
 		require.Equal(t, stagingCheckout.ServerID, event.ServerID)
-		require.Equal(t, stagingCheckout.UserID, event.UserID)
+		require.Equal(t, stagingCheckout.SteamID, event.SteamID)
 	})
 
 	t.Run("duplicate complete checkout session", func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestInvoice(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
 
 	var (
 		clientReferenceID uuid.UUID
@@ -138,19 +138,11 @@ func TestInvoice(t *testing.T) {
 		)
 
 		eventI := suite.stream.ReadEvent(ctx, t)
-		event, ok := eventI.(*event.SubscriptionCreatedEvent)
+		event, ok := eventI.(*event.InvoicePaidEvent)
 		require.True(t, ok)
-		require.Equal(t, serverID.String(), event.ServerID.String())
-		require.Equal(t, sess.User.ID.String(), event.UserID.String())
+		require.Equal(t, serverID, event.ServerID)
+		require.Equal(t, sess.User.SteamID, event.SteamID)
 		subscriptionID = event.SubscriptionID
-
-		updateFn := func(sess *session.Session) {
-			sess.User.Subscriptions = []session.Subscription{
-				{ID: event.SubscriptionID, ServerID: serverID},
-			}
-		}
-		_, err := suite.sessions.Manager.UpdateSession(ctx, sess.ID, updateFn)
-		require.Nil(t, err)
 	})
 
 	t.Run("invoice paid", func(t *testing.T) {
@@ -187,13 +179,9 @@ func TestInvoice(t *testing.T) {
 		)
 
 		eventI := suite.stream.ReadEvent(ctx, t)
-		event, ok := eventI.(*event.SubscriptionDeleteEvent)
+		event, ok := eventI.(*event.InvoicePaymentFailureEvent)
 		require.True(t, ok)
 		require.Equal(t, subscriptionID, event.SubscriptionID)
-
-		updateFn := func(sess *session.Session) { sess.User.Subscriptions = nil }
-		_, err := suite.sessions.Manager.UpdateSession(ctx, sess.ID, updateFn)
-		require.Nil(t, err)
 	})
 
 	t.Run("check session has no subscription", func(t *testing.T) {
@@ -214,7 +202,7 @@ func (s suite) postSubscriptionCheckoutSession(
 		"serverId":   serverID,
 		"cancelUrl":  "http://rustpm.com/payment/cancel",
 		"successUrl": "http://rustpm.com/payment/success",
-		"priceId":    "prod_L1MFlCUj2bk2j0",
+		"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
 	}
 
 	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/checkout", body, sess)
@@ -226,13 +214,14 @@ func (s suite) postSubscriptionCheckoutSession(
 	require.Equal(t, "http://rustpm.com/payment/cancel", *stripeCheckout.CancelURL)
 	require.Equal(t, "http://rustpm.com/payment/success", *stripeCheckout.SuccessURL)
 	require.Equal(t, string(stripev72.CheckoutSessionModeSubscription), *stripeCheckout.Mode)
-	require.Equal(t, "prod_L1MFlCUj2bk2j0", *stripeCheckout.LineItems[0].Price)
+	require.Equal(t, "price_1KLJWjCEcXRU8XL2TVKcLGUO", *stripeCheckout.LineItems[0].Price)
 	require.Equal(t, int64(1), *stripeCheckout.LineItems[0].Quantity)
 
 	stagingCheckout, err := s.staging.FetchCheckout(ctx, *stripeCheckout.ClientReferenceID)
 	require.Nil(t, err)
 	require.Equal(t, stagingCheckout.ServerID, serverID)
 	require.Equal(t, stagingCheckout.UserID, sess.User.ID)
+	require.Equal(t, stagingCheckout.SteamID, sess.User.SteamID)
 
 	return uuid.MustParse(*stripeCheckout.ClientReferenceID)
 }
@@ -316,17 +305,18 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	require.Nil(t, err)
 
 	err = db.Migrate(dbconn, migrations)
-	require.Nil(t, err)
+  require.Nil(t, err, "Migrate: %s", err)
 
 	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
-	ctrl := controller.New(s.Logger, dbconn, staging, stripe, s.Stream)
 
 	api := NewAPI(
 		s.Logger,
-		ctrl,
-		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
+		db.NewStore(dbconn),
+		staging,
+		s.Stream,
 		stripe,
+		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
 	)
 
 	return &suite{

@@ -142,7 +142,7 @@ func (ep Stripe) processInvoice(ctx context.Context, event stripe.Event) error {
 		if err = ep.invoicePaid(
 			ctx,
 			subscription.ID,
-			subscription.ServerSubscriptionLimit.ServerID,
+			subscription.Server.ID,
 			subscription.Customer.SteamID,
 		); err != nil {
 			return fmt.Errorf("invoicePaid: %w", err)

@@ -77,7 +77,7 @@ func NewAPI(
 			router.Group(func(router chi.Router) {
 				router.Use(sessionMiddleware.HasRole(session.RoleAdmin))
 
-				router.Method(http.MethodPost, "/server-subscription-limits", ServerSubscriptionLimits{API: api})
+				router.Method(http.MethodPost, "/server", CreateServer{API: api})
 			})
 		})
 	})

@@ -12,12 +12,12 @@ import (
 	"github.com/google/uuid"
 )
 
-type ServerSubscriptionLimits struct{ API }
+type CreateServer struct{ API }
 
-func (ep ServerSubscriptionLimits) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		ServerID uuid.UUID `json:"serverId" validate:"required"`
-		Maximum  int       `json:"maximum" validate:"required"`
+		ID                uuid.UUID `json:"id" validate:"required"`
+		SubscriptionLimit int       `json:"subscriptionLimit" validate:"required"`
 	}
 
 	var b body
@@ -31,9 +31,9 @@ func (ep ServerSubscriptionLimits) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	limit := &model.ServerSubscriptionLimit{
-		ServerID: b.ServerID,
-		Maximum:  uint8(b.Maximum),
+	limit := &model.Server{
+		ID:                b.ID,
+		SubscriptionLimit: uint8(b.SubscriptionLimit),
 	}
 	err := ep.store.Create(r.Context(), limit)
 	if errors.Is(err, gorm.ErrAlreadyExists) {

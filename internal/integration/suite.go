@@ -36,11 +36,13 @@ func InitSuite(
 	err := rdb.Ping(ctx).Err()
 	require.Nil(t, err)
 
-	stream, err := stream.Init(ctx, rdb, "test")
+	logger := zap.NewNop()
+
+	stream, err := stream.Init(ctx, logger, rdb, "test")
 	require.Nil(t, err)
 
 	s := &Suite{
-		Logger: zap.NewNop(),
+		Logger: logger,
 		Redis:  rdb,
 		Stream: stream,
 	}

@@ -19,11 +19,11 @@ type Subscription struct {
 	StripeSubscriptionID string
 	StripeEventID        string
 
-	ServerSubscriptionLimitID uuid.UUID
-	ServerSubscriptionLimit   ServerSubscriptionLimit
+	ServerID uuid.UUID
+	Server   Server
 
 	CustomerID uuid.UUID
-	Customer   Customer
+	Customer   Customer `gorm:"foreignKey:UserID;references:CustomerID"`
 
 	Invoices []Invoice
 }
@@ -45,7 +45,7 @@ func (sub Subscription) IsActive() bool {
 
 // Create creates the Subscription entity and its dependencies. If the passed
 // Customer does not exist, it is created. If the serverID is not related to a
-// ServerSubscriptionLimit, this creation fails.
+// Server, this creation fails.
 func (sub *Subscription) Create(
 	ctx context.Context,
 	db *gorm.DB,
@@ -57,7 +57,7 @@ func (sub *Subscription) Create(
 			return err
 		}
 
-		sub.ServerSubscriptionLimitID = serverID
+		sub.ServerID = serverID
 		sub.CustomerID = customer.UserID
 
 		if err := tx.Create(sub).Error; err != nil {
@@ -88,7 +88,7 @@ func (subs *Subscriptions) FindByUserID(ctx context.Context, db *gorm.DB, userID
 	err := db.
 		WithContext(ctx).
 		Preload("Customer").
-		Preload("ServerSubscriptionLimit").
+		Preload("Server").
 		Preload("Invoices").
 		Where("customer_id = ?", userID).
 		Find(subs).Error
@@ -104,7 +104,7 @@ func (sub *Subscription) First(ctx context.Context, db *gorm.DB) error {
 	err := db.
 		WithContext(ctx).
 		Preload("Customer").
-		Preload("ServerSubscriptionLimit").
+		Preload("Server").
 		Preload("Invoices").
 		First(sub, sub.ID).Error
 	if err != nil {
@@ -162,20 +162,19 @@ const (
 	InvoiceStatusPaymentFailed InvoiceStatus = "payment_failed"
 )
 
-type ServerSubscriptionLimit struct {
-	ServerID      uuid.UUID
-	Maximum       uint8
-	Subscriptions []Subscription `gorm:"foreignKey:ServerSubscriptionLimitID"`
+type Server struct {
+	ID                uuid.UUID
+	SubscriptionLimit uint8
+	Subscriptions     []Subscription
 
 	model.At
 }
 
-// Create creates the ServerSubscriptionLimit in the specified db. If the
-// ServerSubscriptionLimit already exists, the internal/gorm.ErrAlreadyExists
-// is returned.
-func (l *ServerSubscriptionLimit) Create(ctx context.Context, db *gorm.DB) error {
+// Create creates the Server in the specified db. If the Server already exists,
+// internal/gorm.ErrAlreadyExists is returned.
+func (s *Server) Create(ctx context.Context, db *gorm.DB) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Find(ctx, &ServerSubscriptionLimit{}, l.ServerID).Error
+		err := tx.Find(ctx, &Server{}, s.ID).Error
 		if err == nil {
 			return igorm.ErrAlreadyExists
 		}
@@ -183,7 +182,7 @@ func (l *ServerSubscriptionLimit) Create(ctx context.Context, db *gorm.DB) error
 			return err
 		}
 
-		if err := tx.Create(l).Error; err != nil {
+		if err := tx.Create(s).Error; err != nil {
 			return err
 		}
 
@@ -191,12 +190,12 @@ func (l *ServerSubscriptionLimit) Create(ctx context.Context, db *gorm.DB) error
 	})
 }
 
-// First fetches the ServerSubscriptionLimit entity. If it is not found,
+// First fetches the Server entity. If it is not found,
 // internal/gorm.ErrNotFound is returned.
-func (l *ServerSubscriptionLimit) First(ctx context.Context, db *gorm.DB) error {
-	err := db.WithContext(ctx).First(l, l.ServerID).Error
+func (s *Server) First(ctx context.Context, db *gorm.DB) error {
+	err := db.WithContext(ctx).First(s, s.ID).Error
 	if err != nil {
-		return fmt.Errorf("first server subscription limit; error: %w", err)
+		return fmt.Errorf("First: %w", err)
 	}
 	return nil
 }
@@ -205,7 +204,7 @@ type Customer struct {
 	UserID           uuid.UUID
 	StripeCustomerID string
 	SteamID          string
-	Subscriptions    []Subscription `gorm:"foreignKey:CustomerID"`
+	Subscriptions    []Subscription `gorm:"foreignKey:CustomerID;references:UserID"`
 
 	model.At
 }
