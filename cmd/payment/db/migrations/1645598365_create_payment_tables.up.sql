@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS payments.customers (
   PRIMARY KEY (user_id)
 );
 
+CREATE UNIQUE INDEX IdxCustomersSteamID ON payments.customers (steam_id);
+CREATE UNIQUE INDEX IdxCustomersStripeCustomerID ON payments.customers (stripe_customer_id);
 
 CREATE TABLE IF NOT EXISTS payments.subscriptions (
   id                     UUID         NOT NULL DEFAULT gen_random_uuid(),
@@ -41,6 +43,7 @@ CREATE TABLE IF NOT EXISTS payments.subscriptions (
 );
 
 CREATE UNIQUE INDEX IdxSubscriptionsStripeSubscriptionID ON payments.subscriptions (stripe_subscription_id);
+CREATE UNIQUE INDEX IdxSubscriptionsStripeEventID ON payments.subscriptions (stripe_event_id);
 CREATE INDEX IdxSubscriptionsCustomerID ON payments.subscriptions (customer_id);
 
 CREATE TABLE IF NOT EXISTS payments.invoices (
@@ -56,3 +59,5 @@ CREATE TABLE IF NOT EXISTS payments.invoices (
   PRIMARY KEY (id),
   FOREIGN KEY (subscription_id) REFERENCES payments.subscriptions (id)
 );
+
+CREATE UNIQUE INDEX IdxInvoicesStripeEventID ON payments.invoices (stripe_event_id);
