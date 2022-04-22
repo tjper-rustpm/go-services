@@ -1,3 +1,5 @@
+// Package stream provides and API for launching a Handler that reads and
+// process all payments related events from the underlying stream.
 package stream
 
 import (
@@ -19,20 +21,22 @@ import (
 	"go.uber.org/zap"
 )
 
+// IStore encompasses all interactions with the payment store.
 type IStore interface {
 	First(context.Context, gorm.Firster) error
+	FirstByStripeEventID(context.Context, db.FirsterByStripeEventID) error
 
 	CreateSubscription(context.Context, *model.Subscription, *model.Customer, uuid.UUID) error
 	CreateInvoice(context.Context, *model.Invoice, string) error
-
-	FirstByStripeEventID(context.Context, db.FirsterByStripeEventID) error
 }
 
+// IStream encompasses all interactions with the event stream.
 type IStream interface {
 	Read(context.Context) (*stream.Message, error)
 	Write(context.Context, []byte) error
 }
 
+// NewHandler creates a Handler instance.
 func NewHandler(
 	logger *zap.Logger,
 	staging *staging.Client,
@@ -47,6 +51,8 @@ func NewHandler(
 	}
 }
 
+// Handler is responsible for reading and processing payment related events
+// from the underlying IStream passed into NewHandler.
 type Handler struct {
 	logger  *zap.Logger
 	staging *staging.Client
@@ -54,6 +60,8 @@ type Handler struct {
 	stream  IStream
 }
 
+// Launch reads and processes the underlying IStream. This is a blocking
+// function. The context may be cancelled to shutdown the handler.
 func (h Handler) Launch(ctx context.Context) error {
 	for {
 		m, err := h.stream.Read(ctx)
