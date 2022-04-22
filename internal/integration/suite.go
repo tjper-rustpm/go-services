@@ -36,7 +36,7 @@ func InitSuite(
 	err := rdb.Ping(ctx).Err()
 	require.Nil(t, err)
 
-	logger := zap.NewExample()
+	logger := zap.NewNop()
 
 	stream, err := stream.Init(ctx, logger, rdb, "test")
 	require.Nil(t, err)
