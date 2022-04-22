@@ -451,6 +451,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	err = db.Migrate(dbconn, migrations)
 	require.Nil(t, err, "Migrate: %s", err)
 
+  store := db.NewStore(dbconn)
 	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
 
@@ -460,7 +461,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	streamHandler := stream.NewHandler(
 		s.Logger,
 		staging,
-		db.NewStore(dbconn),
+		store,
 		streamClient,
 	)
 	go func() {
@@ -470,7 +471,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 
 	api := NewAPI(
 		s.Logger,
-		db.NewStore(dbconn),
+		store,
 		staging,
 		s.Stream,
 		stripe,
