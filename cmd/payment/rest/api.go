@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// IStore encompasses all interactions with the payment store.
 type IStore interface {
 	Create(context.Context, gorm.Creator) error
 	First(context.Context, gorm.Firster) error
@@ -27,16 +28,19 @@ type IStore interface {
 	FindActiveSubscriptions(context.Context, *model.Servers) error
 }
 
+// IStream encompasses all interactions with the event stream.
 type IStream interface {
 	Write(context.Context, []byte) error
 }
 
+// IStream encompasses all interactions with Stripe.
 type IStripe interface {
 	CheckoutSession(*stripe.CheckoutSessionParams) (string, error)
 	BillingPortalSession(*stripe.BillingPortalSessionParams) (string, error)
 	ConstructEvent([]byte, string) (stripe.Event, error)
 }
 
+// NewAPI creates a API instance.
 func NewAPI(
 	logger *zap.Logger,
 	store IStore,
@@ -83,6 +87,8 @@ func NewAPI(
 	return &api
 }
 
+// API is responsible for a REST API that manages access to payment related
+// resources.
 type API struct {
 	Mux *chi.Mux
 
