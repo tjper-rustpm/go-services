@@ -71,12 +71,13 @@ test-cronman-rest: ## Integration test cronman API.
 
 .PHONY: test-payment-rest
 test-payment-rest: ## Integration test payment API.
-	@COMMAND="go test -v -count=1 -tags=integration -run=$(RUN) ./cmd/payment/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V
+	@COMMAND="go test -v -count=1 -tags=integration -run=$(RUN) ./cmd/payment/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-session
 test-session: ## Integration test session package.
 	@COMMAND="go test -v -count=1 -tags=integration ./internal/session" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
-	# @docker-compose -f deploy/docker-compose.test.yml down
+	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-stream
 test-stream: ## Integration test stream package.

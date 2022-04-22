@@ -59,7 +59,15 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("create subscriptions w/ servers", func(t *testing.T) {
+	t.Run("create alpha subscription", func(t *testing.T) {
+		suite.testCheckoutSubscribePaidInvoice(ctx, t, suite.alpha.id)
+	})
+
+	t.Run("remove alpha subscription", func(t *testing.T) {
+		suite.testBillingPaymentFailureInvoice(ctx, t, suite.alpha.id)
+	})
+
+	t.Run("create subscriptions w/ all servers", func(t *testing.T) {
 		for id, server := range suite.servers {
 			for i := 0; i < int(server.createSubscriptionsCnt); i++ {
 				suite.testCreatePaidSubscription(ctx, t, id)
@@ -76,7 +84,7 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
-	t.Run("remove subscriptions", func(t *testing.T) {
+	t.Run("remove subscriptions w/ all servers", func(t *testing.T) {
 		for id, server := range suite.servers {
 			for i := 0; i < int(server.removeSubscriptionsCnt); i++ {
 				suite.testRemovePaidSubscription(ctx, t, id)
@@ -97,6 +105,67 @@ func TestIntegration(t *testing.T) {
 }
 
 func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, serverID uuid.UUID) {
+	t.Helper()
+
+	steamID, err := rand.GenerateString(16)
+	require.Nil(t, err)
+
+	sess := s.sessions.CreateSession(ctx, t, fmt.Sprintf("email-%s@email.com", steamID), session.RoleStandard, steamID)
+	clientReferenceID := s.postSubscriptionCheckoutSession(ctx, t, serverID, sess)
+
+	stripeSubscriptionID := uuid.New()
+	eventID := uuid.New()
+	s.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), stripeSubscriptionID, sess)
+
+	s.postInvoice(ctx, t, uuid.New(), "invoice.paid", uuid.New(), "paid", stripeSubscriptionID)
+
+	eventI := s.stream.ReadEvent(ctx, t)
+	event, ok := eventI.(*event.InvoicePaidEvent)
+	require.True(t, ok)
+	require.Equal(t, serverID, event.ServerID)
+	require.Equal(t, sess.User.SteamID, event.SteamID)
+	subscriptionID := event.SubscriptionID
+
+	s.servers[serverID].subscriptions = append(
+		s.servers[serverID].subscriptions,
+		subscription{
+			id:       subscriptionID,
+			stripeID: stripeSubscriptionID,
+			sess:     sess,
+		},
+	)
+
+	subs := s.getSubscriptions(ctx, t, sess)
+	require.Len(t, subs, 1)
+
+	sub := subs[0]
+	require.Equal(t, subscriptionID, sub.ID)
+	require.Equal(t, model.InvoiceStatusPaid, sub.Status)
+}
+
+func (s suite) testRemovePaidSubscription(ctx context.Context, t *testing.T, serverID uuid.UUID) {
+	t.Helper()
+
+	require.NotEmpty(t, s.servers[serverID].subscriptions[0])
+	subscription := s.servers[serverID].subscriptions[0]
+	s.servers[serverID].subscriptions = s.servers[serverID].subscriptions[1:]
+
+	s.postInvoice(ctx, t, uuid.New(), "invoice.payment_failed", uuid.New(), "payment_failed", subscription.stripeID)
+
+	eventI := s.stream.ReadEvent(ctx, t)
+	event, ok := eventI.(*event.InvoicePaymentFailureEvent)
+	require.True(t, ok)
+	require.Equal(t, subscription.id, event.SubscriptionID)
+
+	subs := s.getSubscriptions(ctx, t, subscription.sess)
+	require.Len(t, subs, 1)
+
+	sub := subs[0]
+	require.Equal(t, subscription.id, sub.ID)
+	require.Equal(t, model.InvoiceStatusPaymentFailed, sub.Status)
+}
+
+func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.T, serverID uuid.UUID) {
 	t.Helper()
 
 	steamID, err := rand.GenerateString(16)
@@ -165,7 +234,7 @@ func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, ser
 	})
 }
 
-func (s suite) testRemovePaidSubscription(ctx context.Context, t *testing.T, serverID uuid.UUID) {
+func (s suite) testBillingPaymentFailureInvoice(ctx context.Context, t *testing.T, serverID uuid.UUID) {
 	t.Helper()
 
 	require.NotEmpty(t, s.servers[serverID].subscriptions[0])
@@ -377,11 +446,18 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
 	)
 
+	var (
+		alpha   = &server{id: uuid.New(), subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0}
+		bravo   = &server{id: uuid.New(), subscriptionLimit: 10, createSubscriptionsCnt: 10, removeSubscriptionsCnt: 1}
+		charlie = &server{id: uuid.New(), subscriptionLimit: 20, createSubscriptionsCnt: 15, removeSubscriptionsCnt: 10}
+		delta   = &server{id: uuid.New(), subscriptionLimit: 30, createSubscriptionsCnt: 30, removeSubscriptionsCnt: 30}
+	)
+
 	servers := map[uuid.UUID]*server{
-		uuid.New(): {subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0},
-		uuid.New(): {subscriptionLimit: 10, createSubscriptionsCnt: 10, removeSubscriptionsCnt: 1},
-		uuid.New(): {subscriptionLimit: 20, createSubscriptionsCnt: 15, removeSubscriptionsCnt: 10},
-		uuid.New(): {subscriptionLimit: 30, createSubscriptionsCnt: 30, removeSubscriptionsCnt: 30},
+		alpha.id:   alpha,
+		bravo.id:   bravo,
+		charlie.id: charlie,
+		delta.id:   delta,
 	}
 
 	return &suite{
@@ -392,6 +468,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		staging:  staging,
 		stripe:   stripe,
 		servers:  servers,
+		alpha:    alpha,
 	}
 }
 
@@ -405,9 +482,11 @@ type suite struct {
 	stripe  *stripe.Mock
 
 	servers map[uuid.UUID]*server
+	alpha   *server
 }
 
 type server struct {
+	id                     uuid.UUID
 	subscriptions          []subscription
 	subscriptionLimit      uint16
 	createSubscriptionsCnt uint16
