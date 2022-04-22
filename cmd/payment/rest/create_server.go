@@ -31,11 +31,11 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := &model.Server{
+	server := &model.Server{
 		ID:                b.ID,
-		SubscriptionLimit: uint8(b.SubscriptionLimit),
+		SubscriptionLimit: uint16(b.SubscriptionLimit),
 	}
-	err := ep.store.Create(r.Context(), limit)
+	err := ep.store.Create(r.Context(), server)
 	if errors.Is(err, gorm.ErrAlreadyExists) {
 		ihttp.ErrConflict(w)
 		return
@@ -47,7 +47,7 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 
-	if err := json.NewEncoder(w).Encode(limit); err != nil {
+	if err := json.NewEncoder(w).Encode(server); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 	}
 }

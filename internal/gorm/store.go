@@ -35,7 +35,8 @@ func (s Store) Create(ctx context.Context, entity Creator) error {
 	return entity.Create(ctx, s.db)
 }
 
-// Firster encompasses fetching the entity form the passed *gorm.DB.
+// Firster encompasses fetching the entity form the passed *gorm.DB. An empty
+// result should return an error.
 type Firster interface {
 	First(context.Context, *gorm.DB) error
 }
@@ -43,6 +44,17 @@ type Firster interface {
 // First wraps execution of entity.First.
 func (s Store) First(ctx context.Context, entity Firster) error {
 	return entity.First(ctx, s.db)
+}
+
+// Finder encompasses fetching an entity from the passed *gorm.DB. An empty
+// result should not return an error.
+type Finder interface {
+	Find(context.Context, *gorm.DB) error
+}
+
+// Find wraps execution of entity.Find.
+func (s Store) Find(ctx context.Context, entity Finder) error {
+	return entity.Find(ctx, s.db)
 }
 
 // FinderByUserID encompasses a type that is able to retrieve itself from

@@ -6,15 +6,18 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/tjper/rustcron/cmd/payment/db"
+	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/event"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
+	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/redis"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/stream"
@@ -25,169 +28,225 @@ import (
 	stripev72 "github.com/stripe/stripe-go/v72"
 )
 
-func TestCreateCheckoutSession(t *testing.T) {
+func TestIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	suite := setup(ctx, t)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
+	admin := suite.sessions.CreateSession(ctx, t, "rustcron-admin@gmail.com", session.RoleAdmin, "admin-steam-id")
+	standard := suite.sessions.CreateSession(ctx, t, "rustcron-standard@gmail.com", session.RoleStandard, "standard-steam-id")
 
-	t.Run("create subscription checkout session", func(t *testing.T) {
-		suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), sess)
+	t.Run("create servers w/ admin user", func(t *testing.T) {
+		for id, server := range suite.servers {
+			suite.postServer(ctx, t, id, server.subscriptionLimit, admin)
+		}
+	})
+
+	t.Run("create servers w/ standard user", func(t *testing.T) {
+		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/server", nil, standard)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("get servers w/ zero active subscriptions", func(t *testing.T) {
+		actual := suite.getServers(ctx, t)
+		for _, server := range actual {
+			expected := suite.servers[server.ID]
+			require.Equal(t, expected.subscriptionLimit, server.SubscriptionLimit)
+			require.Empty(t, server.ActiveSubscriptions)
+		}
+	})
+
+	t.Run("create subscriptions w/ servers", func(t *testing.T) {
+		for id, server := range suite.servers {
+			for i := 0; i < int(server.createSubscriptionsCnt); i++ {
+				suite.testCreatePaidSubscription(ctx, t, id)
+			}
+		}
+	})
+
+	t.Run("get servers w/ active subscriptions", func(t *testing.T) {
+		actual := suite.getServers(ctx, t)
+		for _, server := range actual {
+			expected := suite.servers[server.ID]
+			require.Equal(t, expected.subscriptionLimit, server.SubscriptionLimit)
+			require.Equal(t, expected.createSubscriptionsCnt, server.ActiveSubscriptions)
+		}
+	})
+
+	t.Run("remove subscriptions", func(t *testing.T) {
+		for id, server := range suite.servers {
+			for i := 0; i < int(server.removeSubscriptionsCnt); i++ {
+				suite.testRemovePaidSubscription(ctx, t, id)
+			}
+		}
+	})
+
+	t.Run("get servers w/ removed subscriptions", func(t *testing.T) {
+		actualServers := suite.getServers(ctx, t)
+		for _, actualServer := range actualServers {
+			expected := suite.servers[actualServer.ID]
+			expectedActiveSubscriptions := expected.createSubscriptionsCnt - expected.removeSubscriptionsCnt
+
+			require.Equal(t, expected.subscriptionLimit, actualServer.SubscriptionLimit)
+			require.Equal(t, expectedActiveSubscriptions, actualServer.ActiveSubscriptions)
+		}
 	})
 }
 
-func TestCreateBillingPortalSession(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, serverID uuid.UUID) {
+	t.Helper()
 
-	suite := setup(ctx, t)
+	steamID, err := rand.GenerateString(16)
+	require.Nil(t, err)
 
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
+	t.Run("create subscription checkout session w/ no session", func(t *testing.T) {
+		resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/checkout", nil)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	})
+
+	sess := s.sessions.CreateSession(ctx, t, fmt.Sprintf("email-%s@email.com", steamID), session.RoleStandard, steamID)
+
+	var clientReferenceID uuid.UUID
+	t.Run("create subscription checkout session", func(t *testing.T) {
+		clientReferenceID = s.postSubscriptionCheckoutSession(ctx, t, serverID, sess)
+	})
+
+	var (
+		subscriptionID       uuid.UUID
+		stripeSubscriptionID = uuid.New()
+		eventID              = uuid.New()
+	)
+	t.Run("complete checkout session", func(t *testing.T) {
+		s.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), stripeSubscriptionID, sess)
+	})
+
+	t.Run("invoice paid", func(t *testing.T) {
+		s.postInvoice(ctx, t, uuid.New(), "invoice.paid", uuid.New(), "paid", stripeSubscriptionID)
+
+		eventI := s.stream.ReadEvent(ctx, t)
+		event, ok := eventI.(*event.InvoicePaidEvent)
+		require.True(t, ok)
+		require.Equal(t, serverID, event.ServerID)
+		require.Equal(t, sess.User.SteamID, event.SteamID)
+		subscriptionID = event.SubscriptionID
+
+		s.servers[serverID].subscriptions = append(
+			s.servers[serverID].subscriptions,
+			subscription{
+				id:       subscriptionID,
+				stripeID: stripeSubscriptionID,
+				sess:     sess,
+			},
+		)
+	})
+
+	t.Run("get session's subscription", func(t *testing.T) {
+		subs := s.getSubscriptions(ctx, t, sess)
+		require.Len(t, subs, 1)
+
+		sub := subs[0]
+		require.Equal(t, subscriptionID, sub.ID)
+		require.Equal(t, model.InvoiceStatusPaid, sub.Status)
+	})
+
+	t.Run("duplicate complete checkout session", func(t *testing.T) {
+		s.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
+		s.stream.AssertNoEvent(ctx, t)
+	})
+
+	t.Run("complete checkout session w/ invalid client reference ID", func(t *testing.T) {
+		s.postCompleteCheckoutSession(ctx, t, uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), sess)
+		s.stream.AssertNoEvent(ctx, t)
+	})
+}
+
+func (s suite) testRemovePaidSubscription(ctx context.Context, t *testing.T, serverID uuid.UUID) {
+	t.Helper()
+
+	require.NotEmpty(t, s.servers[serverID].subscriptions[0])
+	subscription := s.servers[serverID].subscriptions[0]
+	s.servers[serverID].subscriptions = s.servers[serverID].subscriptions[1:]
 
 	t.Run("create billing portal session", func(t *testing.T) {
 		body := map[string]interface{}{
 			"returnUrl": "http://rustpm.com",
 		}
 
-		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/billing", body, sess)
+		resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/billing", body, subscription.sess)
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 
-		session := suite.stripe.PopBillingPortalSession()
+		session := s.stripe.PopBillingPortalSession()
 		require.Equal(t, "http://rustpm.com", *session.ReturnURL)
-	})
-}
-
-func TestCheckoutSessionComplete(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	suite := setup(ctx, t)
-
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
-
-	var clientReferenceID uuid.UUID
-	t.Run("create subscription checkout session", func(t *testing.T) {
-		clientReferenceID = suite.postSubscriptionCheckoutSession(ctx, t, uuid.New(), sess)
-	})
-
-	eventID := uuid.New()
-	t.Run("complete checkout session", func(t *testing.T) {
-		suite.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
-
-		stagingCheckout, err := suite.staging.FetchCheckout(ctx, clientReferenceID.String())
-		require.Nil(t, err)
-
-		eventI := suite.stream.ReadEvent(ctx, t)
-		event, ok := eventI.(*event.InvoicePaidEvent)
-		require.True(t, ok)
-		require.NotEmpty(t, event.SubscriptionID)
-		require.Equal(t, stagingCheckout.ServerID, event.ServerID)
-		require.Equal(t, stagingCheckout.SteamID, event.SteamID)
-	})
-
-	t.Run("duplicate complete checkout session", func(t *testing.T) {
-		suite.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
-		suite.stream.AssertNoEvent(ctx, t)
-	})
-
-	t.Run("complete checkout session w/ invalid client reference ID", func(t *testing.T) {
-		suite.postCompleteCheckoutSession(ctx, t, uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), sess)
-		suite.stream.AssertNoEvent(ctx, t)
-	})
-}
-
-func TestInvoice(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	suite := setup(ctx, t)
-
-	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard, "steam-id")
-
-	var (
-		clientReferenceID uuid.UUID
-		serverID          = uuid.New()
-	)
-	t.Run("create subscription checkout session", func(t *testing.T) {
-		clientReferenceID = suite.postSubscriptionCheckoutSession(
-			ctx,
-			t,
-			serverID,
-			sess,
-		)
-	})
-
-	var (
-		subscriptionID       uuid.UUID
-		stripeSubscriptionID = uuid.New()
-	)
-	t.Run("complete checkout session", func(t *testing.T) {
-		suite.postCompleteCheckoutSession(
-			ctx,
-			t,
-			uuid.New(),
-			uuid.New(),
-			clientReferenceID,
-			uuid.New(),
-			stripeSubscriptionID,
-			sess,
-		)
-
-		eventI := suite.stream.ReadEvent(ctx, t)
-		event, ok := eventI.(*event.InvoicePaidEvent)
-		require.True(t, ok)
-		require.Equal(t, serverID, event.ServerID)
-		require.Equal(t, sess.User.SteamID, event.SteamID)
-		subscriptionID = event.SubscriptionID
-	})
-
-	t.Run("invoice paid", func(t *testing.T) {
-		suite.postInvoice(
-			ctx,
-			t,
-			uuid.New(),
-			"invoice.paid",
-			uuid.New(),
-			"paid",
-			stripeSubscriptionID,
-			sess,
-		)
-	})
-
-	t.Run("get session's subscription", func(t *testing.T) {
-		subs := suite.getSubscriptions(ctx, t, sess)
-		require.Len(t, subs, 1)
-
-		sub := subs[0]
-		require.Equal(t, subscriptionID, sub.ID)
 	})
 
 	t.Run("invoice payment failed", func(t *testing.T) {
-		suite.postInvoice(
-			ctx,
-			t,
-			uuid.New(),
-			"invoice.payment_failed",
-			uuid.New(),
-			"payment_failed",
-			stripeSubscriptionID,
-			sess,
-		)
+		s.postInvoice(ctx, t, uuid.New(), "invoice.payment_failed", uuid.New(), "payment_failed", subscription.stripeID)
 
-		eventI := suite.stream.ReadEvent(ctx, t)
+		eventI := s.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.InvoicePaymentFailureEvent)
 		require.True(t, ok)
-		require.Equal(t, subscriptionID, event.SubscriptionID)
+		require.Equal(t, subscription.id, event.SubscriptionID)
 	})
 
 	t.Run("check session has no subscription", func(t *testing.T) {
-		subs := suite.getSubscriptions(ctx, t, sess)
-		require.Len(t, subs, 0)
+		subs := s.getSubscriptions(ctx, t, subscription.sess)
+		require.Len(t, subs, 1)
+
+		sub := subs[0]
+		require.Equal(t, subscription.id, sub.ID)
+		require.Equal(t, model.InvoiceStatusPaymentFailed, sub.Status)
 	})
+}
+
+func (s suite) getServers(
+	ctx context.Context,
+	t *testing.T,
+) model.Servers {
+	t.Helper()
+
+	resp := s.Request(ctx, t, s.api, http.MethodGet, "/v1/server", nil)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var servers model.Servers
+	err := json.NewDecoder(resp.Body).Decode(&servers)
+	require.Nil(t, err)
+
+	return servers
+}
+
+func (s suite) postServer(
+	ctx context.Context,
+	t *testing.T,
+	serverID uuid.UUID,
+	subscriptionLimit uint16,
+	sess *session.Session,
+) {
+	t.Helper()
+
+	body := map[string]interface{}{
+		"id":                serverID,
+		"subscriptionLimit": subscriptionLimit,
+	}
+
+	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/server", body, sess)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var server model.Server
+	err := json.NewDecoder(resp.Body).Decode(&server)
+	require.Nil(t, err)
+
+	require.Equal(t, serverID, server.ID)
+	require.Equal(t, subscriptionLimit, server.SubscriptionLimit)
 }
 
 func (s suite) postSubscriptionCheckoutSession(
@@ -254,13 +313,12 @@ func (s suite) postInvoice(
 	invoiceID uuid.UUID,
 	status string,
 	stripeSubscriptionID uuid.UUID,
-	sess *session.Session,
 ) {
 	t.Helper()
 
 	body := invoiceBody(id, eventType, invoiceID, status, stripeSubscriptionID)
 
-	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/stripe", body, sess)
+	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/stripe", body)
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -305,7 +363,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	require.Nil(t, err)
 
 	err = db.Migrate(dbconn, migrations)
-  require.Nil(t, err, "Migrate: %s", err)
+	require.Nil(t, err, "Migrate: %s", err)
 
 	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
@@ -319,6 +377,13 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
 	)
 
+	servers := map[uuid.UUID]*server{
+		uuid.New(): {subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0},
+		uuid.New(): {subscriptionLimit: 10, createSubscriptionsCnt: 10, removeSubscriptionsCnt: 1},
+		uuid.New(): {subscriptionLimit: 20, createSubscriptionsCnt: 15, removeSubscriptionsCnt: 10},
+		uuid.New(): {subscriptionLimit: 30, createSubscriptionsCnt: 30, removeSubscriptionsCnt: 30},
+	}
+
 	return &suite{
 		Suite:    *s,
 		sessions: sessions,
@@ -326,6 +391,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		api:      api.Mux,
 		staging:  staging,
 		stripe:   stripe,
+		servers:  servers,
 	}
 }
 
@@ -337,6 +403,21 @@ type suite struct {
 	api     http.Handler
 	staging *staging.Client
 	stripe  *stripe.Mock
+
+	servers map[uuid.UUID]*server
+}
+
+type server struct {
+	subscriptions          []subscription
+	subscriptionLimit      uint16
+	createSubscriptionsCnt uint16
+	removeSubscriptionsCnt uint16
+}
+
+type subscription struct {
+	id       uuid.UUID
+	stripeID uuid.UUID
+	sess     *session.Session
 }
 
 // --- helpers ---

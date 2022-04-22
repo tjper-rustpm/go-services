@@ -35,6 +35,11 @@ func (s Store) CreateSubscription(
 	return sub.Create(ctx, s.db, customer, serverID)
 }
 
+// FindSubscriptionStatus retrieves a subscription's status.
+func (s Store) FindActiveSubscriptions(ctx context.Context, servers *model.Servers) error {
+  return servers.FindActiveSubscriptions(ctx, s.db)
+}
+
 // CreateInvoice creates an invoice entity and its dependencies. The passed
 // *model.Invoice is updated with the result.
 func (s Store) CreateInvoice(

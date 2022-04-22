@@ -45,8 +45,8 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-  // User must have SteamID associated with Session in order to checkout.
-  if !sess.User.IsSteamIDAssociated() {
+	// User must have SteamID associated with Session in order to checkout.
+	if !sess.User.IsSteamIDAssociated() {
 		ihttp.ErrForbidden(w)
 		return
 	}

@@ -28,9 +28,10 @@ type Subscription struct {
 	Invoices []Invoice
 }
 
-func (sub Subscription) IsActive() bool {
-	if len(sub.Invoices) < 1 {
-		return false
+// Status retrieves the status of the subscription.
+func (sub Subscription) Status() InvoiceStatus {
+	if len(sub.Invoices) == 0 {
+		return InvoiceStatusUnknown
 	}
 
 	latest := sub.Invoices[0]
@@ -40,7 +41,7 @@ func (sub Subscription) IsActive() bool {
 		}
 	}
 
-	return latest.Status == InvoiceStatusPaid
+	return latest.Status
 }
 
 // Create creates the Subscription entity and its dependencies. If the passed
@@ -158,14 +159,16 @@ func (i *Invoice) FirstByStripeEventID(ctx context.Context, db *gorm.DB) error {
 type InvoiceStatus string
 
 const (
+  InvoiceStatusUnknown InvoiceStatus = "unknown"
 	InvoiceStatusPaid          InvoiceStatus = "paid"
 	InvoiceStatusPaymentFailed InvoiceStatus = "payment_failed"
 )
 
 type Server struct {
-	ID                uuid.UUID
-	SubscriptionLimit uint8
-	Subscriptions     []Subscription
+	ID                  uuid.UUID
+	ActiveSubscriptions uint16 `gorm:"->"`
+	SubscriptionLimit   uint16
+	Subscriptions       []Subscription
 
 	model.At
 }
@@ -174,11 +177,11 @@ type Server struct {
 // internal/gorm.ErrAlreadyExists is returned.
 func (s *Server) Create(ctx context.Context, db *gorm.DB) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Find(ctx, &Server{}, s.ID).Error
+		err := tx.First(&Server{}, s.ID).Error
 		if err == nil {
 			return igorm.ErrAlreadyExists
 		}
-		if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
@@ -200,6 +203,46 @@ func (s *Server) First(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
+type Servers []Server
+
+// FindActiveSubscriptions retrieves each Servers subscription status from the
+// specified db.
+func (s *Servers) FindActiveSubscriptions(ctx context.Context, db *gorm.DB) error {
+	sql := `
+SELECT servers.id,
+       COUNT(subscription_status.id) AS active_subscriptions,
+       servers.subscription_limit,
+       servers.updated_at,
+       servers.created_at,
+       servers.deleted_at
+FROM payments.servers 
+LEFT JOIN (
+  SELECT subscriptions.id,
+         subscriptions.server_id,
+         invoices.status
+  FROM payments.subscriptions
+  JOIN payments.invoices
+    ON invoices.subscription_id = subscriptions.id
+  JOIN (
+    SELECT sub_invoices.subscription_id,
+           MAX(sub_invoices.created_at) as created_at
+    FROM payments.invoices AS sub_invoices
+    GROUP BY sub_invoices.subscription_id
+  ) AS recent_invoices
+    ON recent_invoices.subscription_id = invoices.subscription_id
+       AND recent_invoices.created_at = invoices.created_at
+  WHERE invoices.status = 'paid'
+) AS subscription_status
+  ON subscription_status.server_id = servers.id
+GROUP BY servers.id
+`
+
+	if err := db.Raw(sql).Scan(s).Error; err != nil {
+		return fmt.Errorf("Scan: %w", err)
+	}
+	return nil
+}
+
 type Customer struct {
 	UserID           uuid.UUID
 	StripeCustomerID string
@@ -216,7 +259,6 @@ func (c *Customer) First(ctx context.Context, db *gorm.DB) error {
 	if err != nil {
 		return fmt.Errorf("first customer; error: %w", err)
 	}
-
 	return nil
 }
 

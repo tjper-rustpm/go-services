@@ -56,4 +56,3 @@ CREATE TABLE IF NOT EXISTS payments.invoices (
   PRIMARY KEY (id),
   FOREIGN KEY (subscription_id) REFERENCES payments.subscriptions (id)
 );
-

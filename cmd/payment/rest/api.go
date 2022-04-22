@@ -26,8 +26,10 @@ type IStore interface {
 
 	CreateSubscription(context.Context, *model.Subscription, *model.Customer, uuid.UUID) error
 	CreateInvoice(context.Context, *model.Invoice, string) error
+
 	FirstByStripeEventID(context.Context, db.FirsterByStripeEventID) error
 	FindByUserID(context.Context, gorm.FinderByUserID, uuid.UUID) error
+	FindActiveSubscriptions(context.Context, *model.Servers) error
 }
 
 type IStream interface {
@@ -66,6 +68,7 @@ func NewAPI(
 
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Method(http.MethodPost, "/stripe", Stripe{API: api})
+		router.Method(http.MethodGet, "/server", Server{API: api})
 
 		router.Group(func(router chi.Router) {
 			router.Use(sessionMiddleware.IsAuthenticated())

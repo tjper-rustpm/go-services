@@ -137,6 +137,10 @@ func (ep Stripe) processInvoice(ctx context.Context, event stripe.Event) error {
 	subscription := &model.Subscription{
 		Model: imodel.Model{ID: invoice.SubscriptionID},
 	}
+	err = ep.store.First(ctx, subscription)
+	if err != nil {
+		return fmt.Errorf("First: %w", err)
+	}
 
 	if invoiceEvent.Status == stripe.InvoiceStatusPaid {
 		if err = ep.invoicePaid(
