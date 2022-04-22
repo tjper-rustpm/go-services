@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/gorm"
@@ -24,10 +23,6 @@ type IStore interface {
 	Create(context.Context, gorm.Creator) error
 	First(context.Context, gorm.Firster) error
 
-	CreateSubscription(context.Context, *model.Subscription, *model.Customer, uuid.UUID) error
-	CreateInvoice(context.Context, *model.Invoice, string) error
-
-	FirstByStripeEventID(context.Context, db.FirsterByStripeEventID) error
 	FindByUserID(context.Context, gorm.FinderByUserID, uuid.UUID) error
 	FindActiveSubscriptions(context.Context, *model.Servers) error
 }

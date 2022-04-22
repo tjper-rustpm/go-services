@@ -14,13 +14,14 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
+	"github.com/tjper/rustcron/cmd/payment/stream"
 	"github.com/tjper/rustcron/internal/event"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/redis"
 	"github.com/tjper/rustcron/internal/session"
-	"github.com/tjper/rustcron/internal/stream"
+	istream "github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
 
 	"github.com/google/uuid"
@@ -116,8 +117,10 @@ func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, ser
 	stripeSubscriptionID := uuid.New()
 	eventID := uuid.New()
 	s.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), stripeSubscriptionID, sess)
+	s.validateStripeWebhookEvent(ctx, t)
 
 	s.postInvoice(ctx, t, uuid.New(), "invoice.paid", uuid.New(), "paid", stripeSubscriptionID)
+	s.validateStripeWebhookEvent(ctx, t)
 
 	eventI := s.stream.ReadEvent(ctx, t)
 	event, ok := eventI.(*event.InvoicePaidEvent)
@@ -151,6 +154,7 @@ func (s suite) testRemovePaidSubscription(ctx context.Context, t *testing.T, ser
 	s.servers[serverID].subscriptions = s.servers[serverID].subscriptions[1:]
 
 	s.postInvoice(ctx, t, uuid.New(), "invoice.payment_failed", uuid.New(), "payment_failed", subscription.stripeID)
+	s.validateStripeWebhookEvent(ctx, t)
 
 	eventI := s.stream.ReadEvent(ctx, t)
 	event, ok := eventI.(*event.InvoicePaymentFailureEvent)
@@ -192,10 +196,12 @@ func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.
 	)
 	t.Run("complete checkout session", func(t *testing.T) {
 		s.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), stripeSubscriptionID, sess)
+		s.validateStripeWebhookEvent(ctx, t)
 	})
 
 	t.Run("invoice paid", func(t *testing.T) {
 		s.postInvoice(ctx, t, uuid.New(), "invoice.paid", uuid.New(), "paid", stripeSubscriptionID)
+		s.validateStripeWebhookEvent(ctx, t)
 
 		eventI := s.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.InvoicePaidEvent)
@@ -225,11 +231,13 @@ func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.
 
 	t.Run("duplicate complete checkout session", func(t *testing.T) {
 		s.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
+		s.validateStripeWebhookEvent(ctx, t)
 		s.stream.AssertNoEvent(ctx, t)
 	})
 
 	t.Run("complete checkout session w/ invalid client reference ID", func(t *testing.T) {
 		s.postCompleteCheckoutSession(ctx, t, uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), sess)
+		s.validateStripeWebhookEvent(ctx, t)
 		s.stream.AssertNoEvent(ctx, t)
 	})
 }
@@ -257,6 +265,7 @@ func (s suite) testBillingPaymentFailureInvoice(ctx context.Context, t *testing.
 
 	t.Run("invoice payment failed", func(t *testing.T) {
 		s.postInvoice(ctx, t, uuid.New(), "invoice.payment_failed", uuid.New(), "payment_failed", subscription.stripeID)
+		s.validateStripeWebhookEvent(ctx, t)
 
 		eventI := s.stream.ReadEvent(ctx, t)
 		event, ok := eventI.(*event.InvoicePaymentFailureEvent)
@@ -412,6 +421,14 @@ func (s suite) getSubscriptions(
 	return subs
 }
 
+func (s suite) validateStripeWebhookEvent(ctx context.Context, t *testing.T) {
+	t.Helper()
+
+	eventI := s.stream.ReadEvent(ctx, t)
+	_, ok := eventI.(*event.StripeWebhookEvent)
+	require.True(t, ok)
+}
+
 func setup(ctx context.Context, t *testing.T) *suite {
 	t.Helper()
 
@@ -421,7 +438,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 
 	s := integration.InitSuite(ctx, t)
 	sessions := session.InitSuite(ctx, t)
-	stream := stream.InitSuite(ctx, t)
+	streamSuite := istream.InitSuite(ctx, t)
 
 	const (
 		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
@@ -436,6 +453,20 @@ func setup(ctx context.Context, t *testing.T) *suite {
 
 	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
+
+	streamClient, err := istream.Init(ctx, s.Logger, redis.Redis, "payment")
+	require.Nil(t, err)
+
+	streamHandler := stream.NewHandler(
+		s.Logger,
+		staging,
+		db.NewStore(dbconn),
+		streamClient,
+	)
+	go func() {
+		err := streamHandler.Launch(ctx)
+		require.ErrorIs(t, err, context.Canceled)
+	}()
 
 	api := NewAPI(
 		s.Logger,
@@ -463,7 +494,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	return &suite{
 		Suite:    *s,
 		sessions: sessions,
-		stream:   stream,
+		stream:   streamSuite,
 		api:      api.Mux,
 		staging:  staging,
 		stripe:   stripe,
@@ -475,7 +506,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 type suite struct {
 	integration.Suite
 	sessions *session.Suite
-	stream   *stream.Suite
+	stream   *istream.Suite
 
 	api     http.Handler
 	staging *staging.Client

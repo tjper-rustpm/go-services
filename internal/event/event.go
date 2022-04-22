@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stripe/stripe-go/v72"
 )
 
 var errKindInvalid = errors.New("kind is not string type")
@@ -26,6 +27,8 @@ func Parse(b []byte) (interface{}, error) {
 
 	var event interface{}
 	switch Kind(str) {
+	case StripeWebhook:
+		event = &StripeWebhookEvent{}
 	case InvoicePaid:
 		event = &InvoicePaidEvent{}
 	case InvoicePaymentFailure:
@@ -44,6 +47,7 @@ func Parse(b []byte) (interface{}, error) {
 type Kind string
 
 const (
+	StripeWebhook         Kind = "stripe_webhook"
 	InvoicePaid           Kind = "invoice_paid"
 	InvoicePaymentFailure Kind = "invoice_payment_failure"
 )
@@ -60,6 +64,18 @@ type Event struct {
 	ID        uuid.UUID
 	Kind      Kind
 	CreatedAt time.Time
+}
+
+type StripeWebhookEvent struct {
+	Event
+	StripeEvent stripe.Event
+}
+
+func NewStripeWebhookEvent(stripeEvent stripe.Event) StripeWebhookEvent {
+	return StripeWebhookEvent{
+		Event:       New(StripeWebhook),
+		StripeEvent: stripeEvent,
+	}
 }
 
 type InvoicePaidEvent struct {
