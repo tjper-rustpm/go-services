@@ -24,8 +24,6 @@ type User struct {
 	VerifiedAt         sql.NullTime `json:"verifiedAt"`
 
 	PasswordResets []PasswordReset `json:"-"`
-
-	Subscriptions []Subscription `json:"subscriptions"`
 }
 
 func (u User) MarshalJSON() ([]byte, error) {
@@ -54,18 +52,10 @@ func (u User) IsPassword(password []byte) bool {
 }
 
 func (u User) ToSessionUser() session.User {
-	subscriptions := make([]session.Subscription, 0)
-	for _, sub := range u.Subscriptions {
-		subscriptions = append(
-			subscriptions,
-			session.Subscription{ID: sub.SubscriptionID, ServerID: sub.ServerID})
-	}
-
 	return session.User{
-		ID:            u.ID,
-		Email:         u.Email,
-		Role:          u.Role,
-		Subscriptions: subscriptions,
+		ID:    u.ID,
+		Email: u.Email,
+		Role:  u.Role,
 	}
 }
 
@@ -84,11 +74,4 @@ func (r PasswordReset) IsRequestStale() bool {
 
 func (r PasswordReset) IsCompleted() bool {
 	return r.CompletedAt.Valid
-}
-
-type Subscription struct {
-	model.Model
-	UserID         uuid.UUID `gorm:"not null"`
-	SubscriptionID uuid.UUID `gorm:"not null"`
-	ServerID       uuid.UUID `gorm:"not null"`
 }

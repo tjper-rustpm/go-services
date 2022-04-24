@@ -23,6 +23,7 @@ type Checkout struct{ API }
 func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		ServerID   uuid.UUID `json:"serverId" validate:"required"`
+		SteamID    string    `json:"steamId" validate:"required"`
 		CancelURL  string    `json:"cancelUrl" validate:"required,url"`
 		SuccessURL string    `json:"successUrl" validate:"required,url"`
 		PriceID    string    `json:"priceId" validate:"required,oneof=price_1KLJWjCEcXRU8XL2TVKcLGUO"`
@@ -42,12 +43,6 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sess, ok := session.FromContext(r.Context())
 	if !ok {
 		ihttp.ErrUnauthorized(w)
-		return
-	}
-
-	// User must have SteamID associated with Session in order to checkout.
-	if !sess.User.IsSteamIDAssociated() {
-		ihttp.ErrForbidden(w)
 		return
 	}
 
@@ -77,7 +72,7 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		b.ServerID,
 		sess.User.ID,
-		sess.User.SteamID,
+		b.SteamID,
 		customerID,
 		b.PriceID,
 		b.CancelURL,

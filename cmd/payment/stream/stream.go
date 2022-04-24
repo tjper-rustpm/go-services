@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
@@ -32,6 +33,7 @@ type IStore interface {
 
 // IStream encompasses all interactions with the event stream.
 type IStream interface {
+	Claim(context.Context, time.Duration) (*stream.Message, error)
 	Read(context.Context) (*stream.Message, error)
 	Write(context.Context, []byte) error
 }
@@ -64,9 +66,9 @@ type Handler struct {
 // function. The context may be cancelled to shutdown the handler.
 func (h Handler) Launch(ctx context.Context) error {
 	for {
-		m, err := h.stream.Read(ctx)
+		m, err := h.read(ctx)
 		if err != nil {
-			return fmt.Errorf("stream.Read: %w", err)
+			return fmt.Errorf("stream Handler.read: %w", err)
 		}
 
 		eventI, err := event.Parse(m.Payload)
@@ -104,7 +106,7 @@ func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebho
 	case "invoice.payment_failed":
 		handler = h.processInvoice
 	default:
-		h.logger.Error("unknown stripe webhook event", zap.String("type", stripeEvent.Type))
+		h.logger.Warn("unknown stripe webhook event", zap.String("type", stripeEvent.Type))
 		return nil
 	}
 
@@ -251,4 +253,22 @@ func (h Handler) invoicePaymentFailure(
 	}
 
 	return nil
+}
+
+func (h Handler) read(ctx context.Context) (*stream.Message, error) {
+	m, err := h.stream.Claim(ctx, time.Minute)
+	if err == nil {
+		return m, nil
+	}
+	if err != nil && !errors.Is(err, stream.ErrNoPending) {
+		return nil, fmt.Errorf("stream.Claim: %w", err)
+	}
+
+	// stream.Claim has returned stream.ErrNoPending, therefore we may read
+	// the stream.
+	m, err = h.stream.Read(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("stream.Read: %w", err)
+	}
+	return m, nil
 }

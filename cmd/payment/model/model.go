@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	igorm "github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/model"
@@ -39,6 +40,11 @@ func (sub Subscription) Status() InvoiceStatus {
 		if invoice.CreatedAt.After(latest.CreatedAt) {
 			latest = invoice
 		}
+	}
+
+	duration := time.Hour * 24 * 31 // 31 days
+	if latest.CreatedAt.Before(time.Now().Add(-duration)) {
+		return InvoiceStatusInactive
 	}
 
 	return latest.Status
@@ -159,16 +165,17 @@ func (i *Invoice) FirstByStripeEventID(ctx context.Context, db *gorm.DB) error {
 type InvoiceStatus string
 
 const (
-  InvoiceStatusUnknown InvoiceStatus = "unknown"
+	InvoiceStatusUnknown       InvoiceStatus = "unknown"
 	InvoiceStatusPaid          InvoiceStatus = "paid"
 	InvoiceStatusPaymentFailed InvoiceStatus = "payment_failed"
+	InvoiceStatusInactive      InvoiceStatus = "inactive"
 )
 
 type Server struct {
 	ID                  uuid.UUID
 	ActiveSubscriptions uint16 `gorm:"->"`
 	SubscriptionLimit   uint16
-	Subscriptions       []Subscription
+	Subscriptions       []Subscription `json:"-"`
 
 	model.At
 }
@@ -228,10 +235,11 @@ LEFT JOIN (
            MAX(sub_invoices.created_at) as created_at
     FROM payments.invoices AS sub_invoices
     GROUP BY sub_invoices.subscription_id
-  ) AS recent_invoices
-    ON recent_invoices.subscription_id = invoices.subscription_id
-       AND recent_invoices.created_at = invoices.created_at
+  ) AS most_recent_invoices
+    ON most_recent_invoices.subscription_id = invoices.subscription_id
+       AND most_recent_invoices.created_at = invoices.created_at
   WHERE invoices.status = 'paid'
+        AND invoices.created_at > now() - interval '31 days'
 ) AS subscription_status
   ON subscription_status.server_id = servers.id
 GROUP BY servers.id

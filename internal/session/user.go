@@ -10,7 +10,6 @@ type User struct {
 	ID      uuid.UUID `json:"id"`
 	Email   string    `json:"email"`
 	Role    Role      `json:"role"`
-	SteamID string    `json:"steamId"`
 }
 
 func (u User) Equal(u2 User) bool {
@@ -18,13 +17,8 @@ func (u User) Equal(u2 User) bool {
 	equal = equal && (u.ID == u2.ID)
 	equal = equal && (u.Email == u2.Email)
 	equal = equal && (u.Role == u2.Role)
-	equal = equal && (u.SteamID == u2.SteamID)
 
 	return equal
-}
-
-func (u User) IsSteamIDAssociated() bool {
-	return u.SteamID != ""
 }
 
 type Role string

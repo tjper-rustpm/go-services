@@ -142,6 +142,12 @@ func (ctrl Controller) UpdateUserPassword(ctx context.Context, input UpdateUserP
 	return ctrl.store.UpdateUserPassword(ctx, input.ID, password)
 }
 
+// UpdateUserSteamInput is the input for the Controller.UpdateUserSteam method.
+type UpdateUserSteamInput struct {
+  ID uuid.UUID
+  SteamID uuid.UUID
+}
+
 // LoginUserInput is the input for the Controller.LoginUser method.
 type LoginUserInput struct {
 	Email    string
@@ -194,24 +200,6 @@ func (ctrl Controller) VerifyEmail(ctx context.Context, hash string) (*model.Use
 		return nil, usererrors.AuthError("invalid credentials")
 	}
 	return ctrl.store.VerifyEmail(ctx, user.ID, hash)
-}
-
-// ValidateResetPasswordHash
-func (ctrl Controller) ValidateResetPasswordHash(
-	ctx context.Context,
-	hash string,
-) error {
-	reset, err := ctrl.store.PasswordResetByHash(ctx, hash)
-	if errors.Is(err, usererrors.PasswordResetDNE) {
-		return usererrors.AuthError("invalid credentials")
-	}
-	if err != nil {
-		return err
-	}
-	if reset.IsRequestStale() {
-		return usererrors.AuthError("stale hash")
-	}
-	return nil
 }
 
 // ResendEmailVerification resends the "verify email" email and resets related

@@ -41,7 +41,6 @@ func (s Suite) NewSession(
 	t *testing.T,
 	email string,
 	role Role,
-	steamID string,
 ) *Session {
 	t.Helper()
 
@@ -51,10 +50,9 @@ func (s Suite) NewSession(
 	sess := New(
 		id,
 		User{
-			ID:      uuid.New(),
-			Email:   email,
-			Role:    role,
-			SteamID: steamID,
+			ID:    uuid.New(),
+			Email: email,
+			Role:  role,
 		},
 		time.Minute,
 	)
@@ -67,11 +65,10 @@ func (s Suite) CreateSession(
 	t *testing.T,
 	email string,
 	role Role,
-	steamID string,
 ) *Session {
 	t.Helper()
 
-	sess := s.NewSession(ctx, t, email, role, steamID)
+	sess := s.NewSession(ctx, t, email, role)
 
 	err := s.Manager.CreateSession(ctx, *sess)
 	require.Nil(t, err)

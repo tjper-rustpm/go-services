@@ -24,8 +24,8 @@ func (m *Model) Scrub() {
 // models.
 type At struct {
 	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-	DeletedAt gorm.DeletedAt `json:"deletedAt"`
+	UpdatedAt time.Time      `json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 }
 
 // Scrub removes unpredictable data from the Model instance.

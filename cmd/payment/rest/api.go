@@ -67,7 +67,7 @@ func NewAPI(
 
 	api.Mux.Route("/v1", func(router chi.Router) {
 		router.Method(http.MethodPost, "/stripe", Stripe{API: api})
-		router.Method(http.MethodGet, "/server", Server{API: api})
+		router.Method(http.MethodGet, "/servers", Servers{API: api})
 
 		router.Group(func(router chi.Router) {
 			router.Use(sessionMiddleware.IsAuthenticated())

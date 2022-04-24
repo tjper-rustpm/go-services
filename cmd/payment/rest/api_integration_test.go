@@ -35,8 +35,8 @@ func TestIntegration(t *testing.T) {
 
 	suite := setup(ctx, t)
 
-	admin := suite.sessions.CreateSession(ctx, t, "rustcron-admin@gmail.com", session.RoleAdmin, "admin-steam-id")
-	standard := suite.sessions.CreateSession(ctx, t, "rustcron-standard@gmail.com", session.RoleStandard, "standard-steam-id")
+	admin := suite.sessions.CreateSession(ctx, t, "rustcron-admin@gmail.com", session.RoleAdmin)
+	standard := suite.sessions.CreateSession(ctx, t, "rustcron-standard@gmail.com", session.RoleStandard)
 
 	t.Run("create servers w/ admin user", func(t *testing.T) {
 		for id, server := range suite.servers {
@@ -111,8 +111,8 @@ func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, ser
 	steamID, err := rand.GenerateString(16)
 	require.Nil(t, err)
 
-	sess := s.sessions.CreateSession(ctx, t, fmt.Sprintf("email-%s@email.com", steamID), session.RoleStandard, steamID)
-	clientReferenceID := s.postSubscriptionCheckoutSession(ctx, t, serverID, sess)
+	sess := s.sessions.CreateSession(ctx, t, fmt.Sprintf("email-%s@email.com", steamID), session.RoleStandard)
+	clientReferenceID := s.postSubscriptionCheckoutSession(ctx, t, serverID, steamID, sess)
 
 	stripeSubscriptionID := uuid.New()
 	eventID := uuid.New()
@@ -126,7 +126,7 @@ func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, ser
 	event, ok := eventI.(*event.InvoicePaidEvent)
 	require.True(t, ok)
 	require.Equal(t, serverID, event.ServerID)
-	require.Equal(t, sess.User.SteamID, event.SteamID)
+	require.Equal(t, steamID, event.SteamID)
 	subscriptionID := event.SubscriptionID
 
 	s.servers[serverID].subscriptions = append(
@@ -182,11 +182,11 @@ func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.
 		require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	})
 
-	sess := s.sessions.CreateSession(ctx, t, fmt.Sprintf("email-%s@email.com", steamID), session.RoleStandard, steamID)
+	sess := s.sessions.CreateSession(ctx, t, fmt.Sprintf("email-%s@email.com", steamID), session.RoleStandard)
 
 	var clientReferenceID uuid.UUID
 	t.Run("create subscription checkout session", func(t *testing.T) {
-		clientReferenceID = s.postSubscriptionCheckoutSession(ctx, t, serverID, sess)
+		clientReferenceID = s.postSubscriptionCheckoutSession(ctx, t, serverID, steamID, sess)
 	})
 
 	var (
@@ -207,7 +207,7 @@ func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.
 		event, ok := eventI.(*event.InvoicePaidEvent)
 		require.True(t, ok)
 		require.Equal(t, serverID, event.ServerID)
-		require.Equal(t, sess.User.SteamID, event.SteamID)
+		require.Equal(t, steamID, event.SteamID)
 		subscriptionID = event.SubscriptionID
 
 		s.servers[serverID].subscriptions = append(
@@ -289,7 +289,7 @@ func (s suite) getServers(
 ) model.Servers {
 	t.Helper()
 
-	resp := s.Request(ctx, t, s.api, http.MethodGet, "/v1/server", nil)
+	resp := s.Request(ctx, t, s.api, http.MethodGet, "/v1/servers", nil)
 	defer resp.Body.Close()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -331,12 +331,14 @@ func (s suite) postSubscriptionCheckoutSession(
 	ctx context.Context,
 	t *testing.T,
 	serverID uuid.UUID,
+	steamID string,
 	sess *session.Session,
 ) uuid.UUID {
 	t.Helper()
 
 	body := map[string]interface{}{
 		"serverId":   serverID,
+		"steamId":    steamID,
 		"cancelUrl":  "http://rustpm.com/payment/cancel",
 		"successUrl": "http://rustpm.com/payment/success",
 		"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
@@ -358,7 +360,7 @@ func (s suite) postSubscriptionCheckoutSession(
 	require.Nil(t, err)
 	require.Equal(t, stagingCheckout.ServerID, serverID)
 	require.Equal(t, stagingCheckout.UserID, sess.User.ID)
-	require.Equal(t, stagingCheckout.SteamID, sess.User.SteamID)
+	require.Equal(t, stagingCheckout.SteamID, steamID)
 
 	return uuid.MustParse(*stripeCheckout.ClientReferenceID)
 }
@@ -451,7 +453,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	err = db.Migrate(dbconn, migrations)
 	require.Nil(t, err, "Migrate: %s", err)
 
-  store := db.NewStore(dbconn)
+	store := db.NewStore(dbconn)
 	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
 

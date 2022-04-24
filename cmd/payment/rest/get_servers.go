@@ -8,17 +8,13 @@ import (
 	ihttp "github.com/tjper/rustcron/internal/http"
 )
 
-type Server struct{ API }
+type Servers struct{ API }
 
-func (ep Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var servers model.Servers
+func (ep Servers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	servers := make(model.Servers, 0)
 	if err := ep.store.FindActiveSubscriptions(r.Context(), &servers); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
-	}
-
-	for _, server := range servers {
-		ep.logger.Sugar().Infof("server: %v", server)
 	}
 
 	if err := json.NewEncoder(w).Encode(servers); err != nil {

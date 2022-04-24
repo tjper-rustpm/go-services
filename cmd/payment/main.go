@@ -12,9 +12,10 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/rest"
 	"github.com/tjper/rustcron/cmd/payment/staging"
+	"github.com/tjper/rustcron/cmd/payment/stream"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
-	"github.com/tjper/rustcron/internal/stream"
+	istream "github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
 
 	redisv8 "github.com/go-redis/redis/v8"
@@ -99,8 +100,12 @@ func run() int {
 	)
 	logger.Info("[Startup] Created stripe clients.")
 
+	logger.Info("[Startup] Creating staging client ...")
+	stagingClient := staging.NewClient(rdb)
+	logger.Info("[Startup] Created staging client.")
+
 	logger.Info("[Startup] Creating stream client ...")
-	stream, err := stream.Init(ctx, logger, rdb, "payment")
+	streamClient, err := istream.Init(ctx, logger, rdb, "payment")
 	if err != nil {
 		logger.Error(
 			"[Startup] Failed to initialze stream client.",
@@ -110,12 +115,26 @@ func run() int {
 	}
 	logger.Info("[Startup] Created stream client.")
 
+	logger.Info("[Startup] Creating stream handler ...")
+	streamHandler := stream.NewHandler(
+		logger,
+		stagingClient,
+		store,
+		streamClient,
+	)
+	go func() {
+		if err := streamHandler.Launch(ctx); err != nil {
+			logger.Error("[Startup] Failed to launch stream handler.", zap.Error(err))
+		}
+	}()
+  logger.Info("[Startup] Created stream handler.")
+
 	logger.Info("[Startup] Creating REST API ...")
 	api := rest.NewAPI(
 		logger,
 		store,
 		staging.NewClient(rdb),
-		stream,
+		streamClient,
 		stripeWrapper,
 		ihttp.NewSessionMiddleware(
 			logger,
