@@ -229,6 +229,21 @@ func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.
 		require.Equal(t, model.InvoiceStatusPaid, sub.Status)
 	})
 
+	t.Run("create subscription checkout session for server already subscribed to", func(t *testing.T) {
+		body := map[string]interface{}{
+			"serverId":   serverID,
+			"steamId":    steamID,
+			"cancelUrl":  "http://rustpm.com/payment/cancel",
+			"successUrl": "http://rustpm.com/payment/success",
+			"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
+		}
+
+		resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/checkout", body, sess)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusConflict, resp.StatusCode)
+	})
+
 	t.Run("duplicate complete checkout session", func(t *testing.T) {
 		s.postCompleteCheckoutSession(ctx, t, eventID, uuid.New(), clientReferenceID, uuid.New(), uuid.New(), sess)
 		s.validateStripeWebhookEvent(ctx, t)

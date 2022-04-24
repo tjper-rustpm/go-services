@@ -37,7 +37,7 @@ func (s Store) CreateSubscription(
 
 // FindSubscriptionStatus retrieves a subscription's status.
 func (s Store) FindActiveSubscriptions(ctx context.Context, servers *model.Servers) error {
-  return servers.FindActiveSubscriptions(ctx, s.db)
+	return servers.FindActiveSubscriptions(ctx, s.db)
 }
 
 // CreateInvoice creates an invoice entity and its dependencies. The passed
@@ -59,4 +59,9 @@ type FirsterByStripeEventID interface {
 // FirstByStripeEventID wraps execution of entity.FindByStripeEventID.
 func (s Store) FirstByStripeEventID(ctx context.Context, entity FirsterByStripeEventID) error {
 	return entity.FirstByStripeEventID(ctx, s.db)
+}
+
+// IsSubscribedToServer wraps the execution of customer.IsSubscribedToServer.
+func (s Store) IsSubscribedToServer(ctx context.Context, customer *model.Customer, serverID uuid.UUID) (bool, error) {
+	return customer.IsSubscribedToServer(ctx, s.db, serverID)
 }

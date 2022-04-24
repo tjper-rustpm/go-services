@@ -68,6 +68,20 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ensure this customer is not already subscribed to specified server.
+	if customerID != "" {
+		customer := &model.Customer{UserID: sess.User.ID}
+		subscribed, err := ep.store.IsSubscribedToServer(r.Context(), customer, b.ServerID)
+		if err != nil {
+			ihttp.ErrInternal(ep.logger, w, err)
+			return
+		}
+		if subscribed {
+			ihttp.ErrConflict(w)
+			return
+		}
+	}
+
 	url, err := ep.checkout(
 		r.Context(),
 		b.ServerID,

@@ -26,6 +26,7 @@ type IStore interface {
 
 	FindByUserID(context.Context, gorm.FinderByUserID, uuid.UUID) error
 	FindActiveSubscriptions(context.Context, *model.Servers) error
+	IsSubscribedToServer(context.Context, *model.Customer, uuid.UUID) (bool, error)
 }
 
 // IStream encompasses all interactions with the event stream.

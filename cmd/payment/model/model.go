@@ -290,3 +290,36 @@ func (c *Customer) CreateIfStripeCustomerIDUnknown(ctx context.Context, db *gorm
 		return nil
 	})
 }
+
+// IsSubscribedToServer checks if the customer has an active subscription to
+// the specified server. The return values, are true - nil if a subscription
+// exists, and false - nil if a subscription does not exist. Any error
+// encountered is returned as the second return value.
+func (c *Customer) IsSubscribedToServer(ctx context.Context, db *gorm.DB, serverID uuid.UUID) (bool, error) {
+	sql := `
+SELECT 1
+FROM payments.subscriptions
+WHERE subscriptions.customer_id = ?
+      AND subscriptions.server_id = ?
+      AND EXISTS (
+        SELECT 1
+        FROM payments.invoices
+        JOIN (
+          SELECT sub_invoices.subscription_id,
+                 MAX(sub_invoices.created_at) as created_at
+          FROM payments.invoices AS sub_invoices
+          GROUP BY sub_invoices.subscription_id
+        ) AS most_recent_invoices
+          ON most_recent_invoices.subscription_id = invoices.subscription_id
+             AND most_recent_invoices.created_at = invoices.created_at
+        WHERE invoices.status = 'paid'
+              AND invoices.created_at > now() - interval '31 days'
+      )
+`
+
+	var exists bool
+	if err := db.Raw(sql, c.UserID, serverID).Scan(&exists).Error; err != nil {
+		return false, fmt.Errorf("model Customer.IsSubscribedToServer Scan: %w", err)
+	}
+	return exists, nil
+}
