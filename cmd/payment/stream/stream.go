@@ -124,6 +124,28 @@ func (h Handler) processCheckoutSessionComplete(ctx context.Context, event strip
 		return fmt.Errorf("unmarshal checkout; error: %w", err)
 	}
 
+	var errstr string
+	switch {
+	case event.ID == "":
+		errstr = "event ID empty"
+	case checkout.ClientReferenceID == "":
+		errstr = "checkout ClientReferenceID empty"
+	case checkout.ID == "":
+		errstr = "checkout ID empty"
+	case checkout.Subscription == nil:
+		errstr = "checkout Subscription nil"
+	case checkout.Subscription.ID == "":
+		errstr = "checkout Subscription ID empty"
+	case checkout.Customer == nil:
+		errstr = "checkout Customer nil"
+	case checkout.Customer.ID == "":
+		errstr = "checkout Customer ID empty"
+	}
+	if errstr != "" {
+		h.logger.Warn(errstr)
+		return nil
+	}
+
 	stagedCheckout, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
 	if err != nil {
 		return fmt.Errorf(
@@ -169,17 +191,33 @@ func (h Handler) processCheckoutSessionComplete(ctx context.Context, event strip
 }
 
 func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
-	var invoiceEvent stripe.Invoice
-	if err := json.Unmarshal(event.Data.Raw, &invoiceEvent); err != nil {
+	var invoice stripe.Invoice
+	if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
 		return fmt.Errorf("json.Unmarshal: %w", err)
 	}
 
-	invoice := &model.Invoice{
-		Status:        model.InvoiceStatus(string(invoiceEvent.Status)),
+	var errstr string
+	switch {
+	case event.ID == "":
+		errstr = "event ID empty"
+	case invoice.Status == "":
+		errstr = "invoice Status empty"
+	case invoice.Subscription == nil:
+		errstr = "invoice Subscription nil"
+	case invoice.Subscription.ID == "":
+		errstr = "invoice Subscription ID empty"
+	}
+	if errstr != "" {
+		h.logger.Warn(errstr)
+		return nil
+	}
+
+	invoiceModel := &model.Invoice{
+		Status:        model.InvoiceStatus(string(invoice.Status)),
 		StripeEventID: event.ID,
 	}
 
-	err := h.store.FirstByStripeEventID(ctx, invoice)
+	err := h.store.FirstByStripeEventID(ctx, invoiceModel)
 	if err == nil {
 		// Invoice has already been processed, return early.
 		return nil
@@ -188,19 +226,19 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		return fmt.Errorf("store.FindByStripeEventID: %w", err)
 	}
 
-	if err := h.store.CreateInvoice(ctx, invoice, invoiceEvent.Subscription.ID); err != nil {
+	if err := h.store.CreateInvoice(ctx, invoiceModel, invoice.Subscription.ID); err != nil {
 		return fmt.Errorf("store.CreateInvoice: %w", err)
 	}
 
 	subscription := &model.Subscription{
-		Model: imodel.Model{ID: invoice.SubscriptionID},
+		Model: imodel.Model{ID: invoiceModel.SubscriptionID},
 	}
 	err = h.store.First(ctx, subscription)
 	if err != nil {
 		return fmt.Errorf("store.First: %w", err)
 	}
 
-	if invoiceEvent.Status == stripe.InvoiceStatusPaid {
+	if invoice.Status == stripe.InvoiceStatusPaid {
 		if err = h.invoicePaid(
 			ctx,
 			subscription.ID,
