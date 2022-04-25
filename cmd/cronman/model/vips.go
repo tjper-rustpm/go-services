@@ -11,6 +11,17 @@ import (
 	"gorm.io/gorm"
 )
 
+// Vips is a slice of Vip instances.
+type Vips []Vip
+
+// FindByServerID retrieves the Vips related to the specified serverID.
+func (vs *Vips) FindByServerID(ctx context.Context, db *gorm.DB, serverID uuid.UUID) error {
+	if err := db.WithContext(ctx).Where("server_id = ?", serverID).Find(vs).Error; err != nil {
+		return fmt.Errorf("model Vips.FindByServerID: %w", err)
+	}
+	return nil
+}
+
 // Vip is a "very important person" on a cronman server. The are granted
 // special privileges such as queue skip.
 type Vip struct {

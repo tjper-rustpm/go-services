@@ -121,17 +121,15 @@ CREATE TABLE IF NOT EXISTS servers.events (
 );
 
 CREATE TABLE IF NOT EXISTS servers.vips (
-  id        UUID NOT NULL DEFAULT gen_random_uuid(),
-  server_id UUID NOT NULL,
+  id              UUID         NOT NULL DEFAULT gen_random_uuid(),
+  server_id       UUID         NOT NULL,
+  subscription_id UUID         NOT NULL,
+  steam_ID        VARCHAR(128) NOT NULL,
 
-  subscription_id UUID         NOT  NULL,
-  user_id         UUID         NOT  NULL,
-  steam_ID        VARCHAR(128) NOT  NULL,
-
-  expires_at TIMESTAMP WITH TIMEZONE NOT  NULL,
-  created_at TIMESTAMP WITH TIME     ZONE NOT NULL,
-  updated_at TIMESTAMP WITH TIME     ZONE NOT NULL,
-  deleted_at TIMESTAMP WITH TIME     ZONE,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  deleted_at TIMESTAMP WITH TIME ZONE,
 
   PRIMARY KEY (id),
   FOREIGN KEY (server_id) REFERENCES servers.servers (id)

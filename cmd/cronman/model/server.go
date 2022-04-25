@@ -1,8 +1,12 @@
 package model
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/tjper/rustcron/cmd/cronman/userdata"
 	"github.com/tjper/rustcron/internal/model"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 )
@@ -12,6 +16,8 @@ const (
 	DormantServerState = "servers.dormant_servers"
 )
 
+// Server is cronman server and contains general server state. Other server
+// types LiveServer, DormanServer, etc are composed of this type.
 type Server struct {
 	model.Model
 
@@ -37,6 +43,15 @@ type Server struct {
 	Tags       Tags
 	Events     Events
 	Moderators Moderators
+}
+
+// Create creates a Server in the specified db. Non empty relationships will
+// be created as well (Wipes, Tags, Events, Moderators, etc).
+func (s *Server) Create(ctx context.Context, db *gorm.DB) error {
+	if err := db.WithContext(ctx).Create(s).Error; err != nil {
+		return fmt.Errorf("model Server.Create: %w", err)
+	}
+	return nil
 }
 
 // UserData generates the userdata to be used by AWS to launch the server in
@@ -87,6 +102,8 @@ func (s LiveServers) Scrub() {
 	}
 }
 
+// LiveServer is a server that users can currently connect to, and is scheduled
+// to become dormant at some point in the future.
 type LiveServer struct {
 	model.Model
 
@@ -97,14 +114,23 @@ type LiveServer struct {
 	QueuedPlayers uint8  `json:"queuedPlayers"`
 }
 
-func (s LiveServer) Clone() LiveServer {
-	return s
+// Create creates a LiveServer in the specified db. Non empty relationships
+// will be creates as well (Server).
+func (ls *LiveServer) Create(ctx context.Context, db *gorm.DB) error {
+	if err := db.WithContext(ctx).Create(ls).Error; err != nil {
+		return fmt.Errorf("model LiveServer.Create: %w", err)
+	}
+	return nil
 }
 
-func (s *LiveServer) Scrub() {
-	s.Model.Scrub()
-	s.AssociationID = ""
-	s.Server.Scrub()
+func (ls LiveServer) Clone() LiveServer {
+	return ls
+}
+
+func (ls *LiveServer) Scrub() {
+	ls.Model.Scrub()
+	ls.AssociationID = ""
+	ls.Server.Scrub()
 }
 
 type DormantServers []DormantServer
@@ -121,19 +147,30 @@ func (s DormantServers) Scrub() {
 	}
 }
 
+// DormantServer is a server that users cannot currently connect to, and is
+// scheduled to be live at some point in the future.
 type DormantServer struct {
 	model.Model
 
 	Server Server `json:"server" gorm:"polymorphic:State"`
 }
 
-func (s DormantServer) Clone() DormantServer {
-	return s
+// Create creates a DormantServer in the specified db. Non empty relationships
+// will be creates as well (Server).
+func (ds *DormantServer) Create(ctx context.Context, db *gorm.DB) error {
+	if err := db.WithContext(ctx).Create(ds).Error; err != nil {
+		return fmt.Errorf("model DormantServer.Create: %w", err)
+	}
+	return nil
 }
 
-func (s *DormantServer) Scrub() {
-	s.Model.Scrub()
-	s.Server.Scrub()
+func (ds DormantServer) Clone() DormantServer {
+	return ds
+}
+
+func (ds *DormantServer) Scrub() {
+	ds.Model.Scrub()
+	ds.Server.Scrub()
 }
 
 type ArchivedServers []ArchivedServer

@@ -69,6 +69,12 @@ test-cronman-rest: ## Integration test cronman API.
 	@COMMAND="go test -v -count=1 -tags=integration ./cmd/cronman/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
+.PHONY: test-cronman-stream
+test-cronman-stream: ## Integration test cronman stream package.
+	@COMMAND="go test -v -count=1 -tags=integration ./cmd/cronman/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@docker-compose -f deploy/docker-compose.test.yml down
+
+
 .PHONY: test-payment-rest
 test-payment-rest: ## Integration test payment API.
 	@COMMAND="go test -v -count=1 -tags=integration -run=$(RUN) ./cmd/payment/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test

@@ -6,6 +6,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/server"
+	"github.com/tjper/rustcron/internal/gorm"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -47,6 +48,11 @@ type INotifier interface {
 	Notify(ctx context.Context) error
 }
 
+// IStore represents the API by the cronman datastore by interacted with.
+type IStore interface {
+	Create(context.Context, gorm.Creator) error
+}
+
 // New creates a new Controller object.
 func New(
 	logger *zap.Logger,
@@ -71,7 +77,9 @@ func New(
 type Controller struct {
 	logger *zap.Logger
 
-	store            db.IStore
+	store   db.IStore
+	storev2 IStore
+
 	serverController *ServerDirector
 	hub              IHub
 	waiter           IWaiter

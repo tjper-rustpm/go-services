@@ -37,16 +37,18 @@ func (ctrl Controller) CreateServer(
 	input.AllocationID = *instance.Address.AllocationId
 	input.ElasticIP = *instance.Address.PublicIp
 
-	dormant := model.DormantServer{Server: input}
-	if err := ctrl.store.Create(ctx, &dormant); err != nil {
-		return nil, fmt.Errorf("creating server; %w", err)
+	dormant := &model.DormantServer{
+		Server: input,
+	}
+	if err := ctrl.storev2.Create(ctx, dormant); err != nil {
+		return nil, fmt.Errorf("controller storev2.Create: %w", err)
 	}
 
 	if err := ctrl.notifier.Notify(ctx); err != nil {
 		return nil, fmt.Errorf("notifying director; %w", err)
 	}
 
-	return &dormant, nil
+	return dormant, nil
 }
 
 type UpdateServerInput struct {

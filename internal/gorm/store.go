@@ -67,3 +67,14 @@ type FinderByUserID interface {
 func (s Store) FindByUserID(ctx context.Context, entity FinderByUserID, userID uuid.UUID) error {
 	return entity.FindByUserID(ctx, s.db, userID)
 }
+
+// FinderByServerID encompasses a type that is able to retrieve itself from
+// *gorm.DB by server ID.
+type FinderByServerID interface {
+	FindByServerID(context.Context, *gorm.DB, uuid.UUID) error
+}
+
+// FindByServerID wraps execution of entity.FindByServerID.
+func (s Store) FindByServerID(ctx context.Context, entity FinderByServerID, serverID uuid.UUID) error {
+	return entity.FindByServerID(ctx, s.db, serverID)
+}
