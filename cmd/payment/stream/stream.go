@@ -1,5 +1,5 @@
 // Package stream provides and API for launching a Handler that reads and
-// process all payments related events from the underlying stream.
+// processes all payments related events from the underlying stream.
 package stream
 
 import (
