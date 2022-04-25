@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS servers.vips;
 DROP TABLE IF EXISTS servers.events;
 DROP TABLE IF EXISTS servers.moderators;
 DROP TABLE IF EXISTS servers.tags;
