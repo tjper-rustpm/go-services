@@ -49,6 +49,7 @@ type IStore interface {
 func New(
 	logger *zap.Logger,
 	store db.IStore,
+	storev2 IStore,
 	serverController *ServerDirector,
 	hub IHub,
 	waiter IWaiter,
@@ -57,6 +58,7 @@ func New(
 	return &Controller{
 		logger:           logger.With(zap.String("controller-id", uuid.NewString())),
 		store:            store,
+		storev2:          storev2,
 		serverController: serverController,
 		hub:              hub,
 		waiter:           waiter,

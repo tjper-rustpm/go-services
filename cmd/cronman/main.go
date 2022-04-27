@@ -18,6 +18,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/redis"
 	"github.com/tjper/rustcron/cmd/cronman/rest"
 	"github.com/tjper/rustcron/cmd/cronman/server"
+	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 
@@ -113,6 +114,7 @@ func run() int {
 	ctrl := controller.New(
 		logger,
 		db.NewStore(logger, dbconn),
+		gorm.NewStore(dbconn),
 		controller.NewServerDirector(
 			server.NewManager(logger, usEastEC2),
 			server.NewManager(logger, usWestEC2),

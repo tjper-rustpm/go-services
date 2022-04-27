@@ -59,11 +59,6 @@ test-user-rest: ## Integration test user REST API.
 	@COMMAND="go test -v -count=1 -tags=integration ./cmd/user/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
-.PHONY: test-user-stream
-test-user-stream: ## Integration test user stream handler.
-	@COMMAND="go test -v -count=1 -tags=integration ./cmd/user/stream" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
-	@docker-compose -f deploy/docker-compose.test.yml down
-
 .PHONY: test-cronman-rest
 test-cronman-rest: ## Integration test cronman API.
 	@COMMAND="go test -v -count=1 -tags=integration ./cmd/cronman/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test

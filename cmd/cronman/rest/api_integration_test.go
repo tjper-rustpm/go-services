@@ -16,17 +16,18 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/director"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
+	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/rand"
 	"github.com/tjper/rustcron/internal/redis"
 	"github.com/tjper/rustcron/internal/session"
-	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestCreateServer(t *testing.T) {
@@ -190,12 +191,13 @@ func setup(
 	ctrl := controller.New(
 		logger,
 		db.NewStore(logger, dbconn),
+		gorm.NewStore(dbconn),
 		controller.NewServerDirector(
 			serverManager,
 			serverManager,
 			serverManager,
 		),
-		controller.NewRconHubMock(),
+		rcon.NewHubMock(),
 		rcon.NewWaiterMock(time.Millisecond),
 		director.NewNotifier(logger, redis.Redis),
 	)
