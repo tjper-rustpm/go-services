@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/model"
+	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/internal/event"
 	"github.com/tjper/rustcron/internal/gorm"
+	imodel "github.com/tjper/rustcron/internal/model"
 	"github.com/tjper/rustcron/internal/stream"
 
 	"go.uber.org/zap"
@@ -19,6 +21,7 @@ import (
 // IStore encompasses all interactions with the payment store.
 type IStore interface {
 	Create(context.Context, gorm.Creator) error
+	First(context.Context, gorm.Firster) error
 }
 
 // IStream encompasses all interactions with the event stream.
@@ -27,25 +30,33 @@ type IStream interface {
 	Read(context.Context) (*stream.Message, error)
 }
 
+// IRconHub encompasses all interactions with the rcon Hub.
+type IRconHub interface {
+	Dial(context.Context, string, string) (rcon.IRcon, error)
+}
+
 // NewHandler creates a Handler instance.
 func NewHandler(
 	logger *zap.Logger,
 	store IStore,
 	stream IStream,
+	rconHub IRconHub,
 ) *Handler {
 	return &Handler{
-		logger: logger,
-		store:  store,
-		stream: stream,
+		logger:  logger,
+		store:   store,
+		stream:  stream,
+		rconHub: rconHub,
 	}
 }
 
 // Handler is responsible for reading and processing cronman related event
 // from the underlying IStream.
 type Handler struct {
-	logger *zap.Logger
-	store  IStore
-	stream IStream
+	logger  *zap.Logger
+	store   IStore
+	stream  IStream
+	rconHub IRconHub
 }
 
 // Launch reads and processes the underlying IStream. This is a blocking
@@ -90,7 +101,34 @@ func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.Invoic
 	}
 
 	if err := h.store.Create(ctx, vip); err != nil {
-		return err
+		return fmt.Errorf("Create: %w", err)
+	}
+
+	server := &model.Server{
+		Model: imodel.Model{ID: event.ServerID},
+	}
+	if err := h.store.First(ctx, server); err != nil {
+		return fmt.Errorf("First: %w", err)
+	}
+
+	if !server.IsLive() {
+		return nil
+	}
+
+	// If server is live dial the server's rcon API and add the user to the
+	// queued users.
+	client, err := h.rconHub.Dial(
+		ctx,
+		fmt.Sprintf("%s:28016", server.ElasticIP),
+		server.RconPassword,
+	)
+	if err != nil {
+		return fmt.Errorf("rconhub.Dial: %w", err)
+	}
+	defer client.Close()
+
+	if err := client.GrantPermission(ctx, event.SteamID, rcon.BypassQueueAllow); err != nil {
+		return fmt.Errorf("client.GrantPermission: %w", err)
 	}
 	return nil
 }

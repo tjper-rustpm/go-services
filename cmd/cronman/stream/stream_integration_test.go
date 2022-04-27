@@ -13,6 +13,7 @@ import (
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
+	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/internal/event"
 	"github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/stream"
@@ -55,9 +56,16 @@ func TestInvoicePaidEvent(t *testing.T) {
 		steam:        "charlie-steam-id",
 		expiresAt:    time.Now().Add(time.Hour * 24 * 31), // 31 days in the future
 	}
+	live := data{
+		subscription: uuid.New(),
+		server:       initializer.live.Server.ID,
+		steam:        "live-steam-id",
+		expiresAt:    time.Now().Add(time.Hour * 24 * 31), // 31 days in the future
+	}
 
 	type expected struct {
-		vips model.Vips
+		vips  model.Vips
+		rcons []string
 	}
 	stages := []struct {
 		serverID uuid.UUID
@@ -91,13 +99,13 @@ func TestInvoicePaidEvent(t *testing.T) {
 						SubscriptionID: alpha.subscription,
 						ServerID:       alpha.server,
 						SteamID:        alpha.steam,
-						ExpiresAt:      alpha.expiresAt, // 31 days in the future
+						ExpiresAt:      alpha.expiresAt,
 					},
 					{
 						SubscriptionID: bravo.subscription,
 						ServerID:       bravo.server,
 						SteamID:        bravo.steam,
-						ExpiresAt:      bravo.expiresAt, // 31 days in the future
+						ExpiresAt:      bravo.expiresAt,
 					},
 				},
 			},
@@ -113,14 +121,39 @@ func TestInvoicePaidEvent(t *testing.T) {
 						SubscriptionID: alpha.subscription,
 						ServerID:       alpha.server,
 						SteamID:        alpha.steam,
-						ExpiresAt:      alpha.expiresAt, // 31 days in the future
+						ExpiresAt:      alpha.expiresAt,
 					},
 					{
 						SubscriptionID: bravo.subscription,
 						ServerID:       bravo.server,
 						SteamID:        bravo.steam,
-						ExpiresAt:      bravo.expiresAt, // 31 days in the future
+						ExpiresAt:      bravo.expiresAt,
 					},
+				},
+			},
+		},
+		{
+			serverID: initializer.live.Server.ID,
+			events: []event.InvoicePaidEvent{
+				event.NewInvoicePaidEvent(live.subscription, live.server, live.steam),
+			},
+			exp: expected{
+				vips: model.Vips{
+					{
+						SubscriptionID: live.subscription,
+						ServerID:       live.server,
+						SteamID:        live.steam,
+						ExpiresAt:      live.expiresAt,
+					},
+				},
+				rcons: []string{
+					fmt.Sprintf(
+						"%s:28016 %s %s %s",
+						initializer.live.Server.ElasticIP,
+						initializer.live.Server.RconPassword,
+						live.steam,
+						rcon.BypassQueueAllow,
+					),
 				},
 			},
 		},
@@ -146,6 +179,8 @@ func TestInvoicePaidEvent(t *testing.T) {
 				require.Nil(t, err)
 			}
 
+      // Sleep is lazy, but simple and signaling when the written message has
+      // been processed seems like more work than it's worth.
 			time.Sleep(200 * time.Millisecond)
 
 			// Check if store is in expected state.
@@ -171,6 +206,11 @@ func TestInvoicePaidEvent(t *testing.T) {
 			}
 
 			require.Equal(t, test.exp.vips, vips)
+
+			for _, expected := range test.exp.rcons {
+				actual := deps.rconHub.LPop()
+				require.Equal(t, expected, actual)
+			}
 		})
 	}
 }
@@ -214,17 +254,21 @@ func newDeps(ctx context.Context, t *testing.T) *deps {
 
 	store := gorm.NewStore(dbconn)
 
+	rconHub := rcon.NewHubMock()
+
 	// Configure stream Handler for testing suite.
 	handler := NewHandler(
 		logger,
 		store,
 		stream,
+		rconHub,
 	)
 
 	return &deps{
 		handler: handler,
 		stream:  stream,
 		store:   store,
+		rconHub: rconHub,
 	}
 }
 
@@ -232,6 +276,7 @@ type deps struct {
 	handler *Handler
 	stream  *stream.Client
 	store   *gorm.Store
+	rconHub *rcon.HubMock
 }
 
 func newInitializer(t *testing.T) *initializer {
@@ -263,42 +308,28 @@ type initializer struct {
 	once    *sync.Once
 	alpha   *model.DormantServer
 	charlie *model.DormantServer
+	live    *model.LiveServer
 }
 
 func (i *initializer) run(ctx context.Context, t *testing.T) {
 	t.Helper()
 
 	i.once.Do(func() {
-		variants := []struct {
-			reference    **model.DormantServer
-			name         string
-			rconPassword string
-			description  string
-		}{
-			{
-				reference:    &i.alpha,
-				name:         "Alpha",
-				rconPassword: "alpha-rcon-password",
-				description:  "Alpha server for cronman stream integration testing.",
-			},
-			{
-				reference:    &i.charlie,
-				name:         "Charlie",
-				rconPassword: "charlie-rcon-password",
-				description:  "Charlie server for cronman stream integration testing.",
-			},
+		dormants := []**model.DormantServer{
+			&i.alpha,
+			&i.charlie,
 		}
 
-		for _, variant := range variants {
-			dormant := &model.DormantServer{
+		for _, dormant := range dormants {
+			server := &model.DormantServer{
 				Server: model.Server{
-					Name:         "Alpha",
+					Name:         "DormantServer",
 					InstanceKind: model.InstanceKindStandard,
 					MaxPlayers:   200,
 					MapSize:      4000,
 					TickRate:     30,
-					RconPassword: "alpha-rcon-password",
-					Description:  "Alpha server for cronman stream integration testing.",
+					RconPassword: "rcon-password",
+					Description:  "Server for cronman stream integration testing.",
 					URL:          "https://rustpm.com",
 					Background:   model.BackgroundKindOxum,
 					BannerURL:    "https://rustpm.com/banner",
@@ -307,10 +338,36 @@ func (i *initializer) run(ctx context.Context, t *testing.T) {
 				},
 			}
 
-			err := i.store.Create(ctx, dormant)
+			err := i.store.Create(ctx, server)
 			require.Nil(t, err)
 
-			*variant.reference = dormant
+			*dormant = server
 		}
+
+		live := &model.LiveServer{
+			AssociationID: "associated-id",
+			ActivePlayers: 0,
+			QueuedPlayers: 0,
+			Server: model.Server{
+				Name:         "DormantServer",
+				InstanceKind: model.InstanceKindStandard,
+				MaxPlayers:   200,
+				MapSize:      4000,
+				TickRate:     30,
+				ElasticIP:    "192.168.0.1",
+				RconPassword: "rcon-password",
+				Description:  "Server for cronman stream integration testing.",
+				URL:          "https://rustpm.com",
+				Background:   model.BackgroundKindOxum,
+				BannerURL:    "https://rustpm.com/banner",
+				Region:       model.RegionUsEast,
+				Wipes:        model.Wipes{model.Wipe{MapSeed: 2000, MapSalt: 2000}},
+			},
+		}
+
+		err := i.store.Create(ctx, live)
+		require.Nil(t, err)
+
+		i.live = live
 	})
 }

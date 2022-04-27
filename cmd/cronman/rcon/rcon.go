@@ -32,6 +32,10 @@ var (
 const (
 	// DefaultRconPort is the default port used by a Rust server to RCON access.
 	DefaultRconPort = 28016
+
+	// BypassQueueAllow is the permission that allows a steam ID to bypass the
+	// join queue.
+	BypassQueueAllow = "bypassqueue.allow"
 )
 
 var (
@@ -336,7 +340,7 @@ type Inbound struct {
 // --- private ---
 
 const (
-	// writeWiat is the time allowed to write a message to the peer.
+	// writeWait is the time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
 
 	// pongWait is the time allowed between pong messages.

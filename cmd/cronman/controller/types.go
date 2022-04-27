@@ -5,6 +5,7 @@ import (
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
+	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
 	"github.com/tjper/rustcron/internal/gorm"
 
@@ -24,22 +25,13 @@ type IServerManager interface {
 
 // IHub represents the API by which IRcon types may be created.
 type IHub interface {
-	Dial(context.Context, string, string) (IRcon, error)
+	Dial(context.Context, string, string) (rcon.IRcon, error)
 }
 
 // IWaiter represents the API by which the Controller waits for Rcon endpoints
 // to be ready.
 type IWaiter interface {
 	UntilReady(ctx context.Context, url string) error
-}
-
-// IRcon represents the API by which the Controller communicates and interacts
-// with its Rust server rcons.
-type IRcon interface {
-	Close()
-	Quit(ctx context.Context) error
-	AddModerator(ctx context.Context, id string) error
-	RemoveModerator(ctx context.Context, id string) error
 }
 
 // INotifier represents the API by which the Resolver notifies the Controller

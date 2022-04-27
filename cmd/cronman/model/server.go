@@ -54,6 +54,20 @@ func (s *Server) Create(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
+// First retrieves the server from the specified db by its ID. If the server is
+// not found internal/gorm.ErrNotFound is returned.
+func (s *Server) First(ctx context.Context, db *gorm.DB) error {
+	if err := db.WithContext(ctx).First(s).Error; err != nil {
+		return fmt.Errorf("model Server.First: %w", err)
+	}
+	return nil
+}
+
+// IsLive reports if the server is currently live based on data in-memory.
+func (s Server) IsLive() bool {
+	return s.StateType == LiveServerState
+}
+
 // UserData generates the userdata to be used by AWS to launch the server in
 // proper state.
 func (s Server) Userdata(options ...userdata.Option) string {
