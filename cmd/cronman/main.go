@@ -118,7 +118,7 @@ func run() int {
 			server.NewManager(logger, usWestEC2),
 			server.NewManager(logger, euCentralEC2),
 		),
-		controller.NewRconHub(logger),
+		rcon.NewHub(logger),
 		rcon.NewWaiter(logger, time.Minute),
 		director.NewNotifier(logger, rdb),
 	)
