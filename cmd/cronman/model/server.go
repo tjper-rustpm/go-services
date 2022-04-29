@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/userdata"
 	"github.com/tjper/rustcron/internal/model"
@@ -43,6 +44,7 @@ type Server struct {
 	Tags       Tags
 	Events     Events
 	Moderators Moderators
+	Vips       Vips
 }
 
 // Create creates a Server in the specified db. Non empty relationships will
@@ -61,6 +63,17 @@ func (s *Server) First(ctx context.Context, db *gorm.DB) error {
 		return fmt.Errorf("model Server.First: %w", err)
 	}
 	return nil
+}
+
+func (s *Server) ActiveVips() Vips {
+	var vips Vips
+	for _, vip := range vips {
+		if !time.Now().Before(vip.ExpiresAt) {
+			continue
+		}
+		vips = append(vips, vip)
+	}
+	return vips
 }
 
 // IsLive reports if the server is currently live based on data in-memory.

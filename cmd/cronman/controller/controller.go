@@ -107,12 +107,13 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
-	userdataOptions := append(
+	options = append(
 		options,
 		userdata.WithQueueBypassPlugin(),
 		userdata.WithUserCfg(dormant.Server.Moderators.SteamIDs()),
+		userdata.WithServerCfg(dormant.Server.Vips.Active().SteamIDs()),
 	)
-	userdata := dormant.Server.Userdata(userdataOptions...)
+	userdata := dormant.Server.Userdata(options...)
 
 	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
 		ctx,

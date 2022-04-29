@@ -246,6 +246,7 @@ func (s Store) GetServer(ctx context.Context, id uuid.UUID) (*model.Server, erro
 		Preload("Tags").
 		Preload("Events").
 		Preload("Moderators").
+		Preload("Vips").
 		First(&server, id)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("get server; id: %s, error: %w", id, cronmanerrors.ErrServerDNE)

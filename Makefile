@@ -39,7 +39,6 @@ down: ## Shutdown rustcrons/crons in docker-compose.
 lint: ## Lint repo using golangci-lint. See .golangci.yml for configuration.
 	@golangci-lint run
 
-
 .PHONY: test-server-manager
 test-server-manager: ## Integration test server package against AWS.
 	@go test -v -count=1 -tags=awsintegration ./cmd/cronman/server
