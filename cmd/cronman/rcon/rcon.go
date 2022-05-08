@@ -36,6 +36,9 @@ const (
 	// BypassQueueAllow is the permission that allows a steam ID to bypass the
 	// join queue.
 	BypassQueueAllow = "bypassqueue.allow"
+
+	// VipGroup is the Oxide group that Vips belong to.
+	VipGroup = "vip"
 )
 
 var (
@@ -309,6 +312,66 @@ func (c Client) RevokePermission(
 	) {
 		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
 	}
+	return nil
+}
+
+// CreateGroup creates the passed Oxide group.
+func (c Client) CreateGroup(ctx context.Context, group string) error {
+	out := NewOutbound(fmt.Sprintf("oxide.group add %s", group))
+	inboundc, err := c.router.Request(ctx, *out)
+	if err != nil {
+		return fmt.Errorf(
+			"error creating group \"%s\"; %w",
+			group,
+			err,
+		)
+	}
+	defer c.router.CloseRoute(out.Identifier)
+
+	in, err := c.waitForInbound(ctx, inboundc)
+	if err != nil {
+		return fmt.Errorf("error waiting for inbound; %w", err)
+	}
+	if err := checkInbound(in, out.Identifier); err != nil {
+		return err
+	}
+
+	if in.Message != fmt.Sprintf("Group '%s' created", group) {
+		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
+	}
+	return nil
+}
+
+// AddToGroup adds the passed steamId to the passed Oxide group.
+func (c Client) AddToGroup(ctx context.Context, steamId, group string) error {
+	out := NewOutbound(fmt.Sprintf("oxide.usergroup add %s %s", steamId, group))
+	inboundc, err := c.router.Request(ctx, *out)
+	if err != nil {
+		return fmt.Errorf(
+			"error adding %s to group \"%s\"; %w",
+			steamId,
+			group,
+			err,
+		)
+	}
+	defer c.router.CloseRoute(out.Identifier)
+
+	in, err := c.waitForInbound(ctx, inboundc)
+	if err != nil {
+		return fmt.Errorf("error waiting for inbound; %w", err)
+	}
+	if err := checkInbound(in, out.Identifier); err != nil {
+		return err
+	}
+
+	if in.Message != fmt.Sprintf(
+		"Player '%s' added to group: %s",
+		steamId,
+		group,
+	) {
+		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
+	}
+
 	return nil
 }
 

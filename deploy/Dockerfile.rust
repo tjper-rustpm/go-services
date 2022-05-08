@@ -1,5 +1,3 @@
-# syntax = docker/dockerfile:1-experimental
-
 FROM didstopia/rust-server
 
 ENV RUST_SERVER_STARTUP_ARGUMENTS="-batchmode -load -nographics +server.secure 1"

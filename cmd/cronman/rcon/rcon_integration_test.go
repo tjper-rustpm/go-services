@@ -1,3 +1,4 @@
+//go:build longintegration
 // +build longintegration
 
 package rcon
@@ -61,6 +62,14 @@ func TestIntegration(t *testing.T) {
 		err := suite.client.RevokePermission(ctx, "76561197962911631", "bypassqueue.allow")
 		require.Nil(t, err)
 	})
+	t.Run("create vip group", func(t *testing.T) {
+		err := suite.client.CreateGroup(ctx, VipGroup)
+		require.Nil(t, err)
+	})
+	t.Run("add to vip group", func(t *testing.T) {
+		err := suite.client.AddToGroup(ctx, "76561197962911631", VipGroup)
+		require.Nil(t, err)
+	})
 	t.Run("quit", func(t *testing.T) {
 		err := suite.client.Quit(ctx)
 		require.Nil(t, err)
@@ -68,11 +77,12 @@ func TestIntegration(t *testing.T) {
 }
 
 func setup(ctx context.Context, t *testing.T) *suite {
-	waiter := NewWaiter(zap.NewNop(), 10*time.Second)
+	logger := zap.NewExample()
+	waiter := NewWaiter(logger, 10*time.Second)
 	err := waiter.UntilReady(ctx, *url)
 	require.Nil(t, err)
 
-	client, err := Dial(ctx, zap.NewNop(), *url)
+	client, err := Dial(ctx, logger, *url)
 	require.Nil(t, err)
 
 	return &suite{
