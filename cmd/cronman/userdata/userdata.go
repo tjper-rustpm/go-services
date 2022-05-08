@@ -41,6 +41,9 @@ EOT" -  rustserver
 `
 	serverCfgTemplate = `
 su -c "cat <<EOT > /home/rustserver/server/rustpm/cfg/server.cfg
+oxide.group remove vip
+oxide.group add vip
+oxide.grant group vip bypassqueue.allow
 %s
 EOT" -  rustserver
 `
@@ -169,6 +172,8 @@ func WithQueueBypassPlugin() Option {
 	}
 }
 
+// WithUserCfg returns an Option that configures the userdata to create a user
+// config.
 func WithUserCfg(steamIDs []string) Option {
 	cmds := make([]string, 0, len(steamIDs))
 	for _, id := range steamIDs {
@@ -179,10 +184,12 @@ func WithUserCfg(steamIDs []string) Option {
 	}
 }
 
+// WithServerCfg returns an Option that configures the userdata to create a
+// server config.
 func WithServerCfg(steamIDs []string) Option {
 	cmds := make([]string, 0, len(steamIDs))
 	for _, id := range steamIDs {
-		cmds = append(cmds, fmt.Sprintf("oxide.grant user %s bypassqueue.allow", id))
+		cmds = append(cmds, fmt.Sprintf("oxide.usergroup add %s vip", id))
 	}
 	return func() string {
 		return fmt.Sprintf(serverCfgTemplate, strings.Join(cmds, "\n"))

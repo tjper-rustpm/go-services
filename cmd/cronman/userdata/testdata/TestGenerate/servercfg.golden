@@ -44,9 +44,12 @@ su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
 su -c "mkdir -p /home/rustserver/server/rustpm/cfg" - rustserver
 
 su -c "cat <<EOT > /home/rustserver/server/rustpm/cfg/server.cfg
-oxide.grant user user1 bypassqueue.allow
-oxide.grant user user2 bypassqueue.allow
-oxide.grant user user3 bypassqueue.allow
+oxide.group remove vip
+oxide.group add vip
+oxide.grant group vip bypassqueue.allow
+oxide.usergroup add user1 vip
+oxide.usergroup add user2 vip
+oxide.usergroup add user3 vip
 EOT" -  rustserver
 
 export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRARY_PATH};
