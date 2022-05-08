@@ -90,9 +90,11 @@ func TestLock(t *testing.T) {
 			}
 			wg.Wait()
 
+			redis.lock.RLock()
 			require.Equal(t, test.exp.attempted, redis.attempted, "attempted")
 			require.Equal(t, test.exp.acquired, redis.acquired, "acquired")
 			require.Equal(t, test.exp.maintained, redis.maintained, "maintained")
+			redis.lock.RUnlock()
 		})
 	}
 }
@@ -160,7 +162,9 @@ func TestUnlock(t *testing.T) {
 			<-ctx.Done()
 			require.Equal(t, context.DeadlineExceeded, ctx.Err())
 
+			redis.lock.RLock()
 			require.Equal(t, test.exp.acquired, redis.acquired, "acquired")
+			redis.lock.RUnlock()
 		})
 	}
 }
