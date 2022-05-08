@@ -18,7 +18,7 @@ services:
     networks:
       - integration
   redis:
-    image: "redis"
+    image: "redis:6.2"
     logging:
       driver: none
     restart: "always"

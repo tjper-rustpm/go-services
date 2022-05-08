@@ -152,7 +152,7 @@ func TestInvoicePaidEvent(t *testing.T) {
 						initializer.live.Server.ElasticIP,
 						initializer.live.Server.RconPassword,
 						live.steam,
-						rcon.BypassQueueAllow,
+						rcon.VipGroup,
 					),
 				},
 			},
@@ -179,8 +179,8 @@ func TestInvoicePaidEvent(t *testing.T) {
 				require.Nil(t, err)
 			}
 
-      // Sleep is lazy, but simple and signaling when the written message has
-      // been processed seems like more work than it's worth.
+			// Sleep is lazy but simple, and signaling when the written message has
+			// been processed seems like more work than it's worth.
 			time.Sleep(200 * time.Millisecond)
 
 			// Check if store is in expected state.

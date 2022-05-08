@@ -63,3 +63,12 @@ func (m ClientMock) GrantPermission(_ context.Context, steamID string, permissio
 
 // RevokePermission mocks Client.RevokePermission.
 func (m ClientMock) RevokePermission(_ context.Context, _ string, _ string) error { return nil }
+
+// CreateGroup mocks Client.CreateGroup.
+func (m ClientMock) CreateGroup(_ context.Context, group string) error { return nil }
+
+// AddToGroup mocks Client.AddToGroup.
+func (m ClientMock) AddToGroup(_ context.Context, steamID string, group string) error {
+	m.hub.stack = append(m.hub.stack, fmt.Sprintf("%s %s %s %s", m.url, m.password, steamID, group))
+	return nil
+}

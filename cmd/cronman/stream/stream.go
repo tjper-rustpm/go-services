@@ -127,8 +127,8 @@ func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.Invoic
 	}
 	defer client.Close()
 
-	if err := client.GrantPermission(ctx, event.SteamID, rcon.BypassQueueAllow); err != nil {
-		return fmt.Errorf("client.GrantPermission: %w", err)
+	if err := client.AddToGroup(ctx, event.SteamID, rcon.VipGroup); err != nil {
+		return fmt.Errorf("client.AddToGroup: %w", err)
 	}
 	return nil
 }
