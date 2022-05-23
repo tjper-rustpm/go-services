@@ -172,9 +172,9 @@ const (
 )
 
 type Server struct {
-	ID                  uuid.UUID
-	ActiveSubscriptions uint16 `gorm:"->"`
-	SubscriptionLimit   uint16
+	ID                  uuid.UUID      `json:"id"`
+	ActiveSubscriptions uint16         `gorm:"->" json:"activeSubscriptions"`
+	SubscriptionLimit   uint16         `json:"subscriptionLimit"`
 	Subscriptions       []Subscription `json:"-"`
 
 	model.At

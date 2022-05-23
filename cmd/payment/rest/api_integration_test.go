@@ -272,7 +272,7 @@ func (s suite) testBillingPaymentFailureInvoice(ctx context.Context, t *testing.
 		resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/billing", body, subscription.sess)
 		defer resp.Body.Close()
 
-		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 		session := s.stripe.PopBillingPortalSession()
 		require.Equal(t, "http://rustpm.com", *session.ReturnURL)
@@ -362,7 +362,7 @@ func (s suite) postSubscriptionCheckoutSession(
 	resp := s.Request(ctx, t, s.api, http.MethodPost, "/v1/checkout", body, sess)
 	defer resp.Body.Close()
 
-	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	stripeCheckout := s.stripe.PopCheckoutSession()
 	require.Equal(t, "http://rustpm.com/payment/cancel", *stripeCheckout.CancelURL)

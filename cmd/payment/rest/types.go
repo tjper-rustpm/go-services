@@ -28,3 +28,10 @@ func SubscriptionsFromModel(modelSubscriptions []model.Subscription) []Subscript
 
 	return subscriptions
 }
+
+// Redirect contains a URL that should be redirected to by the client. This is
+// used instead of http.Redirect as not all client software is capable of
+// following a http.Redirect.
+type Redirect struct {
+	URL string `json:"url"`
+}

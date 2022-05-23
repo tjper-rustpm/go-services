@@ -9,7 +9,7 @@ import (
 	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
-  
+
 	"github.com/stripe/stripe-go/v72"
 )
 
@@ -52,8 +52,8 @@ func (ep Billing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	url, err := ep.stripe.BillingPortalSession(
 		&stripe.BillingPortalSessionParams{
-			ReturnURL:  stripe.String(b.ReturnURL),
-			Customer: stripe.String(customer.StripeCustomerID),
+			ReturnURL: stripe.String(b.ReturnURL),
+			Customer:  stripe.String(customer.StripeCustomerID),
 		},
 	)
 	if err != nil {
@@ -61,5 +61,12 @@ func (ep Billing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, url, http.StatusSeeOther)
+	w.WriteHeader(http.StatusCreated)
+
+	resp := &Redirect{
+		URL: url,
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+	}
 }

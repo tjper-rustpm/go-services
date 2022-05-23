@@ -97,7 +97,14 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, url, http.StatusSeeOther)
+	w.WriteHeader(http.StatusCreated)
+
+	resp := &Redirect{
+		URL: url,
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+	}
 }
 
 func (ep Checkout) customerID(ctx context.Context, userID uuid.UUID) (string, error) {
