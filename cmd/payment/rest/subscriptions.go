@@ -9,9 +9,9 @@ import (
 	"github.com/tjper/rustcron/internal/session"
 )
 
-type Subscriptions struct{ API }
+type SubscriptionsEndpoint struct{ API }
 
-func (ep Subscriptions) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep SubscriptionsEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sess, ok := session.FromContext(r.Context())
 	if !ok {
 		ihttp.ErrUnauthorized(w)
@@ -25,7 +25,9 @@ func (ep Subscriptions) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 
-	subscriptions := SubscriptionsFromModel(subs)
+	var subscriptions Subscriptions
+	subscriptions.FromModelSubscriptions(subs)
+
 	if err := json.NewEncoder(w).Encode(subscriptions); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 	}

@@ -75,7 +75,7 @@ func NewAPI(
 
 			router.Method(http.MethodPost, "/checkout", Checkout{API: api})
 			router.Method(http.MethodPost, "/billing", Billing{API: api})
-			router.Method(http.MethodGet, "/subscriptions", Subscriptions{API: api})
+			router.Method(http.MethodGet, "/subscriptions", SubscriptionsEndpoint{API: api})
 
 			router.Group(func(router chi.Router) {
 				router.Use(sessionMiddleware.HasRole(session.RoleAdmin))

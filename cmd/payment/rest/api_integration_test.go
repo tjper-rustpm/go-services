@@ -143,6 +143,7 @@ func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, ser
 
 	sub := subs[0]
 	require.Equal(t, subscriptionID, sub.ID)
+	require.Equal(t, serverID, sub.ServerID)
 	require.Equal(t, model.InvoiceStatusPaid, sub.Status)
 }
 
@@ -166,6 +167,7 @@ func (s suite) testRemovePaidSubscription(ctx context.Context, t *testing.T, ser
 
 	sub := subs[0]
 	require.Equal(t, subscription.id, sub.ID)
+	require.Equal(t, serverID, sub.ServerID)
 	require.Equal(t, model.InvoiceStatusPaymentFailed, sub.Status)
 }
 
@@ -226,6 +228,7 @@ func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.
 
 		sub := subs[0]
 		require.Equal(t, subscriptionID, sub.ID)
+		require.Equal(t, serverID, sub.ServerID)
 		require.Equal(t, model.InvoiceStatusPaid, sub.Status)
 	})
 
@@ -294,6 +297,7 @@ func (s suite) testBillingPaymentFailureInvoice(ctx context.Context, t *testing.
 
 		sub := subs[0]
 		require.Equal(t, subscription.id, sub.ID)
+		require.Equal(t, serverID, sub.ServerID)
 		require.Equal(t, model.InvoiceStatusPaymentFailed, sub.Status)
 	})
 }
