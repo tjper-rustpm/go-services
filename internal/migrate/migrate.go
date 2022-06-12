@@ -6,6 +6,8 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
+
+	// migrations are stored as files. Comment necessary to satisfy golint.
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
