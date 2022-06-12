@@ -101,14 +101,14 @@ func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.Invoic
 	}
 
 	if err := h.store.Create(ctx, vip); err != nil {
-		return fmt.Errorf("Create: %w", err)
+		return fmt.Errorf("while store.Create: %w", err)
 	}
 
 	server := &model.Server{
 		Model: imodel.Model{ID: event.ServerID},
 	}
 	if err := h.store.First(ctx, server); err != nil {
-		return fmt.Errorf("First: %w", err)
+		return fmt.Errorf("while store.First: %w", err)
 	}
 
 	if !server.IsLive() {
@@ -123,12 +123,12 @@ func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.Invoic
 		server.RconPassword,
 	)
 	if err != nil {
-		return fmt.Errorf("rconhub.Dial: %w", err)
+		return fmt.Errorf("while rconhub.Dial: %w", err)
 	}
 	defer client.Close()
 
 	if err := client.AddToGroup(ctx, event.SteamID, rcon.VipGroup); err != nil {
-		return fmt.Errorf("client.AddToGroup: %w", err)
+		return fmt.Errorf("while client.AddToGroup: %w", err)
 	}
 	return nil
 }
