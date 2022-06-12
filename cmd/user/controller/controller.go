@@ -75,9 +75,9 @@ func (ctrl Controller) CreateUser(
 ) (*model.User, error) {
 	_, err := ctrl.store.UserByEmail(ctx, input.Email)
 	if err == nil {
-		return nil, fmt.Errorf("user by email; error: %w", usererrors.EmailAlreadyInUse)
+		return nil, fmt.Errorf("user by email; error: %w", usererrors.ErrEmailAlreadyInUse)
 	}
-	if err != nil && !errors.Is(err, usererrors.UserDNE) {
+	if err != nil && !errors.Is(err, usererrors.ErrUserDNE) {
 		return nil, err
 	}
 
@@ -144,8 +144,8 @@ func (ctrl Controller) UpdateUserPassword(ctx context.Context, input UpdateUserP
 
 // UpdateUserSteamInput is the input for the Controller.UpdateUserSteam method.
 type UpdateUserSteamInput struct {
-  ID uuid.UUID
-  SteamID uuid.UUID
+	ID      uuid.UUID
+	SteamID uuid.UUID
 }
 
 // LoginUserInput is the input for the Controller.LoginUser method.
@@ -161,7 +161,7 @@ func (ctrl Controller) LoginUser(
 	input LoginUserInput,
 ) (*model.User, error) {
 	user, err := ctrl.store.UserByEmail(ctx, input.Email)
-	if errors.Is(err, usererrors.UserDNE) {
+	if errors.Is(err, usererrors.ErrUserDNE) {
 		return nil, usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
@@ -184,7 +184,7 @@ func (ctrl Controller) User(ctx context.Context, id uuid.UUID) (*model.User, err
 // cryptographically-secure pseudorandom number.
 func (ctrl Controller) VerifyEmail(ctx context.Context, hash string) (*model.User, error) {
 	user, err := ctrl.store.UserByVerificationHash(ctx, hash)
-	if errors.Is(err, usererrors.UserDNE) {
+	if errors.Is(err, usererrors.ErrUserDNE) {
 		return nil, usererrors.HashError("invalid hash")
 	}
 	if err != nil {
@@ -210,7 +210,7 @@ func (ctrl Controller) ResendEmailVerification(ctx context.Context, id uuid.UUID
 		return nil, err
 	}
 	if user.IsVerified() {
-		return nil, usererrors.EmailAlreadyVerified
+		return nil, usererrors.ErrEmailAlreadyVerified
 	}
 
 	verificationHash, err := rand.GenerateString(32)
@@ -241,8 +241,8 @@ func (ctrl Controller) ResendEmailVerification(ctx context.Context, id uuid.UUID
 // that email address will receive a "reset password" email.
 func (ctrl Controller) RequestPasswordReset(ctx context.Context, email string) error {
 	_, err := ctrl.store.UserByEmail(ctx, email)
-	if errors.Is(err, usererrors.UserDNE) {
-		return usererrors.EmailAddressNotRecognized
+	if errors.Is(err, usererrors.ErrUserDNE) {
+		return usererrors.ErrEmailAddressNotRecognized
 	}
 	if err != nil {
 		return err
@@ -280,7 +280,7 @@ func (ctrl Controller) ResetPassword(
 	password string,
 ) (*model.User, error) {
 	user, err := ctrl.store.UserByResetPasswordHash(ctx, resetPasswordHash)
-	if errors.Is(err, usererrors.UserDNE) {
+	if errors.Is(err, usererrors.ErrUserDNE) {
 		return nil, usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {
@@ -288,7 +288,7 @@ func (ctrl Controller) ResetPassword(
 	}
 
 	reset, err := ctrl.store.PasswordResetByHash(ctx, resetPasswordHash)
-	if errors.Is(err, usererrors.PasswordResetDNE) {
+	if errors.Is(err, usererrors.ErrPasswordResetDNE) {
 		return nil, usererrors.AuthError("invalid credentials")
 	}
 	if err != nil {

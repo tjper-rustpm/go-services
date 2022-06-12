@@ -31,7 +31,7 @@ func (ep CreateUser) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		controller.CreateUserInput{Email: b.Email, Password: b.Password},
 	)
-	if errors.Is(err, uerrors.EmailAlreadyInUse) {
+	if errors.Is(err, uerrors.ErrEmailAlreadyInUse) {
 		ihttp.ErrConflict(w)
 		return
 	}

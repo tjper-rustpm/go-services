@@ -26,7 +26,7 @@ func (ep ForgotPassword) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := ep.ctrl.RequestPasswordReset(r.Context(), b.Email)
-	if errors.Is(err, uerrors.EmailAddressNotRecognized) {
+	if errors.Is(err, uerrors.ErrEmailAddressNotRecognized) {
 		// Response is independent of whether an email address is found. This is
 		// to prevent attackers from determining which email addresses are
 		// associated with users.

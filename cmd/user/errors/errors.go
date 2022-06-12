@@ -6,29 +6,25 @@ import (
 )
 
 var (
-	// UserDNE indicates that a process attempted to interact with a user that
+	// ErrUserDNE indicates that a process attempted to interact with a user that
 	// does not exist.
-	UserDNE = errors.New("user dne")
+	ErrUserDNE = errors.New("user dne")
 
-	// PasswordResetDNE indicates that a process attempted to interact with a
+	// ErrPasswordResetDNE indicates that a process attempted to interact with a
 	// password reste that does not exist.
-	PasswordResetDNE = errors.New("password reset dne")
+	ErrPasswordResetDNE = errors.New("password reset dne")
 
-	// EmailAlreadyInUse indicates that a client attempted to create a user
+	// ErrEmailAlreadyInUse indicates that a client attempted to create a user
 	// with an email address already being used.
-	EmailAlreadyInUse = errors.New("email already in-use")
+	ErrEmailAlreadyInUse = errors.New("email already in-use")
 
-	// EmailAddressNotRecognized indicates that a user attempted to login, but
+	// ErrEmailAddressNotRecognized indicates that a user attempted to login, but
 	// the email used is not assoiciated with a user.
-	EmailAddressNotRecognized = errors.New("email address not recognized")
+	ErrEmailAddressNotRecognized = errors.New("email address not recognized")
 
-	// EmailAlreadyVerified indicates that a user attempted to verify their
+	// ErrEmailAlreadyVerified indicates that a user attempted to verify their
 	// email when it has already been verified.
-	EmailAlreadyVerified = errors.New("email already verified")
-
-	// PasswordResetRequestStale indicates that a password reset was attempted,
-	// but the hash used has expired.
-	PasswordResetRequestStale = errors.New("password reset request stale")
+	ErrEmailAlreadyVerified = errors.New("email already verified")
 )
 
 // AsEmailError checks to see if the passed error is of type *EmailError.

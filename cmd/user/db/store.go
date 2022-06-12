@@ -53,7 +53,7 @@ func (s Store) User(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	user := new(model.User)
 	res := s.db.WithContext(ctx).First(user, id)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return nil, rpmerrors.UserDNE
+		return nil, rpmerrors.ErrUserDNE
 	}
 	if res.Error != nil {
 		return nil, res.Error
@@ -65,7 +65,7 @@ func (s Store) UserByEmail(ctx context.Context, email string) (*model.User, erro
 	user := new(model.User)
 	res := s.db.WithContext(ctx).Where("email = ?", email).First(user)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return nil, rpmerrors.UserDNE
+		return nil, rpmerrors.ErrUserDNE
 	}
 	if res.Error != nil {
 		return nil, res.Error
@@ -88,7 +88,7 @@ func (s Store) UserByResetPasswordHash(ctx context.Context, hash string) (*model
 		).
 		First(user)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return nil, rpmerrors.UserDNE
+		return nil, rpmerrors.ErrUserDNE
 	}
 	if res.Error != nil {
 		return nil, res.Error
@@ -100,7 +100,7 @@ func (s Store) UserByVerificationHash(ctx context.Context, hash string) (*model.
 	user := new(model.User)
 	res := s.db.WithContext(ctx).First(user, "verification_hash = ?", hash)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return nil, rpmerrors.UserDNE
+		return nil, rpmerrors.ErrUserDNE
 	}
 	if res.Error != nil {
 		return nil, res.Error
@@ -167,7 +167,7 @@ func (s Store) PasswordResetByHash(ctx context.Context, hash string) (*model.Pas
 		hash,
 	)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return nil, rpmerrors.PasswordResetDNE
+		return nil, rpmerrors.ErrPasswordResetDNE
 	}
 	if res.Error != nil {
 		return nil, res.Error

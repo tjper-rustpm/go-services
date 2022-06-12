@@ -17,7 +17,7 @@ func (ep ResendEmailVerification) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	}
 
 	_, err := ep.ctrl.ResendEmailVerification(r.Context(), sess.User.ID)
-	if errors.Is(err, uerrors.EmailAlreadyVerified) {
+	if errors.Is(err, uerrors.ErrEmailAlreadyVerified) {
 		ihttp.ErrConflict(w)
 		return
 	}
