@@ -114,7 +114,7 @@ func TestGenerate(t *testing.T) {
 				if err := ioutil.WriteFile(
 					fmt.Sprintf("testdata/%s.golden", t.Name()),
 					actual,
-					0644,
+					0600,
 				); err != nil {
 					t.Error(err)
 					return
