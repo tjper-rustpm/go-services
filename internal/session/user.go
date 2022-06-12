@@ -7,9 +7,9 @@ import (
 // User is a session user. It is expected that this type is used across
 // applications to represent users via stateful sessions.
 type User struct {
-	ID      uuid.UUID `json:"id"`
-	Email   string    `json:"email"`
-	Role    Role      `json:"role"`
+	ID    uuid.UUID `json:"id"`
+	Email string    `json:"email"`
+	Role  Role      `json:"role"`
 }
 
 func (u User) Equal(u2 User) bool {
