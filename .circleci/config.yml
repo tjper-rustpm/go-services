@@ -6,13 +6,14 @@ jobs:
   lint:
     working_directory: ~/repo
     docker:
-      - image: golangci/golangci-lint:v1.42.1
+      - image: golangci/golangci-lint:v1.46.2
     steps:
       - checkout
       - run:
           name: Lint Repo
           command: |
-            golangci-lint run -v --timeout 5m
+            golangci-lint run -v --timeout 5m --disable=dupl,cyclop,exhaustruct,prealloc,lll,bodyclose,containedctx,ireturn,gosec,maligned,contextcheck,gochecknoglobals
+
   test:
     working_directory: ~/repo
     docker:
