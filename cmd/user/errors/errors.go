@@ -29,8 +29,7 @@ var (
 
 // AsEmailError checks to see if the passed error is of type *EmailError.
 func AsEmailError(err error) *EmailError {
-	emailErr := new(EmailError)
-	if errors.As(err, emailErr) {
+	if emailErr := new(EmailError); errors.As(err, emailErr) {
 		return emailErr
 	}
 	return nil
@@ -44,8 +43,7 @@ func (e EmailError) Error() string {
 
 // AsPasswordError checks to see if the passed error is of type *PasswordError.
 func AsPasswordError(err error) *PasswordError {
-	passwordError := new(PasswordError)
-	if errors.As(err, passwordError) {
+	if passwordError := new(PasswordError); errors.As(err, passwordError) {
 		return passwordError
 	}
 	return nil
@@ -59,8 +57,7 @@ func (e PasswordError) Error() string {
 
 // AsAuthError checks to see if the passed error is of type *AuthError.
 func AsAuthError(err error) *AuthError {
-	authErr := new(AuthError)
-	if errors.As(err, authErr) {
+	if authErr := new(AuthError); errors.As(err, authErr) {
 		return authErr
 	}
 	return nil
@@ -74,8 +71,7 @@ func (e AuthError) Error() string {
 
 // AsHashError checks to see if the passed error is of type *HashError.
 func AsHashError(err error) *HashError {
-	hashError := new(HashError)
-	if errors.As(err, hashError) {
+	if hashError := new(HashError); errors.As(err, hashError) {
 		return hashError
 	}
 	return nil
