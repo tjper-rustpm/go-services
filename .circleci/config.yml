@@ -75,3 +75,19 @@ workflows:
           repo: rustpm/user
           skip-when-tags-exist: false
           tag: $CIRCLE_SHA1,latest
+      - aws-ecr/build-and-push-image:
+          requires:
+            - lint
+            - test
+          account-url: AWS_ECR_ACCOUNT_URL
+          aws-access-key-id: AWS_ECR_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_ECR_SECRET_ACCESS_KEY
+          context: aws
+          create-repo: false
+          dockerfile: deploy/Dockerfile.payment
+          no-output-timeout: 20m
+          path: .
+          region: AWS_REGION
+          repo: rustpm/payment
+          skip-when-tags-exist: false
+          tag: $CIRCLE_SHA1,latest
