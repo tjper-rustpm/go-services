@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
@@ -464,6 +466,11 @@ func (ctrl *Controller) pingUntilReady(ctx context.Context, ip, password string)
 
 // --- helpers ---
 
-func rconURL(url, password string) string {
-	return fmt.Sprintf("ws://%s:28016/%s", url, password)
+func rconURL(host, password string) string {
+	url := url.URL{
+		Scheme: "ws",
+		Host:   net.JoinHostPort(host, "28016"),
+		Path:   password,
+	}
+	return url.String()
 }
