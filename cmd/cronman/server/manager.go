@@ -193,21 +193,21 @@ func (m Manager) StopInstance(
 }
 
 // MakeInstanceAvailable associates the Rust server instance with the specified
-// allocationId. The allocationId is associated with a elastic IP.
+// allocationID. The allocationID is associated with a elastic IP.
 func (m Manager) MakeInstanceAvailable(
 	ctx context.Context,
-	instanceId,
-	allocationId string,
+	instanceID,
+	allocationID string,
 ) (*AssociationOutput, error) {
 	m.logger.Info(
 		"making instance available",
-		zap.String("instance-id", instanceId),
-		zap.String("allocation-id", allocationId),
+		zap.String("instance-id", instanceID),
+		zap.String("allocation-id", allocationID),
 	)
 
 	input := &ec2.AssociateAddressInput{
-		InstanceId:   aws.String(instanceId),
-		AllocationId: aws.String(allocationId),
+		InstanceId:   aws.String(instanceID),
+		AllocationId: aws.String(allocationID),
 	}
 
 	association, err := m.ec2.AssociateAddress(ctx, input)
@@ -224,19 +224,19 @@ type AssociationOutput struct {
 	ec2.AssociateAddressOutput
 }
 
-// MakeInstanceUnavailable disassociates the specified associationId. Making
+// MakeInstanceUnavailable disassociates the specified associationID. Making
 // the related Rust server instance unavailable.
 func (m Manager) MakeInstanceUnavailable(
 	ctx context.Context,
-	associationId string,
+	associationID string,
 ) error {
 	m.logger.Info(
 		"making instance unavailable",
-		zap.String("association-id", associationId),
+		zap.String("association-id", associationID),
 	)
 
 	input := &ec2.DisassociateAddressInput{
-		AssociationId: aws.String(associationId),
+		AssociationId: aws.String(associationID),
 	}
 
 	if _, err := m.ec2.DisassociateAddress(ctx, input); err != nil {
@@ -249,23 +249,23 @@ func (m Manager) MakeInstanceUnavailable(
 // address.
 func (m Manager) TerminateInstance(
 	ctx context.Context,
-	instanceId string,
-	allocationId string,
+	instanceID string,
+	allocationID string,
 ) error {
 	{ // terminate instance
 		input := &ec2.TerminateInstancesInput{
-			InstanceIds: []string{instanceId},
+			InstanceIds: []string{instanceID},
 		}
 		if _, err := m.ec2.TerminateInstances(ctx, input); err != nil {
-			return fmt.Errorf("terminate instances; id: %s, error: %w", instanceId, err)
+			return fmt.Errorf("terminate instances; id: %s, error: %w", instanceID, err)
 		}
 	}
 	{ // release address allocation
 		input := &ec2.ReleaseAddressInput{
-			AllocationId: aws.String(allocationId),
+			AllocationId: aws.String(allocationID),
 		}
 		if _, err := m.ec2.ReleaseAddress(ctx, input); err != nil {
-			return fmt.Errorf("release address; id: %s, error: %w", allocationId, err)
+			return fmt.Errorf("release address; id: %s, error: %w", allocationID, err)
 		}
 	}
 	return nil
