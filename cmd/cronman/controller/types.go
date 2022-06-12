@@ -19,8 +19,8 @@ type IServerManager interface {
 	CreateInstance(ctx context.Context, template model.InstanceKind) (*server.CreateInstanceOutput, error)
 	StartInstance(ctx context.Context, id string, userdata string) error
 	StopInstance(ctx context.Context, id string) error
-	MakeInstanceAvailable(ctx context.Context, instanceId, allocationId string) (*server.AssociationOutput, error)
-	MakeInstanceUnavailable(ctx context.Context, associationId string) error
+	MakeInstanceAvailable(ctx context.Context, instanceID, allocationID string) (*server.AssociationOutput, error)
+	MakeInstanceUnavailable(ctx context.Context, associationID string) error
 }
 
 // IHub represents the API by which IRcon types may be created.
