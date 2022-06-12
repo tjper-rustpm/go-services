@@ -27,6 +27,7 @@ func TestLock(t *testing.T) {
 	lock.Unlock(ctx)
 
 	require.Equal(t, 1, redis.Acquired())
+	require.Equal(t, 1, redis.Attempted())
 }
 
 func TestWaitForLock(t *testing.T) {
@@ -50,6 +51,33 @@ func TestWaitForLock(t *testing.T) {
 
 	require.Equal(t, 1, redis.Acquired())
 	require.Equal(t, 3, redis.Attempted())
+}
+
+func TestUnlock(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	redis := &redisMock{
+		lock: new(sync.RWMutex),
+	}
+
+	first := NewDistributed(zap.NewNop(), redis, key, 100*time.Millisecond)
+
+	err := first.Lock(ctx)
+	require.Nil(t, err)
+
+	time.AfterFunc(100*time.Millisecond, func() {
+		first.Unlock(ctx)
+	})
+
+	second := NewDistributed(zap.NewNop(), redis, key, 100*time.Millisecond)
+
+	err = second.Lock(ctx)
+	require.Nil(t, err)
+	second.Unlock(ctx)
+
+	require.Equal(t, 2, redis.Acquired())
+	require.Equal(t, 5, redis.Attempted())
 }
 
 // --- mocks ---
