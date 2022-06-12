@@ -14,7 +14,6 @@ type Model struct {
 }
 
 // Scrub removes unpredictable data from the Model instance.
-// TODO: rename to Deterministic.
 func (m *Model) Scrub() {
 	m.ID = uuid.Nil
 	m.At.Scrub()
@@ -29,7 +28,6 @@ type At struct {
 }
 
 // Scrub removes unpredictable data from the Model instance.
-// TODO: rename to Deterministic.
 func (at *At) Scrub() {
 	at.CreatedAt = time.Time{}
 	at.UpdatedAt = time.Time{}
