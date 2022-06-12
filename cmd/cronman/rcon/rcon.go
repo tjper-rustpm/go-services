@@ -273,7 +273,7 @@ func (c Client) GrantPermission(
 		steamID,
 		permission,
 	) {
-		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
+		return fmt.Errorf("%w: \"%s\"", errUnexpectedInboundMessage, in.Message)
 	}
 
 	return nil
@@ -310,7 +310,7 @@ func (c Client) RevokePermission(
 		steamID,
 		permission,
 	) {
-		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
+		return fmt.Errorf("%w: \"%s\"", errUnexpectedInboundMessage, in.Message)
 	}
 	return nil
 }
@@ -337,7 +337,7 @@ func (c Client) CreateGroup(ctx context.Context, group string) error {
 	}
 
 	if in.Message != fmt.Sprintf("Group '%s' created", group) {
-		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
+		return fmt.Errorf("%w: \"%s\"", errUnexpectedInboundMessage, in.Message)
 	}
 	return nil
 }
@@ -369,7 +369,7 @@ func (c Client) AddToGroup(ctx context.Context, steamID, group string) error {
 		steamID,
 		group,
 	) {
-		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
+		return fmt.Errorf("%w: \"%s\"", errUnexpectedInboundMessage, in.Message)
 	}
 
 	return nil
