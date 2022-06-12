@@ -137,7 +137,6 @@ func TestGenerate(t *testing.T) {
 				)
 				return
 			}
-
 		})
 	}
 }
