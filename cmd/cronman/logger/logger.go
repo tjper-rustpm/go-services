@@ -15,13 +15,13 @@ type key string
 
 var loggerCtxKey key = "logger_context_key"
 
-// withRequestId creates a new context a requestId value.
-func withRequestId(ctx context.Context, requestId uuid.UUID) context.Context {
-	return context.WithValue(ctx, loggerCtxKey, requestId)
+// withRequestID creates a new context a requestID value.
+func withRequestID(ctx context.Context, requestID uuid.UUID) context.Context {
+	return context.WithValue(ctx, loggerCtxKey, requestID)
 }
 
-// fromRequestId retrieves the requestId from the context if it exists.
-func requestIdFromCtx(ctx context.Context) (uuid.UUID, bool) {
+// fromRequestID retrieves the requestID from the context if it exists.
+func requestIDFromCtx(ctx context.Context) (uuid.UUID, bool) {
 	val, ok := ctx.Value(loggerCtxKey).(uuid.UUID)
 	return val, ok
 }
@@ -30,8 +30,8 @@ func requestIdFromCtx(ctx context.Context) (uuid.UUID, bool) {
 // use in a zap.Logger if they are available.
 func ContextFields(ctx context.Context) []zap.Field {
 	fields := make([]zap.Field, 0)
-	if requestId, ok := requestIdFromCtx(ctx); ok {
-		fields = append(fields, zap.String("request_id", requestId.String()))
+	if requestID, ok := requestIDFromCtx(ctx); ok {
+		fields = append(fields, zap.String("request_id", requestID.String()))
 	}
 	return fields
 }
@@ -41,7 +41,7 @@ func ContextFields(ctx context.Context) []zap.Field {
 func Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := withRequestId(r.Context(), uuid.New())
+			ctx := withRequestID(r.Context(), uuid.New())
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
