@@ -13,6 +13,10 @@ type IRedis interface {
 	SetXX(context.Context, string, interface{}, time.Duration) (bool, error)
 }
 
+// NewDistributed creates a Distributed instance. The key is the redis key the
+// lock will use. All Distributed instances with the same redis instance and
+// key will contend for the same lock. The expiration is the rate at which the
+// lock is refreshed.
 func NewDistributed(
 	logger *zap.Logger,
 	redis IRedis,
@@ -80,10 +84,9 @@ func (d *Distributed) Unlock(ctx context.Context) {
 
 // --- private ---
 
-// maintainLock maintains the lock once it has been acquired. The distributed
-// lock once it has been acquired. As long at the distributed lock is being
-// refreshed, the application that originally acquired the distributed lock
-// will keep it.
+// maintainLock maintains the lock once it has been acquired. As long at the
+// distributed lock is being refreshed, the application that originally
+// acquired the distributed lock will keep it.
 func (d *Distributed) maintainLock(ctx context.Context) {
 	ticker := time.NewTicker(d.expiration / 2)
 	for {
