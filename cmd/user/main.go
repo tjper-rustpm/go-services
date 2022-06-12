@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/user/admin"
+	"github.com/tjper/rustcron/cmd/user/admins"
 	"github.com/tjper/rustcron/cmd/user/config"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/db"
@@ -40,7 +40,7 @@ func main() {
 	mailgunClient := mailgun.NewMailgun(config.MailgunDomain(), config.MailgunAPIKey())
 	store := db.NewStore(logger, dbconn)
 	emailer := email.NewMailgunEmailer(mailgunClient, config.MailgunHost())
-	admins := admin.NewAdminSet(config.Admins())
+	admins := admins.New(config.Admins())
 
 	ctrl := controller.New(store, emailer, admins)
 

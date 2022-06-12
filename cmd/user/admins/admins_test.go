@@ -1,4 +1,4 @@
-package admin
+package admins
 
 import (
 	"testing"
@@ -39,8 +39,8 @@ func TestContains(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			set := NewAdminSet(test.admins)
-			require.Equal(t, test.exp.contains, set.Contains(test.admin))
+			admins := New(test.admins)
+			require.Equal(t, test.exp.contains, admins.Contains(test.admin))
 		})
 	}
 }
