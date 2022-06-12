@@ -14,7 +14,7 @@ func NewMailgunEmailer(mg *mailgun.MailgunImpl, host string) *MailgunEmailer {
 	}
 }
 
-// MailgunEmailer is responsibel for mailgun API interactions.
+// MailgunEmailer is responsible for mailgun API interactions.
 type MailgunEmailer struct {
 	mg   *mailgun.MailgunImpl
 	host string

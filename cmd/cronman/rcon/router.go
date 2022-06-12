@@ -10,7 +10,7 @@ import (
 )
 
 // ErrRoutingIdentifier indicates that the router was unable to route a message
-// becuase routing does not exist for the identifier passed.
+// because routing does not exist for the identifier passed.
 var ErrRoutingIdentifier = errors.New("identifier routing DNE")
 
 func NewRouter(logger *zap.Logger) *Router {
