@@ -100,7 +100,7 @@ func (subs *Subscriptions) FindByUserID(ctx context.Context, db *gorm.DB, userID
 		Where("customer_id = ?", userID).
 		Find(subs).Error
 	if err != nil {
-		return fmt.Errorf("Find: %w", err)
+		return fmt.Errorf("while Find: %w", err)
 	}
 	return nil
 }
@@ -115,7 +115,7 @@ func (sub *Subscription) First(ctx context.Context, db *gorm.DB) error {
 		Preload("Invoices").
 		First(sub, sub.ID).Error
 	if err != nil {
-		return fmt.Errorf("First: %w", err)
+		return fmt.Errorf("while First: %w", err)
 	}
 	return nil
 }
@@ -246,7 +246,7 @@ GROUP BY servers.id
 `
 
 	if err := db.Raw(sql).Scan(s).Error; err != nil {
-		return fmt.Errorf("Scan: %w", err)
+		return fmt.Errorf("while Scan: %w", err)
 	}
 	return nil
 }
