@@ -27,7 +27,6 @@ func TestLock(t *testing.T) {
 	lock.Unlock(ctx)
 
 	require.Equal(t, 1, redis.Acquired())
-	require.Equal(t, 1, redis.Attempted())
 }
 
 func TestWaitForLock(t *testing.T) {
@@ -50,7 +49,6 @@ func TestWaitForLock(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	require.Equal(t, 1, redis.Acquired())
-	require.Equal(t, 3, redis.Attempted())
 }
 
 func TestUnlock(t *testing.T) {
@@ -77,7 +75,6 @@ func TestUnlock(t *testing.T) {
 	second.Unlock(ctx)
 
 	require.Equal(t, 2, redis.Acquired())
-	require.Equal(t, 5, redis.Attempted())
 }
 
 // --- mocks ---
