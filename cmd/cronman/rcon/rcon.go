@@ -239,15 +239,15 @@ func (c Client) RemoveModerator(ctx context.Context, id string) error {
 // GrantPermission grants the passed permission to the specified steam ID.
 func (c Client) GrantPermission(
 	ctx context.Context,
-	steamId, permission string,
+	steamID, permission string,
 ) error {
-	out := NewOutbound(fmt.Sprintf("oxide.grant user %s %s", steamId, permission))
+	out := NewOutbound(fmt.Sprintf("oxide.grant user %s %s", steamID, permission))
 	inboundc, err := c.router.Request(ctx, *out)
 	if err != nil {
 		return fmt.Errorf(
 			"error granting permission \"%s\" to %s; %w",
 			permission,
-			steamId,
+			steamID,
 			err,
 		)
 	}
@@ -262,15 +262,15 @@ func (c Client) GrantPermission(
 	}
 	if in.Message == fmt.Sprintf(
 		"Player '%s' already has permission '%s'",
-		steamId,
+		steamID,
 		permission,
 	) {
 		return ErrPermissionAlreadyGranted
 	}
 	if in.Message != fmt.Sprintf(
 		"Player '%s (%s)' granted permission '%s'",
-		steamId,
-		steamId,
+		steamID,
+		steamID,
 		permission,
 	) {
 		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
@@ -282,15 +282,15 @@ func (c Client) GrantPermission(
 // RevokePermission revokes the passed permission from the specified steam ID.
 func (c Client) RevokePermission(
 	ctx context.Context,
-	steamId, permission string,
+	steamID, permission string,
 ) error {
-	out := NewOutbound(fmt.Sprintf("oxide.revoke user %s %s", steamId, permission))
+	out := NewOutbound(fmt.Sprintf("oxide.revoke user %s %s", steamID, permission))
 	inboundc, err := c.router.Request(ctx, *out)
 	if err != nil {
 		return fmt.Errorf(
 			"error revoking permission \"%s\" to %s; %w",
 			permission,
-			steamId,
+			steamID,
 			err,
 		)
 	}
@@ -306,8 +306,8 @@ func (c Client) RevokePermission(
 
 	if in.Message != fmt.Sprintf(
 		"Player '%s (%s)' revoked permission '%s'",
-		steamId,
-		steamId,
+		steamID,
+		steamID,
 		permission,
 	) {
 		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
@@ -342,14 +342,14 @@ func (c Client) CreateGroup(ctx context.Context, group string) error {
 	return nil
 }
 
-// AddToGroup adds the passed steamId to the passed Oxide group.
-func (c Client) AddToGroup(ctx context.Context, steamId, group string) error {
-	out := NewOutbound(fmt.Sprintf("oxide.usergroup add %s %s", steamId, group))
+// AddToGroup adds the passed steamID to the passed Oxide group.
+func (c Client) AddToGroup(ctx context.Context, steamID, group string) error {
+	out := NewOutbound(fmt.Sprintf("oxide.usergroup add %s %s", steamID, group))
 	inboundc, err := c.router.Request(ctx, *out)
 	if err != nil {
 		return fmt.Errorf(
 			"error adding %s to group \"%s\"; %w",
-			steamId,
+			steamID,
 			group,
 			err,
 		)
@@ -366,7 +366,7 @@ func (c Client) AddToGroup(ctx context.Context, steamId, group string) error {
 
 	if in.Message != fmt.Sprintf(
 		"Player '%s' added to group: %s",
-		steamId,
+		steamID,
 		group,
 	) {
 		return fmt.Errorf("unexpected inbound message; \"%s\"", in.Message)
