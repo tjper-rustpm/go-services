@@ -10,7 +10,7 @@ import (
 
 // key is a key used to store and retrieve a logger from the context.
 // SA1029: should not use built-in type string as key for value; define your
-// own type to avoid collisions
+// own type to avoid collisions.
 type key string
 
 var loggerCtxKey key = "logger_context_key"
