@@ -65,8 +65,8 @@ func main() {
 	srv := http.Server{
 		Handler:      api.Mux,
 		Addr:         fmt.Sprintf(":%d", config.Port()),
-		ReadTimeout:  config.HttpReadTimeout(),
-		WriteTimeout: config.HttpWriteTimeout(),
+		ReadTimeout:  config.HTTPReadTimeout(),
+		WriteTimeout: config.HTTPWriteTimeout(),
 	}
 
 	// Waitgroup to ensure all supporting goroutines close properly on

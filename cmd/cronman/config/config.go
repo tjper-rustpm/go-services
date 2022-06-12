@@ -14,8 +14,8 @@ const (
 	keyRedisAddr        = "REDIS_ADDR"
 	keyRedisPassword    = "REDIS_PASSWORD"
 	keyDirectorEnabled  = "DIRECTOR_ENABLED"
-	keyHttpReadTimeout  = "HTTP_READ_TIMEOUT"
-	keyHttpWriteTimeout = "HTTP_WRITE_TIMEOUT"
+	keyHTTPReadTimeout  = "HTTP_READ_TIMEOUT"
+	keyHTTPWriteTimeout = "HTTP_WRITE_TIMEOUT"
 )
 
 var global *config
@@ -41,8 +41,8 @@ func (c *config) loadDefaults() {
 	c.viper.SetDefault(keyRedisAddr, "redis:6379")
 	c.viper.SetDefault(keyRedisPassword, "")
 	c.viper.SetDefault(keyDirectorEnabled, false)
-	c.viper.SetDefault(keyHttpReadTimeout, 500*time.Millisecond)
-	c.viper.SetDefault(keyHttpWriteTimeout, 30*time.Minute)
+	c.viper.SetDefault(keyHTTPReadTimeout, 500*time.Millisecond)
+	c.viper.SetDefault(keyHTTPWriteTimeout, 30*time.Minute)
 }
 
 func Port() int {
@@ -69,10 +69,10 @@ func DirectorEnabled() bool {
 	return global.viper.GetBool(keyDirectorEnabled)
 }
 
-func HttpReadTimeout() time.Duration {
-	return global.viper.GetDuration(keyHttpReadTimeout)
+func HTTPReadTimeout() time.Duration {
+	return global.viper.GetDuration(keyHTTPReadTimeout)
 }
 
-func HttpWriteTimeout() time.Duration {
-	return global.viper.GetDuration(keyHttpWriteTimeout)
+func HTTPWriteTimeout() time.Duration {
+	return global.viper.GetDuration(keyHTTPWriteTimeout)
 }
