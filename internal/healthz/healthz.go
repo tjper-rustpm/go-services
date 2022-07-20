@@ -27,14 +27,12 @@ type HTTP struct {
 // ServeHTTP implements the http.Handler interface.
 func (h *HTTP) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	h.mutex.RLock()
-	status := h.healthy
-	h.mutex.RUnlock()
+	defer h.mutex.RUnlock()
 
-	if status {
+	if h.healthy {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
 	w.WriteHeader(http.StatusServiceUnavailable)
 }
 
