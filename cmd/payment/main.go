@@ -116,7 +116,7 @@ func main() {
 	}()
 
 	// Wait for root context to be cancelled in a separate goroutine. Until then
-	// indicate that service is healthy via healthz package. When seperate
+	// indicate that service is healthy via healthz package. When separate
 	// goroutine cancels context, update health to "sick" and initiate
 	// http.Server.Shutdown to gracefully shutdown http API.
 	healthz.Healthy()
