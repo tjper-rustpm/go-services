@@ -20,6 +20,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/rest"
 	"github.com/tjper/rustcron/cmd/cronman/server"
 	igorm "github.com/tjper/rustcron/internal/gorm"
+	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 
@@ -59,8 +60,9 @@ func main() {
 		directorNotifier,
 	)
 
+	healthz := healthz.NewHTTP()
 	sessionMiddleware := ihttp.NewSessionMiddleware(logger, sessionManager)
-	api := rest.NewAPI(logger, ctrl, sessionMiddleware)
+	api := rest.NewAPI(logger, ctrl, sessionMiddleware, healthz)
 
 	srv := http.Server{
 		Handler:      api.Mux,
@@ -119,11 +121,15 @@ func main() {
 		}()
 	}
 
-	// Wait for root context to close in separate goroutine. When goroutine
-	// closes call http.Server.Shutdown to gracefully shutdown http API.
+	// Wait for root context to be cancelled in a separate goroutine. Until then
+	// indicate that service is healthy via healthz package. When seperate
+	// goroutine cancels context, update health to "sick" and initiate
+	// http.Server.Shutdown to gracefully shutdown http API.
+	healthz.Healthy()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer healthz.Sick()
 		<-ctx.Done()
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
