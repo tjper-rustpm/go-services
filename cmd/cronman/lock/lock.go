@@ -61,7 +61,6 @@ retry:
 				d.logger.Info("lock acquired")
 				break retry
 			}
-			d.logger.Info("lock not available")
 		}
 	}
 
@@ -101,7 +100,6 @@ func (d *Distributed) maintainLock(ctx context.Context) {
 			if !set {
 				d.logger.Fatal("failed to maintain distributed lock; set failed")
 			}
-			d.logger.Info("lock maintained")
 		}
 	}
 }
