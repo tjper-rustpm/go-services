@@ -8,7 +8,6 @@ import (
 
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/model"
-	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/validator"
@@ -48,7 +47,7 @@ func NewAPI(
 	cookieOptions ihttp.CookieOptions,
 	sessionManager ISessionManager,
 	sessionMiddleware *ihttp.SessionMiddleware,
-	healthz *healthz.HTTP,
+	healthz http.Handler,
 ) *API {
 	api := API{
 		Mux:            chi.NewRouter(),
