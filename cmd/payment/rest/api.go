@@ -63,13 +63,13 @@ func NewAPI(
 
 	api.Mux.Handle("/healthz", healthz)
 
-	api.Mux.Use(
-		sessionMiddleware.InjectSessionIntoCtx(),
-		sessionMiddleware.Touch(),
-		middleware.RequestLogger(ihttp.NewZapLogFormatter(logger)),
-	)
-
 	api.Mux.Route("/v1", func(router chi.Router) {
+		router.Use(
+			sessionMiddleware.InjectSessionIntoCtx(),
+			sessionMiddleware.Touch(),
+			middleware.RequestLogger(ihttp.NewZapLogFormatter(logger)),
+		)
+
 		router.Method(http.MethodPost, "/stripe", Stripe{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
 

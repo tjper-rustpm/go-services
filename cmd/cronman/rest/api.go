@@ -54,13 +54,13 @@ func NewAPI(
 
 	api.Mux.Handle("/healthz", healthz)
 
-	api.Mux.Use(
-		sessionMiddleware.InjectSessionIntoCtx(),
-		sessionMiddleware.Touch(),
-		middleware.RequestLogger(ihttp.NewZapLogFormatter(logger)),
-	)
-
 	api.Mux.Route("/v1", func(router chi.Router) {
+		router.Use(
+			sessionMiddleware.InjectSessionIntoCtx(),
+			sessionMiddleware.Touch(),
+			middleware.RequestLogger(ihttp.NewZapLogFormatter(logger)),
+		)
+
 		router.Group(func(router chi.Router) {
 			router.Use(sessionMiddleware.HasRole(session.RoleAdmin))
 
