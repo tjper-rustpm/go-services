@@ -64,9 +64,7 @@ func TestUnlock(t *testing.T) {
 	err := first.Lock(ctx)
 	require.Nil(t, err)
 
-	time.AfterFunc(100*time.Millisecond, func() {
-		first.Unlock(ctx)
-	})
+	first.Unlock(ctx)
 
 	second := NewDistributed(zap.NewNop(), redis, key, 100*time.Millisecond)
 
