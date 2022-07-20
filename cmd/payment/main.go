@@ -16,16 +16,17 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/rest"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/cmd/payment/stream"
+	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 	istream "github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
-	"golang.org/x/sys/unix"
-	"gorm.io/gorm"
 
 	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/stripe/stripe-go/v72/client"
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -52,6 +53,7 @@ func main() {
 		stripeClient.CheckoutSessions,
 	)
 
+	healthz := healthz.NewHTTP()
 	api := rest.NewAPI(
 		logger,
 		store,
@@ -62,6 +64,7 @@ func main() {
 			logger,
 			sessionManager,
 		),
+		healthz,
 	)
 
 	srv := http.Server{
@@ -112,9 +115,15 @@ func main() {
 		}
 	}()
 
+	// Wait for root context to be cancelled in a separate goroutine. Until then
+	// indicate that service is healthy via healthz package. When seperate
+	// goroutine cancels context, update health to "sick" and initiate
+	// http.Server.Shutdown to gracefully shutdown http API.
+	healthz.Healthy()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer healthz.Sick()
 		<-ctx.Done()
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)

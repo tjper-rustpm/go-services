@@ -7,6 +7,7 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/gorm"
+	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/validator"
@@ -49,6 +50,7 @@ func NewAPI(
 	stream IStream,
 	stripe IStripe,
 	sessionMiddleware *ihttp.SessionMiddleware,
+	healthz *healthz.HTTP,
 ) *API {
 	api := API{
 		Mux:     chi.NewRouter(),
@@ -59,6 +61,8 @@ func NewAPI(
 		stripe:  stripe,
 		stream:  stream,
 	}
+
+	api.Mux.Handle("/healthz", healthz)
 
 	api.Mux.Use(
 		sessionMiddleware.InjectSessionIntoCtx(),
