@@ -16,6 +16,7 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/cmd/payment/stream"
 	"github.com/tjper/rustcron/internal/event"
+	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/rand"
@@ -490,6 +491,8 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		require.ErrorIs(t, err, context.Canceled)
 	}()
 
+	healthz := healthz.NewHTTP()
+
 	api := NewAPI(
 		s.Logger,
 		store,
@@ -497,6 +500,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		s.Stream,
 		stripe,
 		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
+		healthz,
 	)
 
 	var (

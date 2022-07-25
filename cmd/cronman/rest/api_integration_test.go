@@ -6,6 +6,7 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
 	"github.com/tjper/rustcron/internal/gorm"
+	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/rand"
@@ -42,7 +44,7 @@ func TestCreateServer(t *testing.T) {
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer resp.Body.Close()
 
-		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 	})
 
 	sess = suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
@@ -68,7 +70,7 @@ func TestStartServer(t *testing.T) {
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
 
-		require.Equal(t, http.StatusCreated, createResp.StatusCode)
+		require.Equal(t, http.StatusAccepted, createResp.StatusCode)
 
 		var server map[string]interface{}
 		err := json.NewDecoder(createResp.Body).Decode(&server)
@@ -80,11 +82,19 @@ func TestStartServer(t *testing.T) {
 		require.True(t, ok)
 	})
 
+	t.Run("wait until server is dormant", func(t *testing.T) {
+		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "dormant")
+	})
+
 	t.Run("start server with admin user", func(t *testing.T) {
 		resp := suite.postStartServer(ctx, t, sess, serverID)
 		defer resp.Body.Close()
 
-		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	})
+
+	t.Run("wait until server is live", func(t *testing.T) {
+		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "live")
 	})
 
 	t.Run("start server that is live", func(t *testing.T) {
@@ -117,7 +127,7 @@ func TestStopServer(t *testing.T) {
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
 
-		require.Equal(t, http.StatusCreated, createResp.StatusCode)
+		require.Equal(t, http.StatusAccepted, createResp.StatusCode)
 
 		var server map[string]interface{}
 		err := json.NewDecoder(createResp.Body).Decode(&server)
@@ -129,11 +139,19 @@ func TestStopServer(t *testing.T) {
 		require.True(t, ok)
 	})
 
+	t.Run("wait until server is dormant", func(t *testing.T) {
+		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "dormant")
+	})
+
 	t.Run("start server with admin user", func(t *testing.T) {
 		resp := suite.postStartServer(ctx, t, sess, serverID)
 		defer resp.Body.Close()
 
-		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	})
+
+	t.Run("wait until server is live", func(t *testing.T) {
+		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "live")
 	})
 
 	standardSess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
@@ -149,7 +167,11 @@ func TestStopServer(t *testing.T) {
 		resp := suite.postStopServer(ctx, t, sess, serverID)
 		defer resp.Body.Close()
 
-		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	})
+
+	t.Run("wait until server is dormant", func(t *testing.T) {
+		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "dormant")
 	})
 
 	t.Run("stop server that is dormant", func(t *testing.T) {
@@ -173,7 +195,7 @@ func setup(
 	s := integration.InitSuite(ctx, t)
 	sessions := session.InitSuite(ctx, t)
 
-	logger := zap.NewExample()
+	logger := zap.NewNop()
 
 	const (
 		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
@@ -202,10 +224,13 @@ func setup(
 		director.NewNotifier(logger, redis.Redis),
 	)
 
+	healthz := healthz.NewHTTP()
+
 	api := NewAPI(
-		s.Logger,
+		logger,
 		ctrl,
 		ihttp.NewSessionMiddleware(logger, sessions.Manager),
+		healthz,
 	)
 
 	return &suite{
@@ -255,6 +280,36 @@ func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session
 	require.Nil(t, err)
 
 	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server", body, sess)
+}
+
+func (s suite) waitUntilServerIsReady(ctx context.Context, t *testing.T, sess *session.Session, serverID string, kind string) error {
+	t.Helper()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			resp := s.Request(ctx, t, s.api, http.MethodGet, fmt.Sprintf("/v1/server/%s", serverID), nil, sess)
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				resp.Body.Close()
+				continue
+			}
+
+			server := make(map[string]interface{})
+			err := json.NewDecoder(resp.Body).Decode(&server)
+			require.Nil(t, err)
+
+			if server["kind"] == kind {
+				return nil
+			}
+		}
+	}
 }
 
 func (s suite) postStartServer(ctx context.Context, t *testing.T, sess *session.Session, serverID string) *http.Response {

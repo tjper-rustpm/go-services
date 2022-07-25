@@ -1,13 +1,18 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
+
+	ierrors "github.com/tjper/rustcron/cmd/cronman/errors"
+	"github.com/tjper/rustcron/cmd/cronman/model"
+	ihttp "github.com/tjper/rustcron/internal/http"
 
 	"github.com/google/uuid"
-	cronmanerrors "github.com/tjper/rustcron/cmd/cronman/errors"
-	ihttp "github.com/tjper/rustcron/internal/http"
+	"go.uber.org/zap"
 )
 
 type StopServer struct{ API }
@@ -28,30 +33,24 @@ func (ep StopServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server, err := ep.ctrl.StopServer(r.Context(), b.ServerID)
-	if errors.Is(err, cronmanerrors.ErrServerDNE) {
+	server, err := ep.ctrl.GetServer(r.Context(), b.ServerID)
+	if errors.Is(err, ierrors.ErrServerDNE) {
 		ihttp.ErrNotFound(w)
 		return
 	}
-	if errors.Is(err, cronmanerrors.ErrServerNotLive) {
+
+	if _, ok := server.(*model.LiveServer); !ok {
 		ihttp.ErrConflict(w)
 		return
 	}
-	if err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
-		return
-	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusAccepted)
 
-	dormant, err := DormantServerFromModel(*server)
-	if err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
 
-	if err := json.NewEncoder(w).Encode(dormant); err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
+	if _, err := ep.ctrl.StopServer(ctx, b.ServerID); err != nil {
+		ep.logger.Error("while stopping server", zap.Error(err))
 		return
 	}
 }

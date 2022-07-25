@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 
 type IController interface {
 	CreateServer(context.Context, model.Server) (*model.DormantServer, error)
+	GetServer(context.Context, uuid.UUID) (interface{}, error)
 	UpdateServer(context.Context, controller.UpdateServerInput) (*model.DormantServer, error)
 	ArchiveServer(context.Context, uuid.UUID) (*model.ArchivedServer, error)
 	StartServer(context.Context, uuid.UUID, ...userdata.Option) (*model.DormantServer, error)
@@ -91,6 +93,7 @@ func NewAPI(
 		})
 
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
+		router.Method(http.MethodGet, fmt.Sprintf("/server/{%s}", serverIDParam), GetServer{API: api})
 	})
 
 	return &api

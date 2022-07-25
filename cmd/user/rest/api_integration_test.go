@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/user/admin"
+	"github.com/tjper/rustcron/cmd/user/admins"
 	"github.com/tjper/rustcron/cmd/user/config"
 	"github.com/tjper/rustcron/cmd/user/controller"
 	"github.com/tjper/rustcron/cmd/user/db"
 	email "github.com/tjper/rustcron/internal/email"
+	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/session"
@@ -495,8 +496,10 @@ func setup(
 	ctrl := controller.New(
 		db.NewStore(s.Logger, dbconn),
 		emailer,
-		admin.NewAdminSet([]string{"rustcron@gmail.com"}),
+		admins.New([]string{"rustcron@gmail.com"}),
 	)
+
+	healthz := healthz.NewHTTP()
 
 	api := NewAPI(
 		s.Logger,
@@ -508,6 +511,7 @@ func setup(
 		},
 		sessions.Manager,
 		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
+		healthz,
 	)
 
 	return &suite{

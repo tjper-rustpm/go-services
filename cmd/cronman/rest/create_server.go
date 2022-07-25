@@ -1,10 +1,14 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
+	"github.com/google/uuid"
 	ihttp "github.com/tjper/rustcron/internal/http"
+	"go.uber.org/zap"
 )
 
 type CreateServer struct{ API }
@@ -21,22 +25,27 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server, err := ep.ctrl.CreateServer(r.Context(), b.ToModelServer())
+	id, err := uuid.NewRandom()
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusAccepted)
 
-	dormant, err := DormantServerFromModel(*server)
-	if err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
+	var resp CreateServerResponse
+	resp.FromUUID(id)
+
+	if err := json.NewEncoder(w).Encode(&resp); err != nil {
+		ep.logger.Error("while encoding create server response", zap.Error(err))
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(dormant); err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	if _, err := ep.ctrl.CreateServer(ctx, b.ToModelServer(id)); err != nil {
+		ep.logger.Error("while creating server", zap.Error(err))
 		return
 	}
 }

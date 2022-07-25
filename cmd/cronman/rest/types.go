@@ -5,6 +5,7 @@ import (
 
 	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/model"
+	imodel "github.com/tjper/rustcron/internal/model"
 
 	"github.com/google/uuid"
 )
@@ -29,7 +30,7 @@ type CreateServerBody struct {
 	Tags       Tags       `json:"tags" validate:"required,dive,required"`
 }
 
-func (body CreateServerBody) ToModelServer() model.Server {
+func (body CreateServerBody) ToModelServer(id uuid.UUID) model.Server {
 	events := make(model.Events, 0, len(body.Events))
 	for _, event := range body.Events {
 		events = append(
@@ -55,6 +56,7 @@ func (body CreateServerBody) ToModelServer() model.Server {
 	}
 
 	return model.Server{
+		Model:        imodel.Model{ID: id},
 		Name:         body.Name,
 		InstanceKind: body.InstanceKind,
 		MaxPlayers:   body.MaxPlayers,
@@ -70,6 +72,16 @@ func (body CreateServerBody) ToModelServer() model.Server {
 		Events:       events,
 		Moderators:   moderators,
 		Tags:         tags,
+	}
+}
+
+type CreateServerResponse struct {
+	ID uuid.UUID `json:"id"`
+}
+
+func (r *CreateServerResponse) FromUUID(id uuid.UUID) {
+	*r = CreateServerResponse{
+		ID: id,
 	}
 }
 

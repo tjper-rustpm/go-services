@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
+	ierrors "github.com/tjper/rustcron/cmd/cronman/errors"
 	"github.com/tjper/rustcron/cmd/cronman/logger"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
@@ -51,6 +52,32 @@ func (ctrl Controller) CreateServer(
 	}
 
 	return dormant, nil
+}
+
+// GetServer retrieves the server from the underlyig store. The returned
+// interface{} may be a model.LiveServer or a model.DormantServer. If a
+// server has been archived or DNE, the interface{} will be nil and a
+// 2nd return value of ErrServerDNE will be returned.
+func (ctrl Controller) GetServer(
+	ctx context.Context,
+	id uuid.UUID,
+) (interface{}, error) {
+	liveServer, err := ctrl.store.GetLiveServer(ctx, id)
+	if err == nil {
+		return liveServer, nil
+	}
+	if err != nil && !errors.Is(err, ierrors.ErrServerNotLive) {
+		return nil, err
+	}
+
+	dormantServer, err := ctrl.store.GetDormantServer(ctx, id)
+	if errors.Is(err, ierrors.ErrServerNotDormant) {
+		return nil, ierrors.ErrServerDNE
+	}
+	if err != nil {
+		return nil, err
+	}
+	return dormantServer, nil
 }
 
 type UpdateServerInput struct {
