@@ -46,11 +46,13 @@ func (ep StopServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		defer cancel()
 
-	if _, err := ep.ctrl.StopServer(ctx, b.ServerID); err != nil {
-		ep.logger.Error("while stopping server", zap.Error(err))
-		return
-	}
+		if _, err := ep.ctrl.StopServer(ctx, b.ServerID); err != nil {
+			ep.logger.Error("while stopping server", zap.Error(err))
+			return
+		}
+	}()
 }

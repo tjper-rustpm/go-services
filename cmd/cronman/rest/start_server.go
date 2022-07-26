@@ -46,16 +46,18 @@ func (ep StartServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusAccepted)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		defer cancel()
 
-	if _, err = ep.ctrl.StartServer(ctx, b.ServerID); err != nil {
-		ep.logger.Error("while starting server", zap.Error(err))
-		return
-	}
+		if _, err = ep.ctrl.StartServer(ctx, b.ServerID); err != nil {
+			ep.logger.Error("while starting server", zap.Error(err))
+			return
+		}
 
-	if _, err := ep.ctrl.MakeServerLive(ctx, b.ServerID); err != nil {
-		ep.logger.Error("while making server live", zap.Error(err))
-		return
-	}
+		if _, err := ep.ctrl.MakeServerLive(ctx, b.ServerID); err != nil {
+			ep.logger.Error("while making server live", zap.Error(err))
+			return
+		}
+	}()
 }

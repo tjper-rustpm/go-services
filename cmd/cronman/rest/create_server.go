@@ -41,11 +41,13 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		defer cancel()
 
-	if _, err := ep.ctrl.CreateServer(ctx, b.ToModelServer(id)); err != nil {
-		ep.logger.Error("while creating server", zap.Error(err))
-		return
-	}
+		if _, err := ep.ctrl.CreateServer(ctx, b.ToModelServer(id)); err != nil {
+			ep.logger.Error("while creating server", zap.Error(err))
+			return
+		}
+	}()
 }
