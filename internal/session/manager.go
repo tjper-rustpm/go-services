@@ -299,10 +299,10 @@ func (m Manager) update(
 				return nil
 			})
 			if err != nil {
-				m.logger.Error("update", zap.Error(err))
+				return err
 			}
 			updatedSess = sess
-			return err
+			return nil
 		}
 
 		for i := 0; i < maxRetries; i++ {
