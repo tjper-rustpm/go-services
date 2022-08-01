@@ -65,6 +65,7 @@ func main() {
 			sessionManager,
 		),
 		healthz,
+		rest.WithCheckout(cfg.CheckoutEnabled()),
 	)
 
 	srv := http.Server{

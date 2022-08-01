@@ -11,6 +11,7 @@ const (
 	keyRedisPassword       = "REDIS_PASSWORD"
 	keyStripeKey           = "STRIPE_KEY"
 	keyStripeWebhookSecret = "STRIPE_WEBHOOK_SECRET"
+	keyCheckoutEnabled     = "CHECKOUT_ENABLED"
 )
 
 func Load() *Config {
@@ -34,6 +35,7 @@ func (c *Config) defaults() {
 	c.v.SetDefault(keyRedisPassword, "")
 	c.v.SetDefault(keyStripeKey, "")
 	c.v.SetDefault(keyStripeWebhookSecret, "")
+	c.v.SetDefault(keyCheckoutEnabled, true)
 }
 
 func (c Config) DSN() string                 { return c.v.GetString(keyDSN) }
@@ -43,3 +45,4 @@ func (c Config) RedisAddr() string           { return c.v.GetString(keyRedisAddr
 func (c Config) RedisPassword() string       { return c.v.GetString(keyRedisPassword) }
 func (c Config) StripeKey() string           { return c.v.GetString(keyStripeKey) }
 func (c Config) StripeWebhookSecret() string { return c.v.GetString(keyStripeWebhookSecret) }
+func (c Config) CheckoutEnabled() bool       { return c.v.GetBool(keyCheckoutEnabled) }
