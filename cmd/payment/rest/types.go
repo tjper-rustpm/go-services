@@ -25,6 +25,9 @@ type Subscriptions []Subscription
 
 // FromModelSubscription converts a []model.Subscription into []Subscription.
 func (subs *Subscriptions) FromModelSubscriptions(froms []model.Subscription) {
+	if subs == nil {
+		*subs = make(Subscriptions, 0, len(froms))
+	}
 	for _, from := range froms {
 		*subs = append(
 			*subs,
