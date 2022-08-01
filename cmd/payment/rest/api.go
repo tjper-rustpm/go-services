@@ -50,15 +50,21 @@ func NewAPI(
 	stripe IStripe,
 	sessionMiddleware *ihttp.SessionMiddleware,
 	healthz http.Handler,
+	options ...Option,
 ) *API {
 	api := API{
-		Mux:     chi.NewRouter(),
-		logger:  logger,
-		valid:   validator.New(),
-		staging: staging,
-		store:   store,
-		stripe:  stripe,
-		stream:  stream,
+		Mux:             chi.NewRouter(),
+		logger:          logger,
+		valid:           validator.New(),
+		staging:         staging,
+		store:           store,
+		stripe:          stripe,
+		stream:          stream,
+		checkoutEnabled: true,
+	}
+
+	for _, option := range options {
+		option(&api)
 	}
 
 	api.Mux.Handle("/healthz", healthz)
@@ -103,4 +109,17 @@ type API struct {
 	store   IStore
 	stripe  IStripe
 	stream  IStream
+
+	checkoutEnabled bool
+}
+
+// Option configures the API instance. Option instances are typically used
+// with NewAPI to configure an API instance.
+type Option func(*API)
+
+// WithCheckout creates an Option that enables/disables payment checkout.
+func WithCheckout(enabled bool) Option {
+	return func(api *API) {
+		api.checkoutEnabled = enabled
+	}
 }

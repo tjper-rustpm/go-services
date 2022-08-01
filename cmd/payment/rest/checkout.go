@@ -40,6 +40,11 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !ep.checkoutEnabled {
+		ihttp.ErrNotFound(w)
+		return
+	}
+
 	sess, ok := session.FromContext(r.Context())
 	if !ok {
 		ihttp.ErrUnauthorized(w)

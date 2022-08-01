@@ -24,6 +24,7 @@ import (
 	"github.com/tjper/rustcron/internal/session"
 	istream "github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
+	"go.uber.org/zap"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -34,7 +35,23 @@ func TestIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	suite := setup(ctx, t)
+	var (
+		alpha   = uuid.New()
+		bravo   = uuid.New()
+		charlie = uuid.New()
+		delta   = uuid.New()
+	)
+
+	suite := setup(
+		ctx,
+		t,
+		map[uuid.UUID]*server{
+			alpha:   &server{id: alpha, subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0},
+			bravo:   &server{id: bravo, subscriptionLimit: 10, createSubscriptionsCnt: 10, removeSubscriptionsCnt: 1},
+			charlie: &server{id: charlie, subscriptionLimit: 20, createSubscriptionsCnt: 15, removeSubscriptionsCnt: 10},
+			delta:   &server{id: delta, subscriptionLimit: 30, createSubscriptionsCnt: 30, removeSubscriptionsCnt: 30},
+		},
+	)
 
 	admin := suite.sessions.CreateSession(ctx, t, "rustcron-admin@gmail.com", session.RoleAdmin)
 	standard := suite.sessions.CreateSession(ctx, t, "rustcron-standard@gmail.com", session.RoleStandard)
@@ -62,11 +79,11 @@ func TestIntegration(t *testing.T) {
 	})
 
 	t.Run("create alpha subscription", func(t *testing.T) {
-		suite.testCheckoutSubscribePaidInvoice(ctx, t, suite.alpha.id)
+		suite.testCheckoutSubscribePaidInvoice(ctx, t, alpha)
 	})
 
 	t.Run("remove alpha subscription", func(t *testing.T) {
-		suite.testBillingPaymentFailureInvoice(ctx, t, suite.alpha.id)
+		suite.testBillingPaymentFailureInvoice(ctx, t, alpha)
 	})
 
 	t.Run("create subscriptions w/ all servers", func(t *testing.T) {
@@ -103,6 +120,54 @@ func TestIntegration(t *testing.T) {
 			require.Equal(t, expected.subscriptionLimit, actualServer.SubscriptionLimit)
 			require.Equal(t, expectedActiveSubscriptions, actualServer.ActiveSubscriptions)
 		}
+	})
+}
+
+func TestDisabledCheckoutIntegration(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	alpha := uuid.New()
+
+	suite := setup(
+		ctx,
+		t,
+		map[uuid.UUID]*server{
+			alpha: &server{id: alpha, subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0},
+		},
+		WithCheckout(false),
+	)
+
+	admin := suite.sessions.CreateSession(ctx, t, "rustcron-admin@gmail.com", session.RoleAdmin)
+	standard := suite.sessions.CreateSession(ctx, t, "rustcron-standard@gmail.com", session.RoleStandard)
+
+	t.Run("create servers w/ admin user", func(t *testing.T) {
+		for id, server := range suite.servers {
+			suite.postServer(ctx, t, id, server.subscriptionLimit, admin)
+		}
+	})
+
+	t.Run("create checkout w/ checkouts disabled", func(t *testing.T) {
+		steamID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		body := map[string]interface{}{
+			"serverId":   alpha,
+			"steamId":    steamID,
+			"cancelUrl":  "http://rustpm.com/payment/cancel",
+			"successUrl": "http://rustpm.com/payment/success",
+			"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
+		}
+
+		resp := suite.Request(ctx, t, suite.api, http.MethodPost, "/v1/checkout", body, standard)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	})
+
+	t.Run("get servers w/ checkouts disabled", func(t *testing.T) {
+		servers := suite.getServers(ctx, t)
+		require.Equal(t, 0, len(servers))
 	})
 }
 
@@ -451,8 +516,9 @@ func (s suite) validateStripeWebhookEvent(ctx context.Context, t *testing.T) {
 	require.True(t, ok)
 }
 
-func setup(ctx context.Context, t *testing.T) *suite {
+func setup(ctx context.Context, t *testing.T, servers map[uuid.UUID]*server, options ...Option) *suite {
 	t.Helper()
+	logger := zap.NewNop()
 
 	redis := redis.InitSuite(ctx, t)
 	err := redis.Redis.FlushAll(ctx).Err()
@@ -477,11 +543,11 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
 
-	streamClient, err := istream.Init(ctx, s.Logger, redis.Redis, "payment")
+	streamClient, err := istream.Init(ctx, logger, redis.Redis, "payment")
 	require.Nil(t, err)
 
 	streamHandler := stream.NewHandler(
-		s.Logger,
+		logger,
 		staging,
 		store,
 		streamClient,
@@ -494,28 +560,15 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	healthz := healthz.NewHTTP()
 
 	api := NewAPI(
-		s.Logger,
+		logger,
 		store,
 		staging,
-		s.Stream,
+		streamClient,
 		stripe,
-		ihttp.NewSessionMiddleware(s.Logger, sessions.Manager),
+		ihttp.NewSessionMiddleware(logger, sessions.Manager),
 		healthz,
+		options...,
 	)
-
-	var (
-		alpha   = &server{id: uuid.New(), subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0}
-		bravo   = &server{id: uuid.New(), subscriptionLimit: 10, createSubscriptionsCnt: 10, removeSubscriptionsCnt: 1}
-		charlie = &server{id: uuid.New(), subscriptionLimit: 20, createSubscriptionsCnt: 15, removeSubscriptionsCnt: 10}
-		delta   = &server{id: uuid.New(), subscriptionLimit: 30, createSubscriptionsCnt: 30, removeSubscriptionsCnt: 30}
-	)
-
-	servers := map[uuid.UUID]*server{
-		alpha.id:   alpha,
-		bravo.id:   bravo,
-		charlie.id: charlie,
-		delta.id:   delta,
-	}
 
 	return &suite{
 		Suite:    *s,
@@ -525,7 +578,6 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		staging:  staging,
 		stripe:   stripe,
 		servers:  servers,
-		alpha:    alpha,
 	}
 }
 
