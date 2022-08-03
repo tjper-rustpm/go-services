@@ -149,16 +149,13 @@ func (s Store) ListActiveServerEvents(ctx context.Context) (model.Events, error)
 		Where(
 			"EXISTS (?)",
 			s.db.
-				Model(&model.LiveServer{}).
+				Model(&model.Server{}).
 				Select("1").
-				Where("live_servers.id = events.server_id"),
-		).
-		Or(
-			"EXISTS (?)",
-			s.db.
-				Model(&model.DormantServer{}).
-				Select("1").
-				Where("dormant_servers.id = events.server_id"),
+				Where("servers.id = events.server_id").
+				Where(
+					s.db.Where("servers.state_type = ?", model.LiveServerState).
+						Or("servers.state_type = ?", model.DormantServerState),
+				),
 		).
 		Find(&events); res.Error != nil {
 		return nil, res.Error
