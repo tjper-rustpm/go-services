@@ -40,6 +40,11 @@ func (dir Director) WatchAndDirect(ctx context.Context) error {
 
 		scheduler := cron.New()
 		for _, event := range events {
+			dir.logger.Info("adding event to scheduler",
+				zap.Stringer("event-id", event.ID),
+				zap.String("schedule", event.Schedule),
+				zap.String("kind", string(event.Kind)),
+			)
 			if _, err := scheduler.AddFunc(
 				event.Schedule,
 				func() {
