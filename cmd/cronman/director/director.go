@@ -48,7 +48,7 @@ func (dir Director) WatchAndDirect(ctx context.Context) error {
 			if _, err := scheduler.AddFunc(
 				event.Schedule,
 				func() {
-					if !event.IsWeekDay(time.Now().UTC()) {
+					if event.Weekday != nil && !event.IsWeekDay(time.Now().UTC()) {
 						return
 					}
 					dir.Direct(ctx, event)
