@@ -58,18 +58,20 @@ func (dir Director) schedule(
 ) error {
 	scheduler := cron.New()
 	for _, event := range events {
+		this := event
+
 		if _, err := scheduler.AddFunc(
-			event.Schedule,
+			this.Schedule,
 			func() {
-				if event.Weekday != nil && !event.IsWeekDay(time.Now().UTC()) {
+				if this.Weekday != nil && !this.IsWeekDay(time.Now().UTC()) {
 					return
 				}
-				dir.Direct(ctx, event)
+				dir.Direct(ctx, this)
 			},
 		); err != nil {
 			dir.logger.Error(
 				"schedule event",
-				zap.Stringer("event-id", event.ID),
+				zap.Stringer("event-id", this.ID),
 				zap.Error(err),
 			)
 		}
