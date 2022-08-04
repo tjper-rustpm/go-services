@@ -10,6 +10,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/userdata"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
@@ -38,36 +39,53 @@ func (dir Director) WatchAndDirect(ctx context.Context) error {
 			return fmt.Errorf("failed to list events; %w", err)
 		}
 
-		scheduler := cron.New()
-		for _, event := range events {
-			dir.logger.Info("adding event to scheduler",
-				zap.Stringer("event-id", event.ID),
-				zap.String("schedule", event.Schedule),
-				zap.String("kind", string(event.Kind)),
-			)
-			if _, err := scheduler.AddFunc(
-				event.Schedule,
-				func() {
-					if event.Weekday != nil && !event.IsWeekDay(time.Now().UTC()) {
-						return
-					}
-					dir.Direct(ctx, event)
-				},
-			); err != nil {
-				dir.logger.Error(
-					"schedule event",
-					zap.Stringer("event-id", event.ID),
-					zap.Error(err),
-				)
-			}
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-sub.Channel():
+		err = dir.schedule(ctx, sub.Channel(), events)
+		if errors.Is(err, errDirectorRefresh) {
 			continue
 		}
+		if err != nil {
+			return fmt.Errorf("while scheduling events: %w", err)
+		}
+	}
+}
+
+var errDirectorRefresh = errors.New("director refresh received")
+
+func (dir Director) schedule(
+	ctx context.Context,
+	refresh <-chan *redis.Message,
+	events model.Events,
+) error {
+	scheduler := cron.New()
+	for _, event := range events {
+		if _, err := scheduler.AddFunc(
+			event.Schedule,
+			func() {
+				if event.Weekday != nil && !event.IsWeekDay(time.Now().UTC()) {
+					return
+				}
+				dir.Direct(ctx, event)
+			},
+		); err != nil {
+			dir.logger.Error(
+				"schedule event",
+				zap.Stringer("event-id", event.ID),
+				zap.Error(err),
+			)
+		}
+	}
+
+	scheduler.Start()
+	defer func() {
+		ctx := scheduler.Stop()
+		<-ctx.Done()
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-refresh:
+		return errDirectorRefresh
 	}
 }
 
