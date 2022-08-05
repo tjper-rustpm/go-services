@@ -14,8 +14,12 @@
 	"region": "usEast",
 	"events": [
 		{
-			"schedule": "0 18 * * *",
+			"schedule": "40 17 * * *",
 			"kind": "start"
+		},
+		{
+			"schedule": "0 18 * * *",
+			"kind": "live"
 		},
 		{
 			"schedule": "0 4 * * *",

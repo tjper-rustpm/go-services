@@ -175,7 +175,7 @@ type DormantServer struct {
 }
 
 func DormantServerFromModel(dormant model.DormantServer) (*DormantServer, error) {
-	_, at, err := dormant.Server.Events.NextEvent(time.Now().UTC(), model.EventKindStart)
+	_, at, err := dormant.Server.Events.NextEvent(time.Now().UTC(), model.EventKindLive)
 	if err != nil {
 		return nil, err
 	}
