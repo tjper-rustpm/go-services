@@ -124,12 +124,7 @@ type RemoveServerModeratorsBody struct {
 	ModeratorIDs []uuid.UUID `json:"moderatorIds" validate:"required"`
 }
 
-func ServerFromModel(server model.Server) (*Server, error) {
-	eventsAt, err := EventsAtFromModel(server.Events)
-	if err != nil {
-		return nil, err
-	}
-
+func ServerFromModel(server model.Server) *Server {
 	return &Server{
 		Name:         server.Name,
 		InstanceKind: server.InstanceKind,
@@ -142,8 +137,8 @@ func ServerFromModel(server model.Server) (*Server, error) {
 		Description:  server.Description,
 		Background:   server.Background,
 		Tags:         TagsFromModel(server.Tags),
-		Events:       eventsAt,
-	}, nil
+		Events:       EventsFromModel(server.Events),
+	}
 }
 
 type Server struct {
@@ -158,7 +153,7 @@ type Server struct {
 	Description  string               `json:"description"`
 	Background   model.BackgroundKind `json:"background"`
 	Tags         Tags                 `json:"tags"`
-	Events       EventsAt             `json:"events"`
+	Events       Events               `json:"events"`
 }
 
 const (
@@ -180,11 +175,7 @@ func DormantServerFromModel(dormant model.DormantServer) (*DormantServer, error)
 		return nil, err
 	}
 
-	server, err := ServerFromModel(dormant.Server)
-	if err != nil {
-		return nil, err
-	}
-
+	server := ServerFromModel(dormant.Server)
 	return &DormantServer{
 		Header: Header{
 			ID:   dormant.Server.ID,
@@ -205,12 +196,8 @@ type LiveServer struct {
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
-func LiveServerFromModel(live model.LiveServer) (*LiveServer, error) {
-	server, err := ServerFromModel(live.Server)
-	if err != nil {
-		return nil, err
-	}
-
+func LiveServerFromModel(live model.LiveServer) *LiveServer {
+	server := ServerFromModel(live.Server)
 	return &LiveServer{
 		Header: Header{
 			ID:   live.Server.ID,
@@ -220,7 +207,7 @@ func LiveServerFromModel(live model.LiveServer) (*LiveServer, error) {
 		ActivePlayers: live.ActivePlayers,
 		QueuedPlayers: live.QueuedPlayers,
 		CreatedAt:     live.CreatedAt,
-	}, nil
+	}
 }
 
 type ArchivedServer struct {
@@ -228,19 +215,15 @@ type ArchivedServer struct {
 	Server
 }
 
-func ArchivedServerFromModel(archived model.ArchivedServer) (*ArchivedServer, error) {
-	server, err := ServerFromModel(archived.Server)
-	if err != nil {
-		return nil, err
-	}
-
+func ArchivedServerFromModel(archived model.ArchivedServer) *ArchivedServer {
+	server := ServerFromModel(archived.Server)
 	return &ArchivedServer{
 		Header: Header{
 			ID:   archived.Server.ID,
 			Kind: "archived",
 		},
 		Server: *server,
-	}, nil
+	}
 }
 
 type Header struct {
@@ -327,32 +310,6 @@ type Event struct {
 	Weekday  *time.Weekday   `json:"weekday,omitempty" validate:"omitempty,min=0,max=6"`
 	Kind     model.EventKind `json:"kind" validate:"required"`
 }
-
-func EventsAtFromModel(modelEvents model.Events) (EventsAt, error) {
-	now := time.Now().UTC()
-	until := now.Add(7 * 24 * time.Hour) // 1 week
-	events := make(EventsAt, 0, len(modelEvents))
-	for _, event := range modelEvents {
-		occurrences, err := event.Occurrences(now, until)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, occurrence := range occurrences {
-			events = append(
-				events,
-				EventAt{
-					ID:   event.ID,
-					At:   occurrence,
-					Kind: event.Kind,
-				},
-			)
-		}
-	}
-	return events, nil
-}
-
-type EventsAt []EventAt
 
 type EventAt struct {
 	ID   uuid.UUID       `json:"id"`

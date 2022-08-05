@@ -46,7 +46,7 @@ func (ep GetServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var resp interface{}
 	switch server := serverI.(type) {
 	case *model.LiveServer:
-		resp, err = LiveServerFromModel(*server)
+		resp = LiveServerFromModel(*server)
 	case *model.DormantServer:
 		resp, err = DormantServerFromModel(*server)
 	}

@@ -40,12 +40,7 @@ func (ep ArchiveServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 
-	archived, err := ArchivedServerFromModel(*server)
-	if err != nil {
-		ihttp.ErrInternal(ep.logger, w, err)
-		return
-	}
-
+	archived := ArchivedServerFromModel(*server)
 	if err := json.NewEncoder(w).Encode(archived); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
