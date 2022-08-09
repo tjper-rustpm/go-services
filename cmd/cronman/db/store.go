@@ -342,5 +342,5 @@ func (s Store) MakeServerArchived(ctx context.Context, id uuid.UUID) (*model.Arc
 	}); err != nil {
 		return nil, err
 	}
-	return s.GetArchivedServer(ctx, server.ID)
+	return s.GetArchivedServer(ctx, id)
 }
