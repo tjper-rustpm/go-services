@@ -54,7 +54,6 @@ func (w Waiter) UntilReady(
 			return err
 		}
 		defer client.Close()
-		logger.Info("RCON server dialed")
 
 		// check if rcon may be used
 		info, err := client.ServerInfo(ctx)

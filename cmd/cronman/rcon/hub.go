@@ -36,9 +36,6 @@ type Hub struct {
 
 // Dial creates an IRcon implementation using the specified url and password.
 func (h Hub) Dial(ctx context.Context, url, password string) (IRcon, error) {
-	h.logger.Info("dialing rcon server...", zap.String("url", url))
-	defer h.logger.Info("rcon server dialed.", zap.String("url", url))
-
 	return Dial(
 		ctx,
 		zap.NewExample(),
