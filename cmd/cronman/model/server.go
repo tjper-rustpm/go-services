@@ -232,7 +232,9 @@ func (s *ArchivedServer) Scrub() {
 type InstanceKind string
 
 const (
+	InstanceKindSmall    InstanceKind = "small"
 	InstanceKindStandard InstanceKind = "standard"
+	InstanceKindLarge    InstanceKind = "large"
 )
 
 type BackgroundKind string
