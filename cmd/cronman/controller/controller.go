@@ -479,7 +479,7 @@ func (ctrl Controller) rconRemoveServerModerators(
 // connection. This may be done to ensure the specified ip is available before
 // proceeding.
 func (ctrl *Controller) pingUntilReady(ctx context.Context, ip, password string) error {
-	pingctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	pingctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	if err := ctrl.waiter.UntilReady(

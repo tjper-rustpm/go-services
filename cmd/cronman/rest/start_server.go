@@ -47,7 +47,7 @@ func (ep StartServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
 
 		if _, err = ep.ctrl.StartServer(ctx, b.ServerID); err != nil {
