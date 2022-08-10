@@ -47,4 +47,6 @@ const (
 	IconKindCalendarWeek  IconKind = "calendarWeek"
 	IconKindCalendarEvent IconKind = "calendarEvent"
 	IconKindGames         IconKind = "games"
+	IconKindFingerPrint   IconKind = "fingerPrint"
+	IconKindClock         IconKind = "clock"
 )
