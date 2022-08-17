@@ -58,14 +58,16 @@ func (dir Director) schedule(
 ) error {
 	scheduler := cron.New()
 
-	scheduler.AddFunc(
+	if _, err := scheduler.AddFunc(
 		"* * * * *",
 		func() {
 			if err := dir.controller.LiveServerRconForEach(ctx, dir.controller.CaptureServerInfo); err != nil {
 				dir.logger.Error("while capturing live server info", zap.Error(err))
 			}
 		},
-	)
+	); err != nil {
+		dir.logger.Error("scheduling server info capture", zap.Error(err))
+	}
 
 	for _, event := range events {
 		this := event

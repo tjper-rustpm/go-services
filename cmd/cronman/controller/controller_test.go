@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -18,6 +19,8 @@ import (
 )
 
 func TestLiveServerRconForEach(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		count int
@@ -43,10 +46,8 @@ func TestLiveServerRconForEach(t *testing.T) {
 
 			controller := &Controller{
 				logger: zap.NewNop(),
-				storev2: IStore{
-					StoreFinder: finder,
-				},
-				hub: rcon.NewHubMock(),
+				finder: finder,
+				hub:    rcon.NewHubMock(),
 			}
 
 			fn := func(_ context.Context, server model.LiveServer, _ rcon.IRcon) error {
@@ -63,6 +64,8 @@ func TestLiveServerRconForEach(t *testing.T) {
 }
 
 func TestCaptureServerInfo(t *testing.T) {
+	t.Parallel()
+
 	type expected struct {
 		changes interface{}
 	}
@@ -96,10 +99,8 @@ func TestCaptureServerInfo(t *testing.T) {
 		updater := newUpdaterMock(test.exp.changes)
 
 		controller := &Controller{
-			logger: zap.NewNop(),
-			storev2: IStore{
-				StoreUpdater: updater,
-			},
+			logger:  zap.NewNop(),
+			updater: updater,
 		}
 
 		hub := rcon.NewHubMock(rcon.WithServerInfo(test.serverInfo))
@@ -123,13 +124,18 @@ type updaterMock struct {
 	expected interface{}
 }
 
+var (
+	errUnexpectedType    = errors.New("unexpected type")
+	errUnexpectedChanges = errors.New("unexpected changes")
+)
+
 func (m updaterMock) Update(ctx context.Context, u gorm.Updater, changes interface{}) error {
 	if _, ok := u.(*model.LiveServer); !ok {
-		return errors.New("expected gorm.Updater to be type *model.LiveServer")
+		return fmt.Errorf("while checking gorm.Updater type: %w", errUnexpectedType)
 	}
 
 	if !reflect.DeepEqual(m.expected, changes) {
-		return errors.New("changes are not equal to expected changes")
+		return fmt.Errorf("while checking actual equals expected changes: %w", errUnexpectedChanges)
 	}
 
 	return nil
@@ -146,7 +152,7 @@ type finderMock struct {
 func (m finderMock) Find(ctx context.Context, f gorm.Finder) error {
 	servers, ok := f.(*model.LiveServers)
 	if !ok {
-		return errors.New("expected gorm.Finder to be type *model.LiveServers")
+		return fmt.Errorf("while checking gorm.Finder type: %w", errUnexpectedType)
 	}
 	*servers = m.servers
 	return nil
