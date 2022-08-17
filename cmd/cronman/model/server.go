@@ -129,6 +129,23 @@ func (s LiveServers) Scrub() {
 	}
 }
 
+// Find retrieves all LiveServers from the passed gorm.DB. Find implements the
+// gorm.Finder interface.
+func (s *LiveServers) Find(ctx context.Context, db *gorm.DB) error {
+	if res := db.
+		WithContext(ctx).
+		Preload("Server").
+		Preload("Server.Wipes").
+		Preload("Server.Tags").
+		Preload("Server.Events").
+		Preload("Server.Moderators").
+		Order("created_at DESC").
+		Find(s); res.Error != nil {
+		return res.Error
+	}
+	return nil
+}
+
 // LiveServer is a server that users can currently connect to, and is scheduled
 // to become dormant at some point in the future.
 type LiveServer struct {
@@ -141,11 +158,19 @@ type LiveServer struct {
 	QueuedPlayers uint8  `json:"queuedPlayers"`
 }
 
-// Create creates a LiveServer in the specified db. Non empty relationships
+// Create creates the LiveServer in the specified db. Non empty relationships
 // will be creates as well (Server).
 func (ls *LiveServer) Create(ctx context.Context, db *gorm.DB) error {
 	if err := db.WithContext(ctx).Create(ls).Error; err != nil {
 		return fmt.Errorf("model LiveServer.Create: %w", err)
+	}
+	return nil
+}
+
+// Update updates the LiveServer in the specified db.
+func (ls *LiveServer) Update(ctx context.Context, db *gorm.DB, changes interface{}) error {
+	if err := db.WithContext(ctx).Model(ls).Updates(changes).Error; err != nil {
+		return fmt.Errorf("while updating live server: %w", err)
 	}
 	return nil
 }

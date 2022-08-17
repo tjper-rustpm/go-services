@@ -6,15 +6,33 @@ import (
 )
 
 // NewHubMock creates a HubMock instance.
-func NewHubMock() *HubMock {
-	return &HubMock{
+func NewHubMock(options ...HubMockOption) *HubMock {
+	m := &HubMock{
 		stack: make([]string, 0),
+	}
+
+	for _, option := range options {
+		option(m)
+	}
+	return m
+}
+
+// HubMockOption mutates a HubMock instance. Typically used with NewHubMock
+// to allow configure a HubMock instance.
+type HubMockOption func(*HubMock)
+
+// WithServerInfo is a HubMockOption that configures the HubMock's ServerInfo
+// response used for ClientMock.ServerInfo calls.
+func WithServerInfo(serverInfo ServerInfo) HubMockOption {
+	return func(m *HubMock) {
+		m.serverInfo = serverInfo
 	}
 }
 
 // HubMock mocks a Hub instance for testing.
 type HubMock struct {
-	stack []string
+	stack      []string
+	serverInfo ServerInfo
 }
 
 // Dial mocks the dialing and creation of a IRcon instance.
@@ -71,4 +89,9 @@ func (m ClientMock) CreateGroup(_ context.Context, group string) error { return 
 func (m ClientMock) AddToGroup(_ context.Context, steamID string, group string) error {
 	m.hub.stack = append(m.hub.stack, fmt.Sprintf("%s %s %s %s", m.url, m.password, steamID, group))
 	return nil
+}
+
+// ServerInfo mocks Client.ServerInfo.
+func (m ClientMock) ServerInfo(_ context.Context) (*ServerInfo, error) {
+	return &m.hub.serverInfo, nil
 }

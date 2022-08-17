@@ -43,12 +43,12 @@ func (ctrl Controller) CreateServer(
 	dormant := &model.DormantServer{
 		Server: input,
 	}
-	if err := ctrl.storev2.Create(ctx, dormant); err != nil {
-		return nil, fmt.Errorf("controller storev2.Create: %w", err)
+	if err := ctrl.creator.Create(ctx, dormant); err != nil {
+		return nil, fmt.Errorf("while creating dormant server: %w", err)
 	}
 
 	if err := ctrl.notifier.Notify(ctx); err != nil {
-		return nil, fmt.Errorf("notifying director; %w", err)
+		return nil, fmt.Errorf("while notifying director: %w", err)
 	}
 
 	return dormant, nil
@@ -410,6 +410,66 @@ func (ctrl *Controller) RemoveServerModerators(
 
 	if err := ctrl.store.Delete(ctx, &model.Moderator{}, moderatorIDs); err != nil {
 		return fmt.Errorf("delete server moderators; serverID: %s, error: %w", serverID, err)
+	}
+
+	return nil
+}
+
+// LiveServersRconForEach executes the specified function for each live server.
+func (ctrl *Controller) LiveServerRconForEach(
+	ctx context.Context,
+	fn func(context.Context, model.LiveServer, rcon.IRcon) error,
+) error {
+	var servers model.LiveServers
+	if err := ctrl.finder.Find(ctx, &servers); err != nil {
+		return fmt.Errorf("while listing live servers: %w", err)
+	}
+
+	closure := func(server model.LiveServer) {
+		client, err := ctrl.hub.Dial(
+			ctx,
+			fmt.Sprintf("%s:28016", server.Server.ElasticIP),
+			server.Server.RconPassword,
+		)
+		if err != nil {
+			ctrl.logger.Error(
+				"while dialing rcon",
+				zap.Stringer("server", server.Server.ID),
+				zap.Error(err),
+			)
+			return
+		}
+		defer client.Close()
+
+		if err := fn(ctx, server, client); err != nil {
+			ctrl.logger.Error(
+				"while executing live server fn",
+				zap.Stringer("server", server.Server.ID),
+				zap.Error(err),
+			)
+		}
+	}
+
+	for _, server := range servers {
+		closure(server)
+	}
+	return nil
+}
+
+// CaptureServerInfo retrieves and stores the server info specified live server.
+func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.LiveServer, rcon rcon.IRcon) error {
+	serverInfo, err := rcon.ServerInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("while retrieving server info via rcon: %w", err)
+	}
+
+	changes := map[string]interface{}{
+		"activePlayers": serverInfo.Players,
+		"queuedPlayers": serverInfo.Queued,
+	}
+
+	if err := ctrl.updater.Update(ctx, &server, changes); err != nil {
+		return fmt.Errorf("while updating server server info: %w", err)
 	}
 
 	return nil

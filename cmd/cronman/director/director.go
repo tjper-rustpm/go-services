@@ -57,6 +57,16 @@ func (dir Director) schedule(
 	events model.Events,
 ) error {
 	scheduler := cron.New()
+
+	scheduler.AddFunc(
+		"* * * * *",
+		func() {
+			if err := dir.controller.LiveServerRconForEach(ctx, dir.controller.CaptureServerInfo); err != nil {
+				dir.logger.Error("while capturing live server info", zap.Error(err))
+			}
+		},
+	)
+
 	for _, event := range events {
 		this := event
 

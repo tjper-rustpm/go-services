@@ -40,9 +40,35 @@ type INotifier interface {
 	Notify(ctx context.Context) error
 }
 
-// IStore represents the API by the cronman datastore by interacted with.
-type IStore interface {
+// StoreCreator is a single method interface that creates an entity in the
+// store.
+type StoreCreator interface {
+	// Create creates an entity based on the passed gorm.Creator in the store.
 	Create(context.Context, gorm.Creator) error
+}
+
+// StoreUpdater is a single method interface that updates the store.
+type StoreUpdater interface {
+	// Update should updated the gorm.Updater entity with the specified changes.
+	// The changes are passed and may any type compatible with gorm.Updates.
+	Update(context.Context, gorm.Updater, interface{}) error
+}
+
+// StoreFinder is a single method interface facilitating the finding of
+// entities.
+type StoreFinder interface {
+	// Find should lists and store all entites compatible with the
+	// underlying gorm.Finder type and store them in within the gorm.Finder
+	// argument.
+	Find(context.Context, gorm.Finder) error
+}
+
+// IStore is a collection of interfaces used to interact with the cronman
+// store.
+type IStore interface {
+	StoreFinder
+	StoreUpdater
+	StoreCreator
 }
 
 // New creates a new Controller object.
@@ -58,7 +84,9 @@ func New(
 	return &Controller{
 		logger:           logger.With(zap.String("controller-id", uuid.NewString())),
 		store:            store,
-		storev2:          storev2,
+		finder:           storev2,
+		updater:          storev2,
+		creator:          storev2,
 		serverController: serverController,
 		hub:              hub,
 		waiter:           waiter,
@@ -72,7 +100,9 @@ type Controller struct {
 	logger *zap.Logger
 
 	store   db.IStore
-	storev2 IStore
+	finder  StoreFinder
+	updater StoreUpdater
+	creator StoreCreator
 
 	serverController *ServerDirector
 	hub              IHub

@@ -18,6 +18,7 @@ type IRcon interface {
 	RevokePermission(context.Context, string, string) error
 	CreateGroup(context.Context, string) error
 	AddToGroup(context.Context, string, string) error
+	ServerInfo(context.Context) (*ServerInfo, error)
 }
 
 // NewHub creates a Hub instance.

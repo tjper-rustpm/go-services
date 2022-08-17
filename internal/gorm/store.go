@@ -35,6 +35,16 @@ func (s Store) Create(ctx context.Context, entity Creator) error {
 	return entity.Create(ctx, s.db)
 }
 
+// Updater encompasses updating an entity in the passed *gorm.DB.
+type Updater interface {
+	Update(context.Context, *gorm.DB, interface{}) error
+}
+
+// Update wraps the execution of entity.Update.
+func (s Store) Update(ctx context.Context, entity Updater, changes interface{}) error {
+	return entity.Update(ctx, s.db, changes)
+}
+
 // Firster encompasses fetching the entity form the passed *gorm.DB. An empty
 // result should return an error.
 type Firster interface {
