@@ -91,24 +91,26 @@ func TestCaptureServerInfo(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		t.Parallel()
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 
-		updater := newUpdaterMock(test.exp.changes)
+			updater := newUpdaterMock(test.exp.changes)
 
-		controller := &Controller{
-			logger:  zap.NewNop(),
-			updater: updater,
-		}
+			controller := &Controller{
+				logger:  zap.NewNop(),
+				updater: updater,
+			}
 
-		hub := rcon.NewHubMock(rcon.WithServerInfo(test.serverInfo))
-		rcon, err := hub.Dial(ctx, "test-ip", "test-password")
-		require.Nil(t, err)
+			hub := rcon.NewHubMock(rcon.WithServerInfo(test.serverInfo))
+			rcon, err := hub.Dial(ctx, "test-ip", "test-password")
+			require.Nil(t, err)
 
-		err = controller.CaptureServerInfo(ctx, test.server, rcon)
-		require.Nil(t, err)
+			err = controller.CaptureServerInfo(ctx, test.server, rcon)
+			require.Nil(t, err)
+		})
 	}
 }
 
