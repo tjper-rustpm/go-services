@@ -160,15 +160,15 @@ export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRA
 echo "--- Starting Dedicated Server\n"
 while true; do
   su -c "/home/rustserver/RustDedicated -batchmode -nographics \
-    -server.ip \"0.0.0.0\" \
-    -server.identity \"rustpm\" \
+    -server.ip \"east-main.rustpm.com\" \
+    -server.identity \"Rustpm East Main\" \
     -server.hostname \"rustpm-east-1\" \
     -server.port \"28015\" \
-    -rcon.ip \"0.0.0.0\" \
+    -rcon.ip \"east-main.rustpm.com\" \
     -rcon.password \"rustpm-rconpassword\" \
     -rcon.web \"1\" \
     -rcon.port \"28016\" \
-    -app.listenip \"0.0.0.0\" \
+    -app.listenip \"east-main.rustpm.com\" \
     -app.port \"28082\" \
     -server.maxplayers 100 \
     -server.worldsize 2000 \
@@ -176,6 +176,8 @@ while true; do
     -server.salt 321 \
     -server.tickrate 30 \
     -server.saveinterval 300 \
+    -server.headerimage \"https://s3.amazonaws.com/rustpm.public.assets/banner.png\" \
+    -server.description \"Rustpm US East Main | Test Description\" \
     -logfile" - rustserver
   echo "\n--- Restarting Dedicated Server\n"
 done

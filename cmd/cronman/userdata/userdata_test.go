@@ -12,6 +12,7 @@ var golden = flag.Bool("golden", false, "enable golden tests to overwrite .golde
 
 func TestGenerate(t *testing.T) {
 	tests := map[string]struct {
+		ip           string
 		identity     string
 		hostName     string
 		rconPassword string
@@ -20,9 +21,12 @@ func TestGenerate(t *testing.T) {
 		seed         int
 		salt         int
 		tickRate     int
+		description  string
 		opts         []Option
 	}{
 		"base": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
 			rconPassword: "rustpm-rconpassword",
 			maxPlayers:   100,
@@ -30,9 +34,12 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{},
 		},
 		"mapwipe": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
 			rconPassword: "rustpm-rconpassword",
 			maxPlayers:   100,
@@ -40,9 +47,12 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithMapWipe()},
 		},
 		"blueprintwipe": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
 			rconPassword: "rustpm-rconpassword",
 			maxPlayers:   100,
@@ -50,9 +60,12 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithBluePrintWipe()},
 		},
 		"fullwipe": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
 			rconPassword: "rustpm-rconpassword",
 			maxPlayers:   100,
@@ -60,12 +73,15 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			description:  "Rustpm US East Main | Test Description",
 			opts: []Option{
 				WithBluePrintWipe(),
 				WithMapWipe(),
 			},
 		},
 		"queuebypass": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
 			rconPassword: "rustpm-rconpassword",
 			maxPlayers:   100,
@@ -73,9 +89,12 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithQueueBypassPlugin()},
 		},
 		"usercfg": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
 			rconPassword: "rustpm-rconpassword",
 			maxPlayers:   100,
@@ -83,9 +102,12 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithUserCfg([]string{"user1", "user2", "user3"})},
 		},
 		"servercfg": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
 			rconPassword: "rustpm-rconpassword",
 			maxPlayers:   100,
@@ -93,12 +115,15 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithServerCfg([]string{"user1", "user2", "user3"})},
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			userdata := Generate(
+				test.ip,
+				test.identity,
 				test.hostName,
 				test.rconPassword,
 				test.maxPlayers,
@@ -106,6 +131,7 @@ func TestGenerate(t *testing.T) {
 				test.seed,
 				test.salt,
 				test.tickRate,
+				test.description,
 				test.opts...,
 			)
 

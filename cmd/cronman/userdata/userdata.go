@@ -12,15 +12,15 @@ export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRA
 echo "--- Starting Dedicated Server\n"
 while true; do
   su -c "/home/rustserver/RustDedicated -batchmode -nographics \
-    -server.ip \"0.0.0.0\" \
-    -server.identity \"rustpm\" \
+    -server.ip \"%s\" \
+    -server.identity \"%s\" \
     -server.hostname \"%s\" \
     -server.port \"28015\" \
-    -rcon.ip \"0.0.0.0\" \
+    -rcon.ip \"%s\" \
     -rcon.password \"%s\" \
     -rcon.web \"1\" \
     -rcon.port \"28016\" \
-    -app.listenip \"0.0.0.0\" \
+    -app.listenip \"%s\" \
     -app.port \"28082\" \
     -server.maxplayers %d \
     -server.worldsize %d \
@@ -28,6 +28,8 @@ while true; do
     -server.salt %d \
     -server.tickrate %d \
     -server.saveinterval 300 \
+    -server.headerimage \"https://s3.amazonaws.com/rustpm.public.assets/banner.png\" \
+    -server.description \"%s\" \
     -logfile" - rustserver
   echo "\n--- Restarting Dedicated Server\n"
 done
@@ -216,6 +218,8 @@ su -c "curl https://umod.org/plugins/BypassQueue.cs --output /home/rustserver/ox
 // Generate userdata to be used as an AWS EC2 instance's user data. Userdata is
 // executed when an EC2 instance starts.
 func Generate(
+	ip string,
+	identity string,
 	hostName string,
 	rconPassword string,
 	maxPlayers int,
@@ -223,6 +227,7 @@ func Generate(
 	seed int,
 	salt int,
 	tickRate int,
+	description string,
 	opts ...Option,
 ) string {
 	var s strings.Builder
@@ -235,13 +240,18 @@ func Generate(
 	s.WriteString(
 		fmt.Sprintf(
 			launchTemplate,
+			ip,
+			identity,
 			hostName,
+			ip,
 			rconPassword,
+			ip,
 			maxPlayers,
 			worldSize,
 			seed,
 			salt,
 			tickRate,
+			description,
 		))
 
 	return s.String()
