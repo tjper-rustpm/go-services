@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
@@ -471,7 +472,41 @@ func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.Live
 	if err := ctrl.updater.Update(ctx, &server, changes); err != nil {
 		return fmt.Errorf("while updating server server info: %w", err)
 	}
+	return nil
+}
 
+func (ctrl *Controller) SayServerTimeRemaining(ctx context.Context, server model.LiveServer, rcon rcon.IRcon) error {
+	_, when, err := server.Server.Events.NextEvent(time.Now(), model.EventKindStop)
+	if err != nil {
+		return fmt.Errorf("while determining next live server event: %w", err)
+	}
+
+	until := time.Until(*when)
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s will be offline in", server.Server.Name)
+
+	hours := int(until.Hours())
+	if hours > 1 {
+		fmt.Fprintf(&b, " %d hours", hours)
+	} else if hours > 0 {
+		fmt.Fprintf(&b, " %d hour", hours)
+	}
+
+	minutes := int(until.Minutes()) - (hours * 60)
+	if hours > 0 && minutes > 0 {
+		fmt.Fprintf(&b, " and")
+	}
+	if minutes > 1 {
+		fmt.Fprintf(&b, " %d minutes", minutes)
+	} else if minutes > 0 {
+		fmt.Fprintf(&b, " %d minute", minutes)
+	}
+
+	fmt.Fprint(&b, ". Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!")
+
+	if err := rcon.Say(ctx, b.String()); err != nil {
+		return fmt.Errorf("while saying server time remaining: %w", err)
+	}
 	return nil
 }
 

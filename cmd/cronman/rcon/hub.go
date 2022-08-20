@@ -12,6 +12,7 @@ import (
 type IRcon interface {
 	Close()
 	Quit(context.Context) error
+	Say(context.Context, string) error
 	AddModerator(context.Context, string) error
 	RemoveModerator(context.Context, string) error
 	GrantPermission(context.Context, string, string) error

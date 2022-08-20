@@ -114,6 +114,121 @@ func TestCaptureServerInfo(t *testing.T) {
 	}
 }
 
+func TestSayServerTimeRemaining(t *testing.T) {
+	t.Parallel()
+
+	type expected struct {
+		said string
+	}
+	tests := []struct {
+		name       string
+		serverName string
+		duration   time.Duration
+		exp        expected
+	}{
+		{
+			name:       "1 minute",
+			serverName: "Rustpm Test Server",
+			duration:   2 * time.Minute,
+			exp: expected{
+				said: "Rustpm Test Server will be offline in 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+			},
+		},
+		{
+			name:       "59 minutes",
+			serverName: "Rustpm Test Server",
+			duration:   time.Hour,
+			exp: expected{
+				said: "Rustpm Test Server will be offline in 59 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+			},
+		},
+		{
+			name:       "1 hour",
+			serverName: "Rustpm Test Server",
+			duration:   time.Hour + time.Minute,
+			exp: expected{
+				said: "Rustpm Test Server will be offline in 1 hour. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+			},
+		},
+		{
+			name:       "1 hour and 30 minutes",
+			serverName: "Rustpm Test Server",
+			duration:   time.Hour + 30*time.Minute,
+			exp: expected{
+				said: "Rustpm Test Server will be offline in 1 hour and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+			},
+		},
+		{
+			name:       "2 hours",
+			serverName: "Rustpm Test Server",
+			duration:   2*time.Hour + time.Minute,
+			exp: expected{
+				said: "Rustpm Test Server will be offline in 2 hours. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+			},
+		},
+		{
+			name:       "2 hours and 1 minute",
+			serverName: "Rustpm Test Server",
+			duration:   2*time.Hour + 2*time.Minute,
+			exp: expected{
+				said: "Rustpm Test Server will be offline in 2 hours and 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+			},
+		},
+		{
+			name:       "2 hours and 30 minutes",
+			serverName: "Rustpm Test Server",
+			duration:   2*time.Hour + 31*time.Minute,
+			exp: expected{
+				said: "Rustpm Test Server will be offline in 2 hours and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			controller := &Controller{
+				logger: zap.NewNop(),
+			}
+
+			hub := rcon.NewHubMock()
+			client, err := hub.Dial(ctx, "test-ip", "test-password")
+			require.Nil(t, err)
+
+			when := time.Now().Add(test.duration)
+
+			event := model.Event{
+				Schedule: fmt.Sprintf("%d %d * * *", when.Minute(), when.Hour()),
+				Kind:     model.EventKindStop,
+			}
+
+			server := model.LiveServer{
+				Server: model.Server{
+					Name: test.serverName,
+					Events: []model.Event{
+						event,
+					},
+				},
+			}
+
+			err = controller.SayServerTimeRemaining(ctx, server, client)
+			require.Nil(t, err)
+
+			rcon, ok := client.(*rcon.ClientMock)
+			require.True(t, ok, "expected rcon client to be type *rcon.ClientMock")
+
+			said, err := rcon.Said(ctx)
+			require.Nil(t, err)
+
+			require.Equal(t, test.exp.said, said)
+		})
+	}
+}
+
 // --- mocks ---
 
 func newUpdaterMock(expected interface{}) *updaterMock {

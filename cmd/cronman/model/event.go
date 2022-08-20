@@ -12,6 +12,10 @@ import (
 
 type Events []Event
 
+// NextEvent retrieves the next Event to occur after t of type kind. The first
+// return value is the next Event instance. The second return value is the
+// next time at which the event occurs. The third return value is a non-nil
+// error if a problem occurred determining the next event.
 func (es Events) NextEvent(t time.Time, kind EventKind) (*Event, *time.Time, error) {
 	var next Event
 	for _, e := range es {

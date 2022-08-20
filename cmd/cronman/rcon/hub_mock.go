@@ -41,6 +41,7 @@ func (h *HubMock) Dial(ctx context.Context, url, password string) (IRcon, error)
 		url:      url,
 		password: password,
 		hub:      h,
+		msgc:     make(chan string, 128),
 	}, nil
 }
 
@@ -58,7 +59,9 @@ func (h *HubMock) LPop() string {
 type ClientMock struct {
 	url      string
 	password string
-	hub      *HubMock
+
+	hub  *HubMock
+	msgc chan string
 }
 
 // Close mocks Client.Close.
@@ -66,6 +69,22 @@ func (m ClientMock) Close() {}
 
 // Quit mocks Client.Quit.
 func (m ClientMock) Quit(_ context.Context) error { return nil }
+
+// Say mocks Client.Say.
+func (m ClientMock) Say(_ context.Context, msg string) error {
+	m.msgc <- msg
+	return nil
+}
+
+// Said retrieves the most recent message written to the ClientMock via Say.
+func (m ClientMock) Said(ctx context.Context) (string, error) {
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case msg := <-m.msgc:
+		return msg, nil
+	}
+}
 
 // AddModerator mocks Client.AddModerator.
 func (m ClientMock) AddModerator(_ context.Context, _ string) error { return nil }
