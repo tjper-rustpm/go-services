@@ -66,7 +66,18 @@ func (dir Director) schedule(
 			}
 		},
 	); err != nil {
-		dir.logger.Error("scheduling server info capture", zap.Error(err))
+		dir.logger.Error("while scheduling server info capture", zap.Error(err))
+	}
+
+	if _, err := scheduler.AddFunc(
+		"*/15 * * * *",
+		func() {
+			if err := dir.controller.LiveServerRconForEach(ctx, dir.controller.SayServerTimeRemaining); err != nil {
+				dir.logger.Error("while saying server time remaining", zap.Error(err))
+			}
+		},
+	); err != nil {
+		dir.logger.Error("while scheduling say server time remaining", zap.Error(err))
 	}
 
 	for _, event := range events {
