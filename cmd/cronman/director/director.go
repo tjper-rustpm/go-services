@@ -168,7 +168,7 @@ func (dir Director) mapWipeServer(ctx context.Context, serverID uuid.UUID) error
 	if _, err := dir.controller.StartServer(
 		ctx,
 		serverID,
-		userdata.WithMapWipe(),
+		userdata.WithMapWipe(serverID.String()),
 	); err != nil {
 		return fmt.Errorf("start server; id: %s, error: %w", serverID, err)
 	}
@@ -185,7 +185,7 @@ func (dir Director) fullWipeServer(ctx context.Context, serverID uuid.UUID) erro
 	if _, err := dir.controller.StartServer(
 		ctx,
 		serverID,
-		userdata.WithBluePrintWipe(),
+		userdata.WithBluePrintWipe(serverID.String()),
 	); err != nil {
 		return fmt.Errorf("start server; id: %s, error: %w", serverID, err)
 	}

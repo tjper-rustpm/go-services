@@ -140,8 +140,14 @@ func (ctrl Controller) StartServer(
 	options = append(
 		options,
 		userdata.WithQueueBypassPlugin(),
-		userdata.WithUserCfg(dormant.Server.Moderators.SteamIDs()),
-		userdata.WithServerCfg(dormant.Server.Vips.Active().SteamIDs()),
+		userdata.WithUserCfg(
+			dormant.Server.ID.String(),
+			dormant.Server.Moderators.SteamIDs(),
+		),
+		userdata.WithServerCfg(
+			dormant.Server.ID.String(),
+			dormant.Server.Vips.Active().SteamIDs(),
+		),
 	)
 	userdata := dormant.Server.Userdata(options...)
 

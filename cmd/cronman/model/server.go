@@ -85,7 +85,6 @@ func (s Server) IsLive() bool {
 // proper state.
 func (s Server) Userdata(options ...userdata.Option) string {
 	return userdata.Generate(
-		s.ElasticIP,
 		s.ID.String(),
 		s.Name,
 		s.RconPassword,
