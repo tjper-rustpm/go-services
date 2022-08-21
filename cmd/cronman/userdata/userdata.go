@@ -2,6 +2,7 @@ package userdata
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -11,26 +12,7 @@ export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRA
 
 echo "--- Starting Dedicated Server\n"
 while true; do
-  su -c "/home/rustserver/RustDedicated -batchmode -nographics \
-    -server.ip \"0.0.0.0\" \
-    -server.identity \"%s\" \
-    -server.hostname \"%s\" \
-    -server.port \"28015\" \
-    -rcon.ip \"0.0.0.0\" \
-    -rcon.password \"%s\" \
-    -rcon.web \"1\" \
-    -rcon.port \"28016\" \
-    -app.listenip \"0.0.0.0\" \
-    -app.port \"28082\" \
-    -server.maxplayers %d \
-    -server.worldsize %d \
-    -server.seed %d \
-    -server.salt %d \
-    -server.tickrate %d \
-    -server.saveinterval 300 \
-    -server.headerimage \"%s\" \
-    -server.description \"%s\" \
-    -logfile" - rustserver
+  su -c "/home/rustserver/RustDedicated -batchmode -nographics %s -logfile" - rustserver
   echo "\n--- Restarting Dedicated Server\n"
 done
 --//
@@ -228,27 +210,55 @@ func Generate(
 	tickRate int,
 	bannerURL string,
 	description string,
+	optionsFlags map[string]interface{},
 	opts ...Option,
 ) string {
 	var s strings.Builder
 	s.WriteString(installScript)
 	s.WriteString(installOxideScript)
 	fmt.Fprintf(&s, cfgDirectoryScript, identity)
+
 	for _, opt := range opts {
 		s.WriteString(opt())
 	}
-	fmt.Fprintf(&s, launchTemplate,
-		identity,
-		hostName,
-		rconPassword,
-		maxPlayers,
-		worldSize,
-		seed,
-		salt,
-		tickRate,
-		bannerURL,
-		description,
-	)
+
+	runtimeFlags := map[string]interface{}{
+		"server.ip":           "0.0.0.0",
+		"server.identity":     identity,
+		"server.hostname":     hostName,
+		"server.port":         "28015",
+		"rcon.ip":             "0.0.0.0",
+		"rcon.password":       rconPassword,
+		"rcon.web":            "1",
+		"rcon.port":           "28016",
+		"app.listenip":        "0.0.0.0",
+		"app.port":            "28082",
+		"server.maxplayers":   maxPlayers,
+		"server.worldsize":    worldSize,
+		"server.seed":         seed,
+		"server.salt":         salt,
+		"server.tickrate":     tickRate,
+		"server.saveinterval": 300,
+		"server.headerimage":  bannerURL,
+		"server.description":  description,
+	}
+	for flag, value := range optionsFlags {
+		runtimeFlags[flag] = value
+	}
+
+	var flags []string
+	for flag, value := range runtimeFlags {
+		if str, ok := value.(string); ok {
+			flags = append(flags, fmt.Sprintf("-%s %q", flag, str))
+			continue
+		}
+		flags = append(flags, fmt.Sprintf("-%s %v", flag, value))
+	}
+
+	// This is done for consistent string output so unit-testing is feasible.
+	sort.Slice(flags, func(i, j int) bool { return flags[i] < flags[j] })
+
+	fmt.Fprintf(&s, launchTemplate, strings.Join(flags, " "))
 
 	return s.String()
 }

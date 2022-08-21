@@ -11,19 +11,20 @@ import (
 )
 
 type CreateServerBody struct {
-	Name         string               `json:"name" validate:"required"`
-	InstanceKind model.InstanceKind   `json:"instanceKind" validate:"required"`
-	MaxPlayers   uint16               `json:"maxPlayers" validate:"required"`
-	MapSize      uint16               `json:"mapSize" validate:"required"`
-	MapSeed      uint16               `json:"mapSeed" validate:"required"`
-	MapSalt      uint16               `json:"mapSalt" validate:"required"`
-	TickRate     uint8                `json:"tickRate" validate:"required"`
-	RconPassword string               `json:"rconPassword" validate:"required"`
-	Description  string               `json:"description" validate:"required"`
-	URL          string               `json:"url" validate:"required,url"`
-	Background   model.BackgroundKind `json:"background" validate:"required"`
-	BannerURL    string               `json:"bannerURL" validate:"required,url"`
-	Region       model.Region         `json:"region" validate:"required"`
+	Name         string                 `json:"name" validate:"required"`
+	InstanceKind model.InstanceKind     `json:"instanceKind" validate:"required"`
+	MaxPlayers   uint16                 `json:"maxPlayers" validate:"required"`
+	MapSize      uint16                 `json:"mapSize" validate:"required"`
+	MapSeed      uint16                 `json:"mapSeed" validate:"required"`
+	MapSalt      uint16                 `json:"mapSalt" validate:"required"`
+	TickRate     uint8                  `json:"tickRate" validate:"required"`
+	RconPassword string                 `json:"rconPassword" validate:"required"`
+	Description  string                 `json:"description" validate:"required"`
+	URL          string                 `json:"url" validate:"required,url"`
+	Background   model.BackgroundKind   `json:"background" validate:"required"`
+	BannerURL    string                 `json:"bannerURL" validate:"required,url"`
+	Region       model.Region           `json:"region" validate:"required"`
+	Options      map[string]interface{} `json:"options"`
 
 	Events     Events     `json:"events" validate:"required,dive,required"`
 	Moderators Moderators `json:"moderators" validate:"required,dive,required"`
@@ -68,6 +69,7 @@ func (body CreateServerBody) ToModelServer(id uuid.UUID) model.Server {
 		Background:   body.Background,
 		BannerURL:    body.BannerURL,
 		Region:       body.Region,
+		Options:      body.Options,
 		Wipes:        model.Wipes{model.Wipe{MapSeed: body.MapSeed, MapSalt: body.MapSalt}},
 		Events:       events,
 		Moderators:   moderators,

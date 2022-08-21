@@ -23,6 +23,7 @@ func TestGenerate(t *testing.T) {
 		tickRate     int
 		bannerURL    string
 		description  string
+		optionsFlags map[string]interface{}
 		opts         []Option
 	}{
 		"base": {
@@ -37,7 +38,25 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
+			optionsFlags: map[string]interface{}{},
 			opts:         []Option{},
+		},
+		"hardcore": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
+			hostName:     "rustpm-east-1",
+			rconPassword: "rustpm-rconpassword",
+			maxPlayers:   100,
+			worldSize:    2000,
+			seed:         123,
+			salt:         321,
+			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
+			description:  "Rustpm US East Main | Test Description",
+			optionsFlags: map[string]interface{}{
+				"server.gamemode": "hardcore",
+			},
+			opts: []Option{},
 		},
 		"mapwipe": {
 			ip:           "east-main.rustpm.com",
@@ -51,6 +70,7 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
+			optionsFlags: map[string]interface{}{},
 			opts:         []Option{WithMapWipe("Rustpm East Main")},
 		},
 		"blueprintwipe": {
@@ -65,6 +85,7 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
+			optionsFlags: map[string]interface{}{},
 			opts:         []Option{WithBluePrintWipe("Rustpm East Main")},
 		},
 		"fullwipe": {
@@ -79,6 +100,7 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
+			optionsFlags: map[string]interface{}{},
 			opts: []Option{
 				WithBluePrintWipe("Rustpm East Main"),
 				WithMapWipe("Rustpm East Main"),
@@ -96,6 +118,7 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
+			optionsFlags: map[string]interface{}{},
 			opts:         []Option{WithQueueBypassPlugin()},
 		},
 		"usercfg": {
@@ -124,6 +147,7 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
+			optionsFlags: map[string]interface{}{},
 			opts:         []Option{WithServerCfg("Rustpm East Main", []string{"user1", "user2", "user3"})},
 		},
 	}
@@ -140,6 +164,7 @@ func TestGenerate(t *testing.T) {
 				test.tickRate,
 				test.bannerURL,
 				test.description,
+				test.optionsFlags,
 				test.opts...,
 			)
 

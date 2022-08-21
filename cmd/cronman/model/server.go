@@ -7,9 +7,10 @@ import (
 
 	"github.com/tjper/rustcron/cmd/cronman/userdata"
 	"github.com/tjper/rustcron/internal/model"
-	"gorm.io/gorm"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 const (
@@ -39,6 +40,7 @@ type Server struct {
 	URL          string
 	BannerURL    string
 	Region       Region
+	Options      datatypes.JSONMap
 
 	Wipes      Wipes
 	Tags       Tags
@@ -95,6 +97,7 @@ func (s Server) Userdata(options ...userdata.Option) string {
 		int(s.TickRate),
 		s.BannerURL,
 		s.Description,
+		s.Options,
 		options...,
 	)
 }
