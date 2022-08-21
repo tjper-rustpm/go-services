@@ -28,7 +28,7 @@ while true; do
     -server.salt %d \
     -server.tickrate %d \
     -server.saveinterval 300 \
-    -server.headerimage \"https://s3.amazonaws.com/rustpm.public.assets/banner.png\" \
+    -server.headerimage \"%s\" \
     -server.description \"%s\" \
     -logfile" - rustserver
   echo "\n--- Restarting Dedicated Server\n"
@@ -226,6 +226,7 @@ func Generate(
 	seed int,
 	salt int,
 	tickRate int,
+	bannerURL string,
 	description string,
 	opts ...Option,
 ) string {
@@ -245,6 +246,7 @@ func Generate(
 		seed,
 		salt,
 		tickRate,
+		bannerURL,
 		description,
 	)
 

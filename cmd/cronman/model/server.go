@@ -93,6 +93,7 @@ func (s Server) Userdata(options ...userdata.Option) string {
 		int(s.Wipes.CurrentWipe().MapSeed),
 		int(s.Wipes.CurrentWipe().MapSalt),
 		int(s.TickRate),
+		s.BannerURL,
 		s.Description,
 		options...,
 	)

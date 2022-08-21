@@ -21,6 +21,7 @@ func TestGenerate(t *testing.T) {
 		seed         int
 		salt         int
 		tickRate     int
+		bannerURL    string
 		description  string
 		opts         []Option
 	}{
@@ -34,6 +35,7 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{},
 		},
@@ -47,6 +49,7 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithMapWipe("Rustpm East Main")},
 		},
@@ -60,6 +63,7 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithBluePrintWipe("Rustpm East Main")},
 		},
@@ -73,6 +77,7 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			opts: []Option{
 				WithBluePrintWipe("Rustpm East Main"),
@@ -89,6 +94,7 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithQueueBypassPlugin()},
 		},
@@ -102,6 +108,7 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithUserCfg("Rustpm East Main", []string{"user1", "user2", "user3"})},
 		},
@@ -115,6 +122,7 @@ func TestGenerate(t *testing.T) {
 			seed:         123,
 			salt:         321,
 			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			opts:         []Option{WithServerCfg("Rustpm East Main", []string{"user1", "user2", "user3"})},
 		},
@@ -130,6 +138,7 @@ func TestGenerate(t *testing.T) {
 				test.seed,
 				test.salt,
 				test.tickRate,
+				test.bannerURL,
 				test.description,
 				test.opts...,
 			)
