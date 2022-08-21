@@ -129,25 +129,25 @@ func TestSayServerTimeRemaining(t *testing.T) {
 		{
 			name:       "1 minute",
 			serverName: "Rustpm Test Server",
-			duration:   2 * time.Minute,
+			duration:   time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be offline in 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
 			},
 		},
 		{
-			name:       "59 minutes",
+			name:       "30 minutes",
 			serverName: "Rustpm Test Server",
-			duration:   time.Hour,
+			duration:   30 * time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be offline in 59 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
 			},
 		},
 		{
 			name:       "1 hour",
 			serverName: "Rustpm Test Server",
-			duration:   time.Hour + time.Minute,
+			duration:   time.Hour,
 			exp: expected{
-				said: "Rustpm Test Server will be offline in 1 hour. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 1 hour. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
 			},
 		},
 		{
@@ -155,31 +155,31 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   time.Hour + 30*time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be offline in 1 hour and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 1 hour and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
 			},
 		},
 		{
 			name:       "2 hours",
 			serverName: "Rustpm Test Server",
-			duration:   2*time.Hour + time.Minute,
+			duration:   2 * time.Hour,
 			exp: expected{
-				said: "Rustpm Test Server will be offline in 2 hours. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 2 hours. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
 			},
 		},
 		{
 			name:       "2 hours and 1 minute",
 			serverName: "Rustpm Test Server",
-			duration:   2*time.Hour + 2*time.Minute,
+			duration:   2*time.Hour + time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be offline in 2 hours and 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 2 hours and 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
 			},
 		},
 		{
 			name:       "2 hours and 30 minutes",
 			serverName: "Rustpm Test Server",
-			duration:   2*time.Hour + 31*time.Minute,
+			duration:   2*time.Hour + 30*time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be offline in 2 hours and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 2 hours and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
 			},
 		},
 	}

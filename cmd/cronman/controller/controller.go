@@ -488,8 +488,10 @@ func (ctrl *Controller) SayServerTimeRemaining(ctx context.Context, server model
 	}
 
 	until := time.Until(*when)
+	until = until.Round(time.Minute)
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s will be offline in", server.Server.Name)
+	fmt.Fprintf(&b, "%s will be going offline in", server.Server.Name)
 
 	hours := int(until.Hours())
 	if hours > 1 {
