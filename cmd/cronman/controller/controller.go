@@ -471,8 +471,8 @@ func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.Live
 	}
 
 	changes := map[string]interface{}{
-		"activePlayers": serverInfo.Players,
-		"queuedPlayers": serverInfo.Queued,
+		"active_players": serverInfo.Players,
+		"queued_players": serverInfo.Queued,
 	}
 
 	if err := ctrl.updater.Update(ctx, &server, changes); err != nil {

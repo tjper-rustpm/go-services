@@ -84,8 +84,8 @@ func TestCaptureServerInfo(t *testing.T) {
 			server: model.LiveServer{},
 			exp: expected{
 				changes: map[string]interface{}{
-					"activePlayers": 101,
-					"queuedPlayers": 5,
+					"active_players": 101,
+					"queued_players": 5,
 				},
 			},
 		},
