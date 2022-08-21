@@ -12,15 +12,15 @@ export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRA
 echo "--- Starting Dedicated Server\n"
 while true; do
   su -c "/home/rustserver/RustDedicated -batchmode -nographics \
-    -server.ip \"%s\" \
+    -server.ip \"0.0.0.0\" \
     -server.identity \"%s\" \
     -server.hostname \"%s\" \
     -server.port \"28015\" \
-    -rcon.ip \"%s\" \
+    -rcon.ip \"0.0.0.0\" \
     -rcon.password \"%s\" \
     -rcon.web \"1\" \
     -rcon.port \"28016\" \
-    -app.listenip \"%s\" \
+    -app.listenip \"0.0.0.0\" \
     -app.port \"28082\" \
     -server.maxplayers %d \
     -server.worldsize %d \
@@ -37,12 +37,12 @@ done
 `
 
 	userCfgTemplate = `
-su -c "cat <<EOT > /home/rustserver/server/rustpm/cfg/users.cfg
+su -c "cat <<EOT > /home/rustserver/server/%s/cfg/users.cfg
 %s
 EOT" -  rustserver
 `
 	serverCfgTemplate = `
-su -c "cat <<EOT > /home/rustserver/server/rustpm/cfg/server.cfg
+su -c "cat <<EOT > /home/rustserver/server/%s/cfg/server.cfg
 oxide.group remove vip
 oxide.group add vip
 oxide.grant group vip bypassqueue.allow
@@ -51,7 +51,7 @@ EOT" -  rustserver
 `
 
 	cfgDirectoryScript = `
-su -c "mkdir -p /home/rustserver/server/rustpm/cfg" - rustserver
+su -c "mkdir -p /home/rustserver/server/%s/cfg" - rustserver
 `
 
 	installScript = `Content-Type: multipart/mixed; boundary="//"
@@ -199,10 +199,10 @@ fn_dl_steamcmd
 `
 
 	bluePrintWipeScript = `
-find /home/rustserver/server/rustpm -name "player\.blueprints\.*\.db" | xargs rm
+find /home/rustserver/server/%s -name "player\.blueprints\.*\.db" | xargs rm
  `
 	mapWipeScript = `
-find /home/rustserver/server/rustpm -name 'proceduralmap\.*\.*\.*\.map' | xargs rm
+find /home/rustserver/server/%s -name 'proceduralmap\.*\.*\.*\.map' | xargs rm
  `
 
 	installOxideScript = `
@@ -218,7 +218,6 @@ su -c "curl https://umod.org/plugins/BypassQueue.cs --output /home/rustserver/ox
 // Generate userdata to be used as an AWS EC2 instance's user data. Userdata is
 // executed when an EC2 instance starts.
 func Generate(
-	ip string,
 	identity string,
 	hostName string,
 	rconPassword string,
@@ -233,26 +232,21 @@ func Generate(
 	var s strings.Builder
 	s.WriteString(installScript)
 	s.WriteString(installOxideScript)
-	s.WriteString(cfgDirectoryScript)
+	fmt.Fprintf(&s, cfgDirectoryScript, identity)
 	for _, opt := range opts {
 		s.WriteString(opt())
 	}
-	s.WriteString(
-		fmt.Sprintf(
-			launchTemplate,
-			ip,
-			identity,
-			hostName,
-			ip,
-			rconPassword,
-			ip,
-			maxPlayers,
-			worldSize,
-			seed,
-			salt,
-			tickRate,
-			description,
-		))
+	fmt.Fprintf(&s, launchTemplate,
+		identity,
+		hostName,
+		rconPassword,
+		maxPlayers,
+		worldSize,
+		seed,
+		salt,
+		tickRate,
+		description,
+	)
 
 	return s.String()
 }
@@ -263,17 +257,17 @@ type Option func() string
 
 // WithBluePrintWipe returns an Option that enables the generation of a
 // blueprint wipe script via Generate.
-func WithBluePrintWipe() Option {
+func WithBluePrintWipe(identity string) Option {
 	return func() string {
-		return bluePrintWipeScript
+		return fmt.Sprintf(bluePrintWipeScript, identity)
 	}
 }
 
 // WithMapWipe returns an Option that enables the generation of a map wipe
 // script via Generate.
-func WithMapWipe() Option {
+func WithMapWipe(identity string) Option {
 	return func() string {
-		return mapWipeScript
+		return fmt.Sprintf(mapWipeScript, identity)
 	}
 }
 
@@ -287,24 +281,24 @@ func WithQueueBypassPlugin() Option {
 
 // WithUserCfg returns an Option that configures the userdata to create a user
 // config.
-func WithUserCfg(steamIDs []string) Option {
+func WithUserCfg(identity string, steamIDs []string) Option {
 	cmds := make([]string, 0, len(steamIDs))
 	for _, id := range steamIDs {
 		cmds = append(cmds, fmt.Sprintf("moderatorid %s", id))
 	}
 	return func() string {
-		return fmt.Sprintf(userCfgTemplate, strings.Join(cmds, "\n"))
+		return fmt.Sprintf(userCfgTemplate, identity, strings.Join(cmds, "\n"))
 	}
 }
 
 // WithServerCfg returns an Option that configures the userdata to create a
 // server config.
-func WithServerCfg(steamIDs []string) Option {
+func WithServerCfg(identity string, steamIDs []string) Option {
 	cmds := make([]string, 0, len(steamIDs))
 	for _, id := range steamIDs {
 		cmds = append(cmds, fmt.Sprintf("oxide.usergroup add %s vip", id))
 	}
 	return func() string {
-		return fmt.Sprintf(serverCfgTemplate, strings.Join(cmds, "\n"))
+		return fmt.Sprintf(serverCfgTemplate, identity, strings.Join(cmds, "\n"))
 	}
 }

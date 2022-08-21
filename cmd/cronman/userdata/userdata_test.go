@@ -48,7 +48,7 @@ func TestGenerate(t *testing.T) {
 			salt:         321,
 			tickRate:     30,
 			description:  "Rustpm US East Main | Test Description",
-			opts:         []Option{WithMapWipe()},
+			opts:         []Option{WithMapWipe("Rustpm East Main")},
 		},
 		"blueprintwipe": {
 			ip:           "east-main.rustpm.com",
@@ -61,7 +61,7 @@ func TestGenerate(t *testing.T) {
 			salt:         321,
 			tickRate:     30,
 			description:  "Rustpm US East Main | Test Description",
-			opts:         []Option{WithBluePrintWipe()},
+			opts:         []Option{WithBluePrintWipe("Rustpm East Main")},
 		},
 		"fullwipe": {
 			ip:           "east-main.rustpm.com",
@@ -75,8 +75,8 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			description:  "Rustpm US East Main | Test Description",
 			opts: []Option{
-				WithBluePrintWipe(),
-				WithMapWipe(),
+				WithBluePrintWipe("Rustpm East Main"),
+				WithMapWipe("Rustpm East Main"),
 			},
 		},
 		"queuebypass": {
@@ -103,7 +103,7 @@ func TestGenerate(t *testing.T) {
 			salt:         321,
 			tickRate:     30,
 			description:  "Rustpm US East Main | Test Description",
-			opts:         []Option{WithUserCfg([]string{"user1", "user2", "user3"})},
+			opts:         []Option{WithUserCfg("Rustpm East Main", []string{"user1", "user2", "user3"})},
 		},
 		"servercfg": {
 			ip:           "east-main.rustpm.com",
@@ -116,13 +116,12 @@ func TestGenerate(t *testing.T) {
 			salt:         321,
 			tickRate:     30,
 			description:  "Rustpm US East Main | Test Description",
-			opts:         []Option{WithServerCfg([]string{"user1", "user2", "user3"})},
+			opts:         []Option{WithServerCfg("Rustpm East Main", []string{"user1", "user2", "user3"})},
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			userdata := Generate(
-				test.ip,
 				test.identity,
 				test.hostName,
 				test.rconPassword,
