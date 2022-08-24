@@ -2,12 +2,14 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
 	"github.com/tjper/rustcron/internal/gorm"
+	itime "github.com/tjper/rustcron/internal/time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -21,6 +23,14 @@ type IServerManager interface {
 	StopInstance(ctx context.Context, id string) error
 	MakeInstanceAvailable(ctx context.Context, instanceID, allocationID string) (*server.AssociationOutput, error)
 	MakeInstanceUnavailable(ctx context.Context, associationID string) error
+}
+
+// ITime represents the API by which the cronman Controller interacts with
+// time. See the corresponding definitions in the time package for more
+// details.
+type ITime interface {
+	Now() time.Time
+	Until(time.Time) time.Duration
 }
 
 // IHub represents the API by which IRcon types may be created.
@@ -83,6 +93,7 @@ func New(
 ) *Controller {
 	return &Controller{
 		logger:           logger.With(zap.String("controller-id", uuid.NewString())),
+		time:             new(itime.Time),
 		store:            store,
 		finder:           storev2,
 		updater:          storev2,
@@ -98,6 +109,7 @@ func New(
 // events, and watching for event changes.
 type Controller struct {
 	logger *zap.Logger
+	time   ITime
 
 	store   db.IStore
 	finder  StoreFinder

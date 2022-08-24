@@ -482,12 +482,12 @@ func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.Live
 }
 
 func (ctrl *Controller) SayServerTimeRemaining(ctx context.Context, server model.LiveServer, rcon rcon.IRcon) error {
-	_, when, err := server.Server.Events.NextEvent(time.Now(), model.EventKindStop)
+	_, when, err := server.Server.Events.NextEvent(ctrl.time.Now(), model.EventKindStop)
 	if err != nil {
 		return fmt.Errorf("while determining next live server event: %w", err)
 	}
 
-	until := time.Until(*when)
+	until := ctrl.time.Until(*when)
 	until = until.Round(time.Minute)
 
 	var b strings.Builder

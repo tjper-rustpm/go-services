@@ -14,6 +14,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/internal/gorm"
 	imodel "github.com/tjper/rustcron/internal/model"
+	itime "github.com/tjper/rustcron/internal/time"
 
 	"go.uber.org/zap"
 )
@@ -185,22 +186,19 @@ func TestSayServerTimeRemaining(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
+
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			controller := &Controller{
-				logger: zap.NewNop(),
-			}
+			now := time.Now()
+			timeMock := itime.NewMock(now)
+			timeMock.SetUntil(test.duration)
 
-			hub := rcon.NewHubMock()
-			client, err := hub.Dial(ctx, "test-ip", "test-password")
-			require.Nil(t, err)
-
-			when := time.Now().Add(test.duration)
-
+			when := now.Add(test.duration)
 			event := model.Event{
 				Schedule: fmt.Sprintf("%d %d * * *", when.Minute(), when.Hour()),
 				Kind:     model.EventKindStop,
@@ -214,6 +212,15 @@ func TestSayServerTimeRemaining(t *testing.T) {
 					},
 				},
 			}
+
+			controller := &Controller{
+				logger: zap.NewNop(),
+				time:   timeMock,
+			}
+
+			hub := rcon.NewHubMock()
+			client, err := hub.Dial(ctx, "test-ip", "test-password")
+			require.Nil(t, err)
 
 			err = controller.SayServerTimeRemaining(ctx, server, client)
 			require.Nil(t, err)
