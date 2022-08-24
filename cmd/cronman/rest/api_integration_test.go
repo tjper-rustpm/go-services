@@ -47,6 +47,13 @@ func TestCreateServer(t *testing.T) {
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 	})
 
+	t.Run("create server that has options with admin user", func(t *testing.T) {
+		resp := suite.postCreateServer(ctx, t, sess, "testdata/options-body.json")
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	})
+
 	sess = suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
 
 	t.Run("create server with standard user", func(t *testing.T) {

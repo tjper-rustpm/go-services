@@ -1,0 +1,84 @@
+{
+  "name": "US East Xeno",
+	"instanceKind": "standard",
+	"maxPlayers": 300,
+	"mapSize": 4250,
+	"mapSeed": 1000,
+	"mapSalt": 1000,
+	"tickRate": 30,
+	"rconPassword": "rustpm-rcon-password",
+	"description": "US Zulu Echo offers vanilla gameplay between 12PM and 12AM daily. Dominate the server retentlessly as you tower over your foes and aid your allies! This server is not friendly to new players and does not have communication rules. Be as toxic as you like.",
+	"url": "http://rustpm.com",
+	"background": "oxum",
+	"bannerUrl": "http://rustpm.com/banner",
+	"region": "usEast",
+  "options": {
+    "server.gamemode": "hardcore"
+  },
+	"events": [
+		{
+			"schedule": "40 17 * * *",
+			"kind": "start"
+		},
+		{
+			"schedule": "0 18 * * *",
+			"kind": "live"
+		},
+		{
+			"schedule": "0 4 * * *",
+			"kind": "stop"
+		},
+		{
+			"schedule": "0 20 8-14 * *",
+			"weekday": 5,
+			"kind": "mapWipe"
+		},
+		{
+			"schedule": "0 20 15-21 * *",
+			"weekday": 5,
+			"kind": "mapWipe"
+		},
+		{
+			"schedule": "0 20 21-27 * *",
+			"weekday": 5,
+			"kind": "mapWipe"
+		},
+		{
+			"schedule": "0 20 1-7 * *",
+			"weekday": 5,
+			"kind": "fullWipe"
+		}
+	],
+	"moderators": [
+		{
+			"steamId": "76561197962911631"
+		}
+	],
+	"tags": [
+		{
+			"description": "Blueprint Wipe Schedule",
+			"icon": "calendarEvent",
+			"value": "Monthly"
+		},
+		{
+			"description": "Map Wipe Schedule",
+			"icon": "calendarDay",
+			"value": "Weekly"
+		},
+		{
+			"description": "Region",
+			"icon": "globe",
+			"value": "US East"
+		},
+		{
+			"description": "Game Mode",
+			"icon": "games",
+			"value": "Vanilla"
+		},
+		{
+			"description": "Group Size",
+			"icon": "userGroup",
+			"value": "1-3"
+		}
+	]
+}

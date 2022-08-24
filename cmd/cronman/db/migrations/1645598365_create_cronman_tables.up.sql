@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS servers.servers (
   url           VARCHAR  NOT NULL,
   banner_url    VARCHAR  NOT NULL,
   region        VARCHAR  NOT NULL,
+  options       JSONB    NOT NULL,
 
   state_id   UUID    NOT NULL,
   state_type VARCHAR NOT NULL,
