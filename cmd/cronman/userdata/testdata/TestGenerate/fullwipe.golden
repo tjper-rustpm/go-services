@@ -154,7 +154,7 @@ export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRA
 
 echo "--- Starting Dedicated Server\n"
 while true; do
-  su -c "/home/rustserver/RustDedicated -batchmode -nographics -app.listenip "0.0.0.0" -app.port "28082" -rcon.ip "0.0.0.0" -rcon.password "rustpm-rconpassword" -rcon.port "28016" -rcon.web "1" -server.description "Rustpm US East Main | Test Description" -server.headerimage "https://s3.amazonaws.com/rustpm.public.assets/banner.png" -server.hostname "rustpm-east-1" -server.identity "Rustpm East Main" -server.ip "0.0.0.0" -server.maxplayers 100 -server.port "28015" -server.salt 321 -server.saveinterval 300 -server.seed 123 -server.tickrate 30 -server.worldsize 2000 -logfile" - rustserver
+  su -c "/home/rustserver/RustDedicated -batchmode -nographics -app.listenip \"0.0.0.0\" -app.port \"28082\" -rcon.ip \"0.0.0.0\" -rcon.password \"rustpm-rconpassword\" -rcon.port \"28016\" -rcon.web \"1\" -server.description \"Rustpm US East Main | Test Description\" -server.headerimage \"https://s3.amazonaws.com/rustpm.public.assets/banner.png\" -server.hostname \"rustpm-east-1\" -server.identity \"Rustpm East Main\" -server.ip \"0.0.0.0\" -server.maxplayers 100 -server.port \"28015\" -server.salt 321 -server.saveinterval 300 -server.seed 123 -server.tickrate 30 -server.worldsize 2000 -logfile" - rustserver
   echo "\n--- Restarting Dedicated Server\n"
 done
 --//

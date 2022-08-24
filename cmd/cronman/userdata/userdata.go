@@ -249,7 +249,7 @@ func Generate(
 	var flags []string
 	for flag, value := range runtimeFlags {
 		if str, ok := value.(string); ok {
-			flags = append(flags, fmt.Sprintf("-%s %q", flag, str))
+			flags = append(flags, fmt.Sprintf("-%s \\\"%s\\\"", flag, str))
 			continue
 		}
 		flags = append(flags, fmt.Sprintf("-%s %v", flag, value))
