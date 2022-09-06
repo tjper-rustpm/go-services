@@ -40,7 +40,7 @@ type Server struct {
 	URL          string
 	BannerURL    string
 	Region       Region
-	Options      datatypes.JSONMap
+	Options      datatypes.JSONMap `gorm:"default:'{}'::JSONB"`
 
 	Wipes      Wipes
 	Tags       Tags
