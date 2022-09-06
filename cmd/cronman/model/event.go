@@ -29,11 +29,11 @@ func (es Events) NextEvent(t time.Time, kind EventKind) (*Event, *time.Time, err
 
 		potential, err := e.Next(t)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("while determining next potential event: %w", err)
 		}
 		current, err := next.Next(t)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("while determining current event: %w", err)
 		}
 
 		if potential.Before(current) {
