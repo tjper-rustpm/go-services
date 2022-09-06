@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 )
 
 type Events []Event
+
+var errNoFutureEvent = errors.New("no future event occurrence")
 
 // NextEvent retrieves the next Event to occur after t of type kind. The first
 // return value is the next Event instance. The second return value is the
@@ -41,8 +44,11 @@ func (es Events) NextEvent(t time.Time, kind EventKind) (*Event, *time.Time, err
 		}
 	}
 
-	at, err := next.Next(t)
+	if (next == Event{}) {
+		return nil, nil, errNoFutureEvent
+	}
 
+	at, err := next.Next(t)
 	return &next, &at, err
 }
 
