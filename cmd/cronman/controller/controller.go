@@ -281,7 +281,13 @@ func (ctrl *Controller) ListServers(ctx context.Context, dst interface{}) error 
 		return errInvalidServerType
 	}
 
-	return ctrl.store.ListServers(ctx, dst)
+	if err := ctrl.store.ListServers(ctx, dst); err != nil {
+		return err
+	}
+
+	ctrl.logger.Sugar().Infof("servers: %v", dst)
+
+	return nil
 }
 
 func (ctrl *Controller) AddServerTags(
