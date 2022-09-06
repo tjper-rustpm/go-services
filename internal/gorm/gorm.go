@@ -22,7 +22,7 @@ func Open(dsn string, options ...Option) (*gorm.DB, error) {
 				SlowThreshold:             200 * time.Millisecond,
 				Colorful:                  false,
 				IgnoreRecordNotFoundError: true,
-				LogLevel:                  logger.Error,
+				LogLevel:                  logger.Info,
 			},
 		),
 	}
