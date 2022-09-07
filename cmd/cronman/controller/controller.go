@@ -476,12 +476,19 @@ func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.Live
 		return fmt.Errorf("while retrieving server info via rcon: %w", err)
 	}
 
-	changes := map[string]interface{}{
-		"active_players": serverInfo.Players,
-		"queued_players": serverInfo.Queued,
+	update := db.UpdateLiveServerInfo{
+		LiveServerID: server.ID,
+		Changes: map[string]interface{}{
+			"active_players": serverInfo.Players,
+			"queued_players": serverInfo.Queued,
+		},
 	}
 
-	if err := ctrl.updater.Update(ctx, &server, changes); err != nil {
+	err = ctrl.execer.Exec(ctx, update)
+	if errors.Is(err, db.ErrServerNotLive) {
+		return nil
+	}
+	if err != nil {
 		return fmt.Errorf("while updating server server info: %w", err)
 	}
 	return nil

@@ -57,11 +57,11 @@ type StoreCreator interface {
 	Create(context.Context, gorm.Creator) error
 }
 
-// StoreUpdater is a single method interface that updates the store.
-type StoreUpdater interface {
-	// Update should updated the gorm.Updater entity with the specified changes.
-	// The changes are passed and may any type compatible with gorm.Updates.
-	Update(context.Context, gorm.Updater, interface{}) error
+// StoreExecer is a single method interface that executes logic against the
+// store.
+type StoreExecer interface {
+	// Exec should execute the gorm.Execr entity.
+	Exec(context.Context, gorm.Execer) error
 }
 
 // StoreFinder is a single method interface facilitating the finding of
@@ -77,7 +77,7 @@ type StoreFinder interface {
 // store.
 type IStore interface {
 	StoreFinder
-	StoreUpdater
+	StoreExecer
 	StoreCreator
 }
 
@@ -96,7 +96,7 @@ func New(
 		time:             new(itime.Time),
 		store:            store,
 		finder:           storev2,
-		updater:          storev2,
+		execer:           storev2,
 		creator:          storev2,
 		serverController: serverController,
 		hub:              hub,
@@ -113,7 +113,7 @@ type Controller struct {
 
 	store   db.IStore
 	finder  StoreFinder
-	updater StoreUpdater
+	execer  StoreExecer
 	creator StoreCreator
 
 	serverController *ServerDirector
