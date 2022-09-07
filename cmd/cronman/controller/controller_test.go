@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/internal/gorm"
@@ -68,7 +69,7 @@ func TestCaptureServerInfo(t *testing.T) {
 	t.Parallel()
 
 	type expected struct {
-		changes interface{}
+		update db.UpdateLiveServerInfo
 	}
 	tests := []struct {
 		name       string
@@ -82,11 +83,15 @@ func TestCaptureServerInfo(t *testing.T) {
 				Players: 101,
 				Queued:  5,
 			},
-			server: model.LiveServer{},
+			server: model.LiveServer{
+				Model: imodel.Model{ID: uuid.New()},
+			},
 			exp: expected{
-				changes: map[string]interface{}{
-					"active_players": 101,
-					"queued_players": 5,
+				update: db.UpdateLiveServerInfo{
+					Changes: map[string]interface{}{
+						"active_players": 101,
+						"queued_players": 5,
+					},
 				},
 			},
 		},
@@ -98,11 +103,12 @@ func TestCaptureServerInfo(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			updater := newUpdaterMock(test.exp.changes)
+			test.exp.update.LiveServerID = test.server.ID
+			execer := newExecerMock(test.exp.update)
 
 			controller := &Controller{
-				logger:  zap.NewNop(),
-				updater: updater,
+				logger: zap.NewNop(),
+				execer: execer,
 			}
 
 			hub := rcon.NewHubMock(rcon.WithServerInfo(test.serverInfo))
@@ -238,14 +244,14 @@ func TestSayServerTimeRemaining(t *testing.T) {
 
 // --- mocks ---
 
-func newUpdaterMock(expected interface{}) *updaterMock {
-	return &updaterMock{
+func newExecerMock(expected db.UpdateLiveServerInfo) *execerMock {
+	return &execerMock{
 		expected: expected,
 	}
 }
 
-type updaterMock struct {
-	expected interface{}
+type execerMock struct {
+	expected db.UpdateLiveServerInfo
 }
 
 var (
@@ -253,12 +259,13 @@ var (
 	errUnexpectedChanges = errors.New("unexpected changes")
 )
 
-func (m updaterMock) Update(ctx context.Context, u gorm.Updater, changes interface{}) error {
-	if _, ok := u.(*model.LiveServer); !ok {
+func (m execerMock) Exec(ctx context.Context, entity gorm.Execer) error {
+	update, ok := entity.(db.UpdateLiveServerInfo)
+	if !ok {
 		return fmt.Errorf("while checking gorm.Updater type: %w", errUnexpectedType)
 	}
 
-	if !reflect.DeepEqual(m.expected, changes) {
+	if !reflect.DeepEqual(m.expected, update) {
 		return fmt.Errorf("while checking actual equals expected changes: %w", errUnexpectedChanges)
 	}
 
