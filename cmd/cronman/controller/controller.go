@@ -285,8 +285,6 @@ func (ctrl *Controller) ListServers(ctx context.Context, dst interface{}) error 
 		return err
 	}
 
-	ctrl.logger.Sugar().Infof("servers: %v", dst)
-
 	return nil
 }
 
