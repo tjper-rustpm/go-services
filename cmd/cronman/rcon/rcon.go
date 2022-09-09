@@ -70,12 +70,20 @@ func Dial(
 		closeOnce: new(sync.Once),
 	}
 	go func() {
-		if err := client.readPump(ctx); err != nil {
+		err := client.readPump(ctx)
+		if errors.Is(client.ctx.Err(), context.Canceled) {
+			return
+		}
+		if err != nil {
 			logger.Warn("error read pump", zap.Error(err))
 		}
 	}()
 	go func() {
-		if err := client.writePump(ctx); err != nil {
+		err := client.writePump(ctx)
+		if errors.Is(client.ctx.Err(), context.Canceled) {
+			return
+		}
+		if err != nil {
 			logger.Warn("error write pump", zap.Error(err))
 		}
 	}()
@@ -98,10 +106,10 @@ type Client struct {
 // Close closes the RCON client, releasing its resources.
 func (c *Client) Close() {
 	c.closeOnce.Do(func() {
+		c.cancel()
 		close(c.router.Outboundc())
 		<-c.closed
 		c.conn.Close()
-		c.cancel()
 	})
 }
 
@@ -431,12 +439,10 @@ func (c Client) writePump(ctx context.Context) error {
 				if err := c.write(websocket.CloseMessage, []byte{}); err != nil {
 					return err
 				}
-				c.logger.Debug("closed websocket connection")
 				close(c.closed)
 				return nil
 			}
 
-			c.logger.Debug("writing bytes to websocket server", zap.String("message", out.Message))
 			b, err := json.Marshal(out)
 			if err != nil {
 				return err
@@ -491,7 +497,6 @@ func (c Client) readPump(ctx context.Context) error {
 		if err := json.Unmarshal(b, &inbound); err != nil {
 			c.logger.Error("unable to unmarshal inbound websocket message", zap.Error(err))
 		}
-		c.logger.Debug("reading bytes from websocket server", zap.String("message", inbound.Message))
 
 		err = c.router.Injest(ctx, inbound)
 		if err != nil && !errors.Is(err, ErrRoutingIdentifier) {
