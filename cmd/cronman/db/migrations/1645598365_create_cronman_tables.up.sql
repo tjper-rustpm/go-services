@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS servers.wipes (
   id        UUID NOT NULL DEFAULT gen_random_uuid(),
   server_id UUID NOT NULL,
 
+  kind     VARCHAR NOT NULL,
   map_seed SMALLINT NOT NULL,
   map_salt SMALLINT NOT NULL,
 

@@ -70,10 +70,12 @@ func (body CreateServerBody) ToModelServer(id uuid.UUID) model.Server {
 		BannerURL:    body.BannerURL,
 		Region:       body.Region,
 		Options:      body.Options,
-		Wipes:        model.Wipes{model.Wipe{MapSeed: body.MapSeed, MapSalt: body.MapSalt}},
-		Events:       events,
-		Moderators:   moderators,
-		Tags:         tags,
+		Wipes: model.Wipes{
+			{Kind: model.WipeKindFull, MapSeed: body.MapSeed, MapSalt: body.MapSalt},
+		},
+		Events:     events,
+		Moderators: moderators,
+		Tags:       tags,
 	}
 }
 

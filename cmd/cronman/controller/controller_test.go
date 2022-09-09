@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -103,8 +102,14 @@ func TestCaptureServerInfo(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
+			check := func(entity gorm.Execer) {
+				update, ok := entity.(db.UpdateLiveServerInfo)
+
+				require.True(t, ok, "gorm.Execer was not type db.UpdateLiveServerInfo")
+				require.Equal(t, test.exp.update, update)
+			}
 			test.exp.update.LiveServerID = test.server.ID
-			execer := newExecerMock(test.exp.update)
+			execer := newExecerMock(check)
 
 			controller := &Controller{
 				logger: zap.NewNop(),
@@ -242,16 +247,85 @@ func TestSayServerTimeRemaining(t *testing.T) {
 	}
 }
 
+func TestWipeServer(t *testing.T) {
+	t.Parallel()
+
+	type expected struct {
+		create db.CreateWipe
+	}
+	tests := []struct {
+		name   string
+		option WipeOption
+		exp    expected
+	}{
+		{
+			name:   "wipe map",
+			option: WipeMap(100, 200),
+			exp: expected{
+				create: db.CreateWipe{
+					Wipe: model.Wipe{
+						Kind:    model.WipeKindMap,
+						MapSeed: 100,
+						MapSalt: 200,
+					},
+				},
+			},
+		},
+		{
+			name:   "wipe full",
+			option: WipeFull(300, 400),
+			exp: expected{
+				create: db.CreateWipe{
+					Wipe: model.Wipe{
+						Kind:    model.WipeKindFull,
+						MapSeed: 300,
+						MapSalt: 400,
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			check := func(entity gorm.Execer) {
+				create, ok := entity.(db.CreateWipe)
+
+				require.True(t, ok, "gorm.Execer was not type db.CreateWipe")
+				require.Equal(t, test.exp.create, create)
+			}
+			controller := &Controller{
+				logger: zap.NewNop(),
+				execer: newExecerMock(check),
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			id := uuid.New()
+			test.exp.create.ServerID = id
+
+			err := controller.WipeServer(ctx, id, test.option)
+			require.Nil(t, err)
+		})
+	}
+
+}
+
 // --- mocks ---
 
-func newExecerMock(expected db.UpdateLiveServerInfo) *execerMock {
+func newExecerMock(check func(gorm.Execer)) *execerMock {
 	return &execerMock{
-		expected: expected,
+		check: check,
 	}
 }
 
 type execerMock struct {
-	expected db.UpdateLiveServerInfo
+	check func(gorm.Execer)
 }
 
 var (
@@ -260,14 +334,7 @@ var (
 )
 
 func (m execerMock) Exec(ctx context.Context, entity gorm.Execer) error {
-	update, ok := entity.(db.UpdateLiveServerInfo)
-	if !ok {
-		return fmt.Errorf("while checking gorm.Updater type: %w", errUnexpectedType)
-	}
-
-	if !reflect.DeepEqual(m.expected, update) {
-		return fmt.Errorf("while checking actual equals expected changes: %w", errUnexpectedChanges)
-	}
+	m.check(entity)
 
 	return nil
 }
