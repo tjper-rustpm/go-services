@@ -49,7 +49,7 @@ test-mailgun: ## Integration test email package against mailgun.
 
 .PHONY: test-rcon
 test-rcon: ## Integration test rcon package against Rust server running in Docker.
-	@COMMAND="go test -v -count=1 -tags=longintegration ./cmd/cronman/rcon" docker-compose -f deploy/docker-compose.rust.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -timeout=30m -tags=longintegration ./cmd/cronman/rcon" docker-compose -f deploy/docker-compose.rust.yml up --build -V --abort-on-container-exit --exit-code-from test
 	@docker-compose -f deploy/docker-compose.rust.yml down
 
 	docker-compose -f deploy/docker-compose.test.yml down
