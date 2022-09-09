@@ -313,7 +313,6 @@ func TestWipeServer(t *testing.T) {
 			require.Nil(t, err)
 		})
 	}
-
 }
 
 // --- mocks ---
@@ -329,8 +328,7 @@ type execerMock struct {
 }
 
 var (
-	errUnexpectedType    = errors.New("unexpected type")
-	errUnexpectedChanges = errors.New("unexpected changes")
+	errUnexpectedType = errors.New("unexpected type")
 )
 
 func (m execerMock) Exec(ctx context.Context, entity gorm.Execer) error {
