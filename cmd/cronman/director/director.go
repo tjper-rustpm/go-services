@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	cronmanerrors "github.com/tjper/rustcron/cmd/cronman/errors"
+	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/model"
-	"github.com/tjper/rustcron/cmd/cronman/userdata"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
@@ -159,69 +158,45 @@ func (dir Director) stopServer(ctx context.Context, serverID uuid.UUID) error {
 	return nil
 }
 
-func (dir Director) mapWipeServer(ctx context.Context, serverID uuid.UUID) error {
-	restore, err := dir.makeServerDormant(ctx, serverID)
+func (dir Director) wipeServer(ctx context.Context, serverID uuid.UUID, option controller.WipeOption) error {
+	server, err := dir.controller.GetServer(ctx, serverID)
 	if err != nil {
 		return err
 	}
 
-	if _, err := dir.controller.StartServer(
-		ctx,
-		serverID,
-		userdata.WithMapWipe(serverID.String()),
-	); err != nil {
-		return fmt.Errorf("start server; id: %s, error: %w", serverID, err)
+	_, isLive := server.(*model.LiveServer)
+
+	if isLive {
+		if _, err := dir.controller.StopServer(ctx, serverID); err != nil {
+			return err
+		}
+		defer func() {
+			if _, err := dir.controller.StartServer(ctx, serverID); err != nil {
+				dir.logger.Error("while restarting a wiped server", zap.Error(err))
+				return
+			}
+
+			if _, err := dir.controller.MakeServerLive(ctx, serverID); err != nil {
+				dir.logger.Error("while make a wiped server live", zap.Error(err))
+				return
+			}
+		}()
 	}
 
-	return restore()
+	if err := dir.controller.WipeServer(ctx, serverID, option); err != nil {
+		return fmt.Errorf("while wiping server: %w", err)
+	}
+	return nil
 }
 
 func (dir Director) fullWipeServer(ctx context.Context, serverID uuid.UUID) error {
-	restore, err := dir.makeServerDormant(ctx, serverID)
-	if err != nil {
-		return err
-	}
-
-	if _, err := dir.controller.StartServer(
-		ctx,
-		serverID,
-		userdata.WithBluePrintWipe(serverID.String()),
-	); err != nil {
-		return fmt.Errorf("start server; id: %s, error: %w", serverID, err)
-	}
-
-	return restore()
+	seed := model.GenerateSeed()
+	salt := model.GenerateSalt()
+	return dir.wipeServer(ctx, serverID, controller.WipeFull(seed, salt))
 }
 
-func (dir Director) makeServerDormant(ctx context.Context, serverID uuid.UUID) (func() error, error) {
-	_, err := dir.store.GetDormantServer(ctx, serverID)
-	if err == nil {
-		goto dormantRestore
-	}
-	if err != nil && !errors.Is(err, cronmanerrors.ErrServerNotDormant) {
-		return nil, fmt.Errorf("get dormant server; id: %s, error: %w", serverID, err)
-	}
-
-	if _, err := dir.store.GetLiveServer(ctx, serverID); err != nil {
-		return nil, fmt.Errorf("get live server; id: %s, error: %w", serverID, err)
-	}
-
-	if _, err := dir.controller.StopServer(ctx, serverID); err != nil {
-		return nil, fmt.Errorf("stop server; id: %s, error: %w", serverID, err)
-	}
-
-	return func() error {
-		if _, err = dir.controller.MakeServerLive(ctx, serverID); err != nil {
-			return fmt.Errorf("make server live; id: %s, error: %w", serverID, err)
-		}
-		return nil
-	}, nil
-
-dormantRestore:
-	return func() error {
-		if _, err := dir.controller.StopServer(ctx, serverID); err != nil {
-			return fmt.Errorf("stop server; id: %s, error: %w", serverID, err)
-		}
-		return nil
-	}, nil
+func (dir Director) mapWipeServer(ctx context.Context, serverID uuid.UUID) error {
+	seed := model.GenerateSeed()
+	salt := model.GenerateSalt()
+	return dir.wipeServer(ctx, serverID, controller.WipeMap(seed, salt))
 }
