@@ -28,6 +28,7 @@ type IController interface {
 	StartServer(context.Context, uuid.UUID, ...userdata.Option) (*model.DormantServer, error)
 	MakeServerLive(context.Context, uuid.UUID) (*model.LiveServer, error)
 	StopServer(context.Context, uuid.UUID) (*model.DormantServer, error)
+	WipeServer(context.Context, uuid.UUID, model.Wipe) error
 
 	ListServers(context.Context, interface{}) error
 
@@ -68,6 +69,7 @@ func NewAPI(
 
 			router.Method(http.MethodPatch, "/server", PatchServer{API: api})
 			router.Method(http.MethodPost, "/server/archive", ArchiveServer{API: api})
+			router.Method(http.MethodPost, "/server/wipe", WipeServer{API: api})
 
 			router.Method(http.MethodPost, "/server/tags", AddServerTags{API: api})
 			router.Method(http.MethodDelete, "/server/tags", RemoveServerTags{API: api})
