@@ -21,7 +21,7 @@ func (ws Wipes) CurrentWipe() Wipe {
 }
 
 func (ws Wipes) OrderCreatedDesc() {
-	sort.Slice(ws, func(i, j int) bool { return ws[i].CreatedAt.Before(ws[j].CreatedAt) })
+	sort.Slice(ws, func(i, j int) bool { return ws[i].CreatedAt.After(ws[j].CreatedAt) })
 }
 
 func (ws Wipes) Clone() Wipes {

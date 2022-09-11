@@ -65,8 +65,8 @@ CREATE TABLE IF NOT EXISTS servers.wipes (
   server_id UUID NOT NULL,
 
   kind     VARCHAR NOT NULL,
-  map_seed SMALLINT NOT NULL,
-  map_salt SMALLINT NOT NULL,
+  map_seed INTEGER NOT NULL,
+  map_salt INTEGER NOT NULL,
 
   created_at TIMESTAMP WITH TIME ZONE NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL,

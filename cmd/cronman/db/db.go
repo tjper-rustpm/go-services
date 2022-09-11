@@ -84,7 +84,7 @@ func (c CreateWipe) Exec(ctx context.Context, db *gorm.DB) error {
 		}
 
 		c.Wipe.ServerID = server.ID
-		return tx.Create(c.Wipe).Error
+		return tx.Create(&c.Wipe).Error
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return ErrServerDNE

@@ -15,6 +15,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/director"
+	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
 	"github.com/tjper/rustcron/internal/gorm"
@@ -90,7 +91,11 @@ func TestStartServer(t *testing.T) {
 	})
 
 	t.Run("wait until server is dormant", func(t *testing.T) {
-		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "dormant")
+		isDormant := func(server map[string]interface{}) bool {
+			return server["kind"] == "dormant"
+		}
+
+		suite.waitUntilServer(ctx, t, sess, serverID, isDormant)
 	})
 
 	t.Run("start server with admin user", func(t *testing.T) {
@@ -101,7 +106,11 @@ func TestStartServer(t *testing.T) {
 	})
 
 	t.Run("wait until server is live", func(t *testing.T) {
-		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "live")
+		isLive := func(server map[string]interface{}) bool {
+			return server["kind"] == "live"
+		}
+
+		suite.waitUntilServer(ctx, t, sess, serverID, isLive)
 	})
 
 	t.Run("start server that is live", func(t *testing.T) {
@@ -147,7 +156,11 @@ func TestStopServer(t *testing.T) {
 	})
 
 	t.Run("wait until server is dormant", func(t *testing.T) {
-		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "dormant")
+		isDormant := func(server map[string]interface{}) bool {
+			return server["kind"] == "dormant"
+		}
+
+		suite.waitUntilServer(ctx, t, sess, serverID, isDormant)
 	})
 
 	t.Run("start server with admin user", func(t *testing.T) {
@@ -158,7 +171,11 @@ func TestStopServer(t *testing.T) {
 	})
 
 	t.Run("wait until server is live", func(t *testing.T) {
-		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "live")
+		isLive := func(server map[string]interface{}) bool {
+			return server["kind"] == "live"
+		}
+
+		suite.waitUntilServer(ctx, t, sess, serverID, isLive)
 	})
 
 	standardSess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
@@ -178,7 +195,11 @@ func TestStopServer(t *testing.T) {
 	})
 
 	t.Run("wait until server is dormant", func(t *testing.T) {
-		suite.waitUntilServerIsReady(ctx, t, sess, serverID, "dormant")
+		isDormant := func(server map[string]interface{}) bool {
+			return server["kind"] == "dormant"
+		}
+
+		suite.waitUntilServer(ctx, t, sess, serverID, isDormant)
 	})
 
 	t.Run("stop server that is dormant", func(t *testing.T) {
@@ -186,6 +207,125 @@ func TestStopServer(t *testing.T) {
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusConflict, resp.StatusCode)
+	})
+}
+
+func TestWipeServer(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	suite := setup(ctx, t)
+
+	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleAdmin)
+
+	var serverID string
+	t.Run("create server with admin user", func(t *testing.T) {
+		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
+		defer createResp.Body.Close()
+
+		require.Equal(t, http.StatusAccepted, createResp.StatusCode)
+
+		var server map[string]interface{}
+		err := json.NewDecoder(createResp.Body).Decode(&server)
+		require.Nil(t, err)
+
+		iServerID, ok := server["id"]
+		require.True(t, ok)
+		serverID, ok = iServerID.(string)
+		require.True(t, ok)
+	})
+
+	t.Run("wait until server is dormant", func(t *testing.T) {
+		isDormant := func(server map[string]interface{}) bool {
+			return server["kind"] == "dormant"
+		}
+
+		suite.waitUntilServer(ctx, t, sess, serverID, isDormant)
+	})
+
+	var seed uint16
+	var salt uint16
+	t.Run("require that server map seed and salt are set", func(t *testing.T) {
+		resp := suite.getServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var server DormantServer
+		err := json.NewDecoder(resp.Body).Decode(&server)
+		require.Nil(t, err)
+
+		require.NotEmpty(t, server.MapSeed)
+		require.NotEmpty(t, server.MapSalt)
+
+		seed = server.MapSeed
+		salt = server.MapSalt
+	})
+
+	t.Run("wipe server w/ random seed and salt", func(t *testing.T) {
+		body := map[string]interface{}{
+			"serverId": serverID,
+			"kind":     model.WipeKindMap,
+		}
+
+		resp := suite.wipeServer(ctx, t, sess, body)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+	})
+
+	t.Run("require that server map seed and salt have changed", func(t *testing.T) {
+		resp := suite.getServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var server DormantServer
+		err := json.NewDecoder(resp.Body).Decode(&server)
+		require.Nil(t, err)
+
+		require.NotEqual(t, seed, server.MapSeed, "previous seed is %d and new seed is %d", seed, server.MapSeed)
+		require.NotEqual(t, salt, server.MapSalt, "previous salt is %d and new salt is %d", salt, server.MapSalt)
+
+		seed = server.MapSeed
+		salt = server.MapSalt
+	})
+
+	t.Run("start server recently wiped server", func(t *testing.T) {
+		resp := suite.postStartServer(ctx, t, sess, serverID)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	})
+
+	t.Run("wait until server is live", func(t *testing.T) {
+		isLive := func(server map[string]interface{}) bool {
+			return server["kind"] == "live"
+		}
+
+		suite.waitUntilServer(ctx, t, sess, serverID, isLive)
+	})
+
+	t.Run("wipe live server", func(t *testing.T) {
+		body := map[string]interface{}{
+			"serverId": serverID,
+			"kind":     model.WipeKindMap,
+		}
+
+		resp := suite.wipeServer(ctx, t, sess, body)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+	})
+
+	t.Run("wait until server map seed and salt have changed", func(t *testing.T) {
+		hasUpdated := func(server map[string]interface{}) bool {
+			newSeed := uint16(server["mapSeed"].(float64))
+			newSalt := uint16(server["mapSalt"].(float64))
+
+			return newSeed != seed && newSalt != salt
+		}
+		suite.waitUntilServer(ctx, t, sess, serverID, hasUpdated)
 	})
 }
 
@@ -202,7 +342,7 @@ func setup(
 	s := integration.InitSuite(ctx, t)
 	sessions := session.InitSuite(ctx, t)
 
-	logger := zap.NewNop()
+	logger := zap.NewExample()
 
 	const (
 		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
@@ -289,7 +429,13 @@ func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session
 	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server", body, sess)
 }
 
-func (s suite) waitUntilServerIsReady(ctx context.Context, t *testing.T, sess *session.Session, serverID string, kind string) error {
+func (s suite) waitUntilServer(
+	ctx context.Context,
+	t *testing.T,
+	sess *session.Session,
+	serverID string,
+	is func(server map[string]interface{}) bool,
+) error {
 	t.Helper()
 
 	ticker := time.NewTicker(time.Second)
@@ -312,11 +458,23 @@ func (s suite) waitUntilServerIsReady(ctx context.Context, t *testing.T, sess *s
 			err := json.NewDecoder(resp.Body).Decode(&server)
 			require.Nil(t, err)
 
-			if server["kind"] == kind {
+			if is(server) {
 				return nil
 			}
 		}
 	}
+}
+
+func (s suite) getServer(ctx context.Context, t *testing.T, sess *session.Session, serverID string) *http.Response {
+	t.Helper()
+
+	return s.Request(ctx, t, s.api, http.MethodGet, fmt.Sprintf("/v1/server/%s", serverID), nil, sess)
+}
+
+func (s suite) wipeServer(ctx context.Context, t *testing.T, sess *session.Session, body map[string]interface{}) *http.Response {
+	t.Helper()
+
+	return s.Request(ctx, t, s.api, http.MethodPost, "/v1/server/wipe", body, sess)
 }
 
 func (s suite) postStartServer(ctx context.Context, t *testing.T, sess *session.Session, serverID string) *http.Response {
