@@ -128,7 +128,6 @@ func (ctrl Controller) ArchiveServer(
 func (ctrl Controller) StartServer(
 	ctx context.Context,
 	id uuid.UUID,
-	options ...userdata.Option,
 ) (*model.DormantServer, error) {
 	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
 
@@ -137,8 +136,7 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
-	options = append(
-		options,
+	options := []userdata.Option{
 		userdata.WithQueueBypassPlugin(),
 		userdata.WithUserCfg(
 			dormant.Server.ID.String(),
@@ -148,7 +146,7 @@ func (ctrl Controller) StartServer(
 			dormant.Server.ID.String(),
 			dormant.Server.Vips.Active().SteamIDs(),
 		),
-	)
+	}
 	userdata := dormant.Server.Userdata(options...)
 
 	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
