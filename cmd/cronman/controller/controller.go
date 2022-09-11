@@ -267,42 +267,15 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 }
 
 // WipeServer wipes the specified server.
-func (ctrl *Controller) WipeServer(ctx context.Context, id uuid.UUID, wipe WipeOption) error {
+func (ctrl *Controller) WipeServer(ctx context.Context, id uuid.UUID, wipe model.Wipe) error {
 	create := db.CreateWipe{
 		ServerID: id,
-		Wipe:     wipe(),
+		Wipe:     wipe,
 	}
 	if err := ctrl.execer.Exec(ctx, create); err != nil {
 		return fmt.Errorf("while wiping server: %w", err)
 	}
 	return nil
-}
-
-// WipeOption is a function type that is capable of configuring the
-// Controller.WipeServer logic as needed.
-type WipeOption func() model.Wipe
-
-// WipeMap configures the Controller.WipeServer to wipe the server's map data.
-func WipeMap(mapSeed, mapSalt uint16) WipeOption {
-	return func() model.Wipe {
-		return model.Wipe{
-			Kind:    model.WipeKindMap,
-			MapSeed: mapSeed,
-			MapSalt: mapSalt,
-		}
-	}
-}
-
-// WipeFull configures the Controller.WipeFull to wipe the server's map and
-// blueprint data.
-func WipeFull(mapSeed, mapSalt uint16) WipeOption {
-	return func() model.Wipe {
-		return model.Wipe{
-			Kind:    model.WipeKindFull,
-			MapSeed: mapSeed,
-			MapSalt: mapSalt,
-		}
-	}
 }
 
 var errInvalidServerType = errors.New("invalid server type")

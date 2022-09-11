@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/cronman/controller"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 
 	"github.com/go-redis/redis/v8"
@@ -158,7 +157,7 @@ func (dir Director) stopServer(ctx context.Context, serverID uuid.UUID) error {
 	return nil
 }
 
-func (dir Director) wipeServer(ctx context.Context, serverID uuid.UUID, option controller.WipeOption) error {
+func (dir Director) wipeServer(ctx context.Context, serverID uuid.UUID, wipe model.Wipe) error {
 	server, err := dir.controller.GetServer(ctx, serverID)
 	if err != nil {
 		return err
@@ -183,7 +182,7 @@ func (dir Director) wipeServer(ctx context.Context, serverID uuid.UUID, option c
 		}()
 	}
 
-	if err := dir.controller.WipeServer(ctx, serverID, option); err != nil {
+	if err := dir.controller.WipeServer(ctx, serverID, wipe); err != nil {
 		return fmt.Errorf("while wiping server: %w", err)
 	}
 	return nil
@@ -192,11 +191,13 @@ func (dir Director) wipeServer(ctx context.Context, serverID uuid.UUID, option c
 func (dir Director) fullWipeServer(ctx context.Context, serverID uuid.UUID) error {
 	seed := model.GenerateSeed()
 	salt := model.GenerateSalt()
-	return dir.wipeServer(ctx, serverID, controller.WipeFull(seed, salt))
+	wipe := model.NewMapWipe(seed, salt)
+	return dir.wipeServer(ctx, serverID, *wipe)
 }
 
 func (dir Director) mapWipeServer(ctx context.Context, serverID uuid.UUID) error {
 	seed := model.GenerateSeed()
 	salt := model.GenerateSalt()
-	return dir.wipeServer(ctx, serverID, controller.WipeMap(seed, salt))
+	wipe := model.NewFullWipe(seed, salt)
+	return dir.wipeServer(ctx, serverID, *wipe)
 }

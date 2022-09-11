@@ -38,6 +38,22 @@ func (ws Wipes) Scrub() {
 	}
 }
 
+func NewMapWipe(seed, salt uint16) *Wipe {
+	return &Wipe{
+		Kind:    WipeKindMap,
+		MapSeed: seed,
+		MapSalt: salt,
+	}
+}
+
+func NewFullWipe(seed, salt uint16) *Wipe {
+	return &Wipe{
+		Kind:    WipeKindFull,
+		MapSeed: seed,
+		MapSalt: salt,
+	}
+}
+
 type Wipe struct {
 	model.Model
 
