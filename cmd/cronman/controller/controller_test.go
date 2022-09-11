@@ -254,13 +254,13 @@ func TestWipeServer(t *testing.T) {
 		create db.CreateWipe
 	}
 	tests := []struct {
-		name   string
-		option WipeOption
-		exp    expected
+		name string
+		wipe *model.Wipe
+		exp  expected
 	}{
 		{
-			name:   "wipe map",
-			option: WipeMap(100, 200),
+			name: "wipe map",
+			wipe: model.NewMapWipe(100, 200),
 			exp: expected{
 				create: db.CreateWipe{
 					Wipe: model.Wipe{
@@ -272,8 +272,8 @@ func TestWipeServer(t *testing.T) {
 			},
 		},
 		{
-			name:   "wipe full",
-			option: WipeFull(300, 400),
+			name: "wipe full",
+			wipe: model.NewFullWipe(300, 400),
 			exp: expected{
 				create: db.CreateWipe{
 					Wipe: model.Wipe{
@@ -309,7 +309,7 @@ func TestWipeServer(t *testing.T) {
 			id := uuid.New()
 			test.exp.create.ServerID = id
 
-			err := controller.WipeServer(ctx, id, test.option)
+			err := controller.WipeServer(ctx, id, *test.wipe)
 			require.Nil(t, err)
 		})
 	}
