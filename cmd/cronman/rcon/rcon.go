@@ -93,8 +93,6 @@ type Client struct {
 	conn   *websocket.Conn
 	router *Router
 
-	ctx       context.Context
-	cancel    context.CancelFunc
 	closed    chan struct{}
 	closeOnce *sync.Once
 }
