@@ -71,7 +71,7 @@ func (r *Router) CloseRoute(identifier int) {
 }
 
 // Injest accepts a Inbound message and routes to the waiting Request process.
-func (r *Router) Injest(ctx context.Context, in Inbound) error {
+func (r *Router) Injest(close chan struct{}, in Inbound) error {
 	var route chan Inbound
 	fetchRoute := func() error {
 		r.mutex.Lock()
@@ -89,8 +89,8 @@ func (r *Router) Injest(ctx context.Context, in Inbound) error {
 		return err
 	}
 	select {
-	case <-ctx.Done():
-		return ctx.Err()
+	case <-close:
+		return nil
 	case route <- in:
 		return nil
 	}

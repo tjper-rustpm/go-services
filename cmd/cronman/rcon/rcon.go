@@ -27,6 +27,10 @@ var (
 	// ErrPermissionAlreadyGranted indicates that the permission specified has
 	// already been granted for the specified user.
 	ErrPermissionAlreadyGranted = errors.New("permission has already been granted")
+
+	// errRconClientUnexpectedClose may be returned when a process is interrupted
+	// due to an unexpected Client.Close().
+	errRconClientUnexpectedClose = errors.New("RCON client closing")
 )
 
 const (
@@ -59,30 +63,22 @@ func Dial(
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	closed := make(chan struct{}, 1)
 	client := &Client{
 		logger:    logger,
 		conn:      conn,
 		router:    NewRouter(logger),
-		ctx:       ctx,
-		cancel:    cancel,
-		closed:    make(chan struct{}, 1),
+		closed:    closed,
 		closeOnce: new(sync.Once),
 	}
 	go func() {
-		err := client.readPump(ctx)
-		if errors.Is(client.ctx.Err(), context.Canceled) {
-			return
-		}
+		err := client.readPump()
 		if err != nil {
 			logger.Warn("error read pump", zap.Error(err))
 		}
 	}()
 	go func() {
-		err := client.writePump(ctx)
-		if errors.Is(client.ctx.Err(), context.Canceled) {
-			return
-		}
+		err := client.writePump()
 		if err != nil {
 			logger.Warn("error write pump", zap.Error(err))
 		}
@@ -106,7 +102,6 @@ type Client struct {
 // Close closes the RCON client, releasing its resources.
 func (c *Client) Close() {
 	c.closeOnce.Do(func() {
-		c.cancel()
 		close(c.router.Outboundc())
 		<-c.closed
 		c.conn.Close()
@@ -180,9 +175,9 @@ func (c Client) Quit(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
-		case <-c.ctx.Done():
 			return ctx.Err()
+		case <-c.closed:
+			return nil
 		case _, ok := <-inboundc:
 			if !ok {
 				return nil
@@ -424,7 +419,7 @@ const (
 	maxMessageSize = 4096
 )
 
-func (c Client) writePump(ctx context.Context) error {
+func (c Client) writePump() error {
 	t := time.NewTicker(pingPeriod)
 	defer func() {
 		t.Stop()
@@ -432,8 +427,6 @@ func (c Client) writePump(ctx context.Context) error {
 	}()
 	for {
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
 		case out, ok := <-c.router.Outboundc():
 			if !ok {
 				if err := c.write(websocket.CloseMessage, []byte{}); err != nil {
@@ -467,7 +460,7 @@ func (c Client) write(messageType int, b []byte) error {
 	return c.conn.WriteMessage(messageType, b)
 }
 
-func (c Client) readPump(ctx context.Context) error {
+func (c Client) readPump() error {
 	defer func() {
 		c.Close()
 	}()
@@ -475,17 +468,19 @@ func (c Client) readPump(ctx context.Context) error {
 	c.conn.SetPongHandler(func(string) error {
 		return c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	})
+
 	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
 		return fmt.Errorf("error setting websocket read deadline; %w", err)
 	}
 	for {
+		_, b, err := c.conn.ReadMessage()
 		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		case _, ok := <-c.closed:
+			if !ok {
+				return nil
+			}
 		default:
 		}
-
-		_, b, err := c.conn.ReadMessage()
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 			return fmt.Errorf("unexpected websocket connection closure; %w", err)
 		}
@@ -498,7 +493,7 @@ func (c Client) readPump(ctx context.Context) error {
 			c.logger.Error("unable to unmarshal inbound websocket message", zap.Error(err))
 		}
 
-		err = c.router.Injest(ctx, inbound)
+		err = c.router.Injest(c.closed, inbound)
 		if err != nil && !errors.Is(err, ErrRoutingIdentifier) {
 			c.logger.Error("error injesting inbound message", zap.Error(err))
 		}
@@ -511,8 +506,8 @@ func (c Client) waitForInbound(ctx context.Context, inboundc chan Inbound) (*Inb
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
-	case <-c.ctx.Done():
-		return nil, c.ctx.Err()
+	case <-c.closed:
+		return nil, errRconClientUnexpectedClose
 	case in, ok := <-inboundc:
 		if !ok {
 			return nil, errRouteClosed

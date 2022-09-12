@@ -60,12 +60,12 @@ func (w Waiter) UntilReady(
 		if err != nil {
 			return fmt.Errorf("error performing ready check; %w", errReadyCheck)
 		}
-		logger.Info("RCON ready check passed", zap.Int("uptime", info.Uptime))
+		logger.Debug("RCON ready check passed", zap.Int("uptime", info.Uptime))
 
 		return nil
 	}
 
-	logger.Info("waiting for RCON to be ready", zap.String("url", url), zap.Duration("retry", w.interval))
+	logger.Debug("waiting for RCON to be ready", zap.String("url", url), zap.Duration("retry", w.interval))
 	for {
 		err := readyCheck()
 		if errors.Is(err, io.ErrUnexpectedEOF) {
