@@ -16,7 +16,6 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/logger"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
-	"github.com/tjper/rustcron/cmd/cronman/userdata"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -136,18 +135,7 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
-	options := []userdata.Option{
-		userdata.WithQueueBypassPlugin(),
-		userdata.WithUserCfg(
-			dormant.Server.ID.String(),
-			dormant.Server.Moderators.SteamIDs(),
-		),
-		userdata.WithServerCfg(
-			dormant.Server.ID.String(),
-			dormant.Server.Vips.Active().SteamIDs(),
-		),
-	}
-	userdata := dormant.Server.Userdata(options...)
+	userdata := dormant.Server.Userdata()
 
 	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
 		ctx,
@@ -180,6 +168,13 @@ func (ctrl Controller) StartServer(
 		dormant.Server.RconPassword,
 	); err != nil {
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
+	}
+
+	update := db.UpdateWipeApplied{
+		WipeID: dormant.Server.Wipes.CurrentWipe().ID,
+	}
+	if err := ctrl.execer.Exec(ctx, update); err != nil {
+		return nil, fmt.Errorf("while updating server wipe: %w", err)
 	}
 
 	return ctrl.store.GetDormantServer(ctx, id)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	igorm "github.com/tjper/rustcron/internal/gorm"
@@ -93,5 +94,27 @@ func (c CreateWipe) Exec(ctx context.Context, db *gorm.DB) error {
 		return fmt.Errorf("while creating server wipe: %w", err)
 	}
 
+	return nil
+}
+
+// UpdateWipeApplied encompasses all logic to update a wipe to indicate it has
+// been applied.
+type UpdateWipeApplied struct {
+	WipeID uuid.UUID
+}
+
+// Exec implements the igorm.Execer interface.
+func (u UpdateWipeApplied) Exec(ctx context.Context, db *gorm.DB) error {
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var wipe model.Wipe
+		if err := tx.First(&wipe, u.WipeID).Error; err != nil {
+			return err
+		}
+
+		return tx.Model(&wipe).Update("applied_at", time.Now()).Error
+	})
+	if err != nil {
+		return fmt.Errorf("while updating wipe to applied: %w", err)
+	}
 	return nil
 }

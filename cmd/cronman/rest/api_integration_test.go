@@ -42,6 +42,25 @@ func TestCreateServer(t *testing.T) {
 	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleAdmin)
 
 	t.Run("create server with admin user", func(t *testing.T) {
+		instanceID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		allocationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetCreateInstanceOutput(
+			&server.CreateInstanceOutput{
+				Instance: types.Instance{
+					InstanceId: aws.String(instanceID),
+				},
+				Address: ec2.AllocateAddressOutput{
+					AllocationId: aws.String(allocationID),
+					PublicIp:     aws.String("127.0.0.1"),
+				},
+			},
+			nil,
+		)
+
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer resp.Body.Close()
 
@@ -49,6 +68,25 @@ func TestCreateServer(t *testing.T) {
 	})
 
 	t.Run("create server that has options with admin user", func(t *testing.T) {
+		instanceID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		allocationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetCreateInstanceOutput(
+			&server.CreateInstanceOutput{
+				Instance: types.Instance{
+					InstanceId: aws.String(instanceID),
+				},
+				Address: ec2.AllocateAddressOutput{
+					AllocationId: aws.String(allocationID),
+					PublicIp:     aws.String("127.0.0.1"),
+				},
+			},
+			nil,
+		)
+
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/options-body.json")
 		defer resp.Body.Close()
 
@@ -58,6 +96,25 @@ func TestCreateServer(t *testing.T) {
 	sess = suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleStandard)
 
 	t.Run("create server with standard user", func(t *testing.T) {
+		instanceID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		allocationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetCreateInstanceOutput(
+			&server.CreateInstanceOutput{
+				Instance: types.Instance{
+					InstanceId: aws.String(instanceID),
+				},
+				Address: ec2.AllocateAddressOutput{
+					AllocationId: aws.String(allocationID),
+					PublicIp:     aws.String("127.0.0.1"),
+				},
+			},
+			nil,
+		)
+
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer resp.Body.Close()
 
@@ -75,13 +132,32 @@ func TestStartServer(t *testing.T) {
 
 	var serverID string
 	t.Run("create server with admin user", func(t *testing.T) {
+		instanceID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		allocationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetCreateInstanceOutput(
+			&server.CreateInstanceOutput{
+				Instance: types.Instance{
+					InstanceId: aws.String(instanceID),
+				},
+				Address: ec2.AllocateAddressOutput{
+					AllocationId: aws.String(allocationID),
+					PublicIp:     aws.String("127.0.0.1"),
+				},
+			},
+			nil,
+		)
+
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
 
 		require.Equal(t, http.StatusAccepted, createResp.StatusCode)
 
 		var server map[string]interface{}
-		err := json.NewDecoder(createResp.Body).Decode(&server)
+		err = json.NewDecoder(createResp.Body).Decode(&server)
 		require.Nil(t, err)
 
 		iServerID, ok := server["id"]
@@ -140,13 +216,32 @@ func TestStopServer(t *testing.T) {
 
 	var serverID string
 	t.Run("create server with admin user", func(t *testing.T) {
+		instanceID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		allocationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetCreateInstanceOutput(
+			&server.CreateInstanceOutput{
+				Instance: types.Instance{
+					InstanceId: aws.String(instanceID),
+				},
+				Address: ec2.AllocateAddressOutput{
+					AllocationId: aws.String(allocationID),
+					PublicIp:     aws.String("127.0.0.1"),
+				},
+			},
+			nil,
+		)
+
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
 
 		require.Equal(t, http.StatusAccepted, createResp.StatusCode)
 
 		var server map[string]interface{}
-		err := json.NewDecoder(createResp.Body).Decode(&server)
+		err = json.NewDecoder(createResp.Body).Decode(&server)
 		require.Nil(t, err)
 
 		iServerID, ok := server["id"]
@@ -219,14 +314,35 @@ func TestWipeServer(t *testing.T) {
 	sess := suite.sessions.CreateSession(ctx, t, "rustcron@gmail.com", session.RoleAdmin)
 
 	var serverID string
+	var instanceID string
 	t.Run("create server with admin user", func(t *testing.T) {
+		var err error
+		instanceID, err = rand.GenerateString(16)
+		require.Nil(t, err)
+
+		allocationID, err := rand.GenerateString(16)
+		require.Nil(t, err)
+
+		suite.serverManager.SetCreateInstanceOutput(
+			&server.CreateInstanceOutput{
+				Instance: types.Instance{
+					InstanceId: aws.String(instanceID),
+				},
+				Address: ec2.AllocateAddressOutput{
+					AllocationId: aws.String(allocationID),
+					PublicIp:     aws.String("127.0.0.1"),
+				},
+			},
+			nil,
+		)
+
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
 
 		require.Equal(t, http.StatusAccepted, createResp.StatusCode)
 
 		var server map[string]interface{}
-		err := json.NewDecoder(createResp.Body).Decode(&server)
+		err = json.NewDecoder(createResp.Body).Decode(&server)
 		require.Nil(t, err)
 
 		iServerID, ok := server["id"]
@@ -292,33 +408,84 @@ func TestWipeServer(t *testing.T) {
 	})
 
 	t.Run("start server recently wiped server", func(t *testing.T) {
+		check := func(_ context.Context, id string, userdata string) error {
+			require.Equal(t, instanceID, id, "expected instance ID: \"%s\", actual: \"%s\"", instanceID, id)
+			require.Regexp(t, fmt.Sprintf("server\\.seed %d", seed), userdata)
+			require.Regexp(t, fmt.Sprintf("server\\.salt %d", salt), userdata)
+			require.Regexp(t, `'proceduralmap\\\.\*\\\.\*\\\.\*\\\.map' \| xargs rm`, userdata)
+			return nil
+		}
+		suite.serverManager.SetStartInstanceHandler(check)
+
 		resp := suite.postStartServer(ctx, t, sess, serverID)
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
-	})
 
-	t.Run("wait until server is live", func(t *testing.T) {
 		isLive := func(server map[string]interface{}) bool {
 			return server["kind"] == "live"
 		}
-
 		suite.waitUntilServer(ctx, t, sess, serverID, isLive)
+
+		// Necessary to not re-use instance handler function in future executions
+		// of StartInstance.
+		suite.serverManager.SetStartInstanceHandler(nil)
 	})
 
-	t.Run("wipe live server", func(t *testing.T) {
+	t.Run("start server w/ no wipe to apply", func(t *testing.T) {
+		stopResp := suite.postStopServer(ctx, t, sess, serverID)
+		defer stopResp.Body.Close()
+
+		require.Equal(t, http.StatusAccepted, stopResp.StatusCode)
+
+		isDormant := func(server map[string]interface{}) bool {
+			return server["kind"] == "dormant"
+		}
+		suite.waitUntilServer(ctx, t, sess, serverID, isDormant)
+
+		check := func(_ context.Context, id string, userdata string) error {
+			require.Equal(t, instanceID, id, "expected instance ID: \"%s\", actual: \"%s\"", instanceID, id)
+			require.Regexp(t, fmt.Sprintf("server\\.seed %d", seed), userdata)
+			require.Regexp(t, fmt.Sprintf("server\\.salt %d", salt), userdata)
+			require.NotRegexp(t, `'proceduralmap\\\.\*\\\.\*\\\.\*\\\.map' \| xargs rm`, userdata)
+			return nil
+		}
+		suite.serverManager.SetStartInstanceHandler(check)
+
+		startResp := suite.postStartServer(ctx, t, sess, serverID)
+		defer startResp.Body.Close()
+
+		require.Equal(t, http.StatusAccepted, startResp.StatusCode)
+
+		isLive := func(server map[string]interface{}) bool {
+			return server["kind"] == "live"
+		}
+		suite.waitUntilServer(ctx, t, sess, serverID, isLive)
+
+		// Necessary to not re-use instance handler function in future executions
+		// of StartInstance.
+		suite.serverManager.SetStartInstanceHandler(nil)
+	})
+
+	t.Run("full wipe live server", func(t *testing.T) {
+		check := func(_ context.Context, id string, userdata string) error {
+			require.Equal(t, instanceID, id, "expected instance ID: \"%s\", actual: \"%s\"", instanceID, id)
+			require.Regexp(t, `'proceduralmap\\\.\*\\\.\*\\\.\*\\\.map' \| xargs rm`, userdata)
+			require.Regexp(t, `"player\\\.blueprints\\\.\*\\\.db" \| xargs rm`, userdata)
+			return nil
+		}
+		suite.serverManager.SetStartInstanceHandler(check)
+
 		body := map[string]interface{}{
 			"serverId": serverID,
-			"kind":     model.WipeKindMap,
+			"kind":     model.WipeKindFull,
 		}
 
 		resp := suite.wipeServer(ctx, t, sess, body)
 		defer resp.Body.Close()
 
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
-	})
 
-	t.Run("wait until server map seed and salt have changed", func(t *testing.T) {
 		hasUpdated := func(server map[string]interface{}) bool {
 			newSeed := uint16(server["mapSeed"].(float64))
 			newSalt := uint16(server["mapSalt"].(float64))
@@ -326,13 +493,19 @@ func TestWipeServer(t *testing.T) {
 			return newSeed != seed && newSalt != salt
 		}
 		suite.waitUntilServer(ctx, t, sess, serverID, hasUpdated)
+
+		isLive := func(server map[string]interface{}) bool {
+			return server["kind"] == "live"
+		}
+		suite.waitUntilServer(ctx, t, sess, serverID, isLive)
+
+		// Necessary to not re-use instance handler function in future executions
+		// of StartInstance.
+		suite.serverManager.SetStartInstanceHandler(nil)
 	})
 }
 
-func setup(
-	ctx context.Context,
-	t *testing.T,
-) *suite {
+func setup(ctx context.Context, t *testing.T) *suite {
 	t.Helper()
 
 	redis := redis.InitSuite(ctx, t)
@@ -398,25 +571,6 @@ type suite struct {
 
 func (s suite) postCreateServer(ctx context.Context, t *testing.T, sess *session.Session, path string) *http.Response {
 	t.Helper()
-
-	instanceID, err := rand.GenerateString(16)
-	require.Nil(t, err)
-
-	allocationID, err := rand.GenerateString(16)
-	require.Nil(t, err)
-
-	s.serverManager.SetCreateInstanceOutput(
-		&server.CreateInstanceOutput{
-			Instance: types.Instance{
-				InstanceId: aws.String(instanceID),
-			},
-			Address: ec2.AllocateAddressOutput{
-				AllocationId: aws.String(allocationID),
-				PublicIp:     aws.String("127.0.0.1"),
-			},
-		},
-		nil,
-	)
 
 	fd, err := os.Open(path)
 	require.Nil(t, err)

@@ -19,6 +19,8 @@ type MockManager struct {
 
 	makeInstanceAvailableOutput *AssociationOutput
 	makeInstanceAvailableError  error
+
+	startInstanceHandler func(context.Context, string, string) error
 }
 
 // SetCreateInstanceOutput sets the output of the instance's CreateInstance
@@ -33,9 +35,18 @@ func (m MockManager) CreateInstance(_ context.Context, _ model.InstanceKind) (*C
 	return m.createInstanceOutput, m.createInstanceError
 }
 
+// SetStartInstanceHandler sets the handler of the StartInstance method to the
+// passed function.
+func (m *MockManager) SetStartInstanceHandler(handler func(context.Context, string, string) error) {
+	m.startInstanceHandler = handler
+}
+
 // StartInstance mocks the starting of a cronman server instance.
-func (m MockManager) StartInstance(_ context.Context, _ string, _ string) error {
-	return nil
+func (m MockManager) StartInstance(ctx context.Context, id string, userdata string) error {
+	if m.startInstanceHandler == nil {
+		return nil
+	}
+	return m.startInstanceHandler(ctx, id, userdata)
 }
 
 // StopInstance mocks the stopping of a cronman server instance.

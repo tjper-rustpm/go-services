@@ -85,7 +85,23 @@ func (s Server) IsLive() bool {
 
 // UserData generates the userdata to be used by AWS to launch the server in
 // proper state.
-func (s Server) Userdata(options ...userdata.Option) string {
+func (s Server) Userdata() string {
+	options := []userdata.Option{
+		userdata.WithQueueBypassPlugin(),
+		userdata.WithUserCfg(s.ID.String(), s.Moderators.SteamIDs()),
+		userdata.WithServerCfg(s.ID.String(), s.Vips.Active().SteamIDs()),
+	}
+
+	wipe := s.Wipes.CurrentWipe()
+	if !wipe.AppliedAt.Valid {
+		switch wipe.Kind {
+		case WipeKindMap:
+			options = append(options, userdata.WithMapWipe(s.ID.String()))
+		case WipeKindFull:
+			options = append(options, userdata.WithMapWipe(s.ID.String()))
+			options = append(options, userdata.WithBluePrintWipe(s.ID.String()))
+		}
+	}
 	return userdata.Generate(
 		s.ID.String(),
 		s.Name,

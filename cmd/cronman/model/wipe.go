@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"math/rand"
 	"sort"
 
@@ -61,6 +62,8 @@ type Wipe struct {
 	MapSeed  uint16
 	MapSalt  uint16
 	ServerID uuid.UUID
+
+	AppliedAt sql.NullTime
 }
 
 func (w Wipe) Clone() Wipe { return w }
