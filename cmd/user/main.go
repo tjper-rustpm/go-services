@@ -126,7 +126,7 @@ func main() {
 }
 
 func newLogger() *zap.Logger {
-	logger, err := zap.NewDevelopment()
+	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal(err)
 	}
