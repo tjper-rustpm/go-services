@@ -19,10 +19,12 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/redis"
 	"github.com/tjper/rustcron/cmd/cronman/rest"
 	"github.com/tjper/rustcron/cmd/cronman/server"
+	"github.com/tjper/rustcron/cmd/cronman/stream"
 	igorm "github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
+	istream "github.com/tjper/rustcron/internal/stream"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -45,10 +47,12 @@ func main() {
 	serverDirector := newServerDirector(context.Background(), logger)
 
 	redisClient := newRedisClient(context.Background(), logger)
+	streamClient := newStreamClient(context.Background(), logger, redisClient)
 	sessionManager := session.NewManager(logger, redisClient, 48*time.Hour)
 	rconHub := rcon.NewHub(logger)
 	rconWaiter := rcon.NewWaiter(logger, time.Minute)
 	directorNotifier := director.NewNotifier(logger, redisClient)
+	streamHandler := stream.NewHandler(logger, storev2, streamClient, rconHub)
 
 	ctrl := controller.New(
 		logger,
@@ -95,6 +99,20 @@ func main() {
 		case <-ctx.Done():
 			return
 		case <-signalc:
+			cancel()
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		err := streamHandler.Launch(ctx)
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		if err != nil {
+			logger.Error("[Startup] Failed to process stream handler.", zap.Error(err))
 			cancel()
 		}
 	}()
@@ -181,6 +199,14 @@ func newRedisClient(ctx context.Context, logger *zap.Logger) *redisv8.Client {
 		logger.Panic("[Startup] Failed to initialize Redis client.", zap.Error(err))
 	}
 	return client
+}
+
+func newStreamClient(ctx context.Context, logger *zap.Logger, redisClient *redisv8.Client) *istream.Client {
+	streamClient, err := istream.Init(ctx, logger, redisClient, "payment")
+	if err != nil {
+		logger.Panic("[Startup] Failed to initialze stream client.", zap.Error(err))
+	}
+	return streamClient
 }
 
 func newServerDirector(ctx context.Context, logger *zap.Logger) *controller.ServerDirector {
