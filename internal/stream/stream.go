@@ -71,9 +71,8 @@ func (c Client) Write(ctx context.Context, b []byte) error {
 }
 
 func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error) {
-	c.mutex.RLock()
-	start := c.claimStart
-	c.mutex.RUnlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	args := &redis.XAutoClaimArgs{
 		Stream:   stream,
@@ -81,16 +80,14 @@ func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error
 		Consumer: c.consumer,
 		MinIdle:  idle,
 		Count:    1,
-		Start:    start,
+		Start:    c.claimStart,
 	}
 	messages, start, err := c.rdb.XAutoClaim(ctx, args).Result()
 	if err != nil {
 		return nil, fmt.Errorf("auto claim; error: %w", err)
 	}
 
-	c.mutex.Lock()
 	c.claimStart = start
-	c.mutex.Unlock()
 
 	if len(messages) == 0 {
 		return nil, ErrNoPending

@@ -190,6 +190,8 @@ func (h Handler) processCheckoutSessionComplete(ctx context.Context, event strip
 	return nil
 }
 
+var errInvoiceSubscriptionDNE = errors.New("invoice subscription does not exist")
+
 func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 	var invoice stripe.Invoice
 	if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
@@ -226,7 +228,11 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		return fmt.Errorf("store.FindByStripeEventID: %w", err)
 	}
 
-	if err := h.store.CreateInvoice(ctx, invoiceModel, invoice.Subscription.ID); err != nil {
+	err = h.store.CreateInvoice(ctx, invoiceModel, invoice.Subscription.ID)
+	if errors.Is(err, gorm.ErrNotFound) {
+		return errInvoiceSubscriptionDNE
+	}
+	if err != nil {
 		return fmt.Errorf("store.CreateInvoice: %w", err)
 	}
 

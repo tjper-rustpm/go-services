@@ -42,7 +42,7 @@ func (sub Subscription) Status() InvoiceStatus {
 		}
 	}
 
-	duration := time.Hour * 24 * 31 // 31 days
+	duration := time.Hour * 24 * 30 // 30 days
 	if latest.CreatedAt.Before(time.Now().Add(-duration)) {
 		return InvoiceStatusInactive
 	}

@@ -92,7 +92,7 @@ func (h Handler) Launch(ctx context.Context) error {
 }
 
 func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.InvoicePaidEvent) error {
-	duration := time.Hour * 24 * 31 // 31 days
+	duration := time.Hour * 24 * 30 // 30 days
 	vip := &model.Vip{
 		SubscriptionID: event.SubscriptionID,
 		ServerID:       event.ServerID,
