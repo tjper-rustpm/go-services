@@ -118,3 +118,28 @@ func (u UpdateWipeApplied) Exec(ctx context.Context, db *gorm.DB) error {
 	}
 	return nil
 }
+
+// FindDormantServer encompasses all logic to retrieve a dormant server.
+type FindDormantServer struct {
+	ServerID uuid.UUID
+	Result   model.DormantServer
+}
+
+// Find implements the igorm.Finder interface.
+func (f *FindDormantServer) Find(ctx context.Context, db *gorm.DB) error {
+	err := db.
+		WithContext(ctx).
+		Model(&f.Result).
+		Preload("Server", "id = ?", f.ServerID).
+		Preload("Server.Wipes").
+		Preload("Server.Tags").
+		Preload("Server.Events").
+		Preload("Server.Moderators").
+		Preload("Server.Vips").
+		First(&f.Result).Error
+	if err != nil {
+		return fmt.Errorf("while retrieving dormant server: %w", err)
+	}
+
+	return nil
+}

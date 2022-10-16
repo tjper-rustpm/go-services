@@ -16,6 +16,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/logger"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
+	"github.com/tjper/rustcron/cmd/cronman/userdata"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -130,17 +131,36 @@ func (ctrl Controller) StartServer(
 ) (*model.DormantServer, error) {
 	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
 
-	dormant, err := ctrl.store.GetDormantServer(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("get dormant server; %w", err)
+	find := db.FindDormantServer{
+		ServerID: id,
+	}
+	if err := ctrl.finder.Find(ctx, &find); err != nil {
+		return nil, fmt.Errorf("while starting server: %w", err)
+	}
+	dormant := find.Result
+
+	server := find.Result.Server
+	options := []userdata.Option{
+		userdata.WithQueueBypassPlugin(),
+		userdata.WithUserCfg(server.ID.String(), server.Moderators.SteamIDs()),
+		userdata.WithServerCfg(server.ID.String(), server.Vips.Active().SteamIDs()),
 	}
 
-	userdata := dormant.Server.Userdata()
+	wipe := server.Wipes.CurrentWipe()
+	if !wipe.AppliedAt.Valid {
+		switch wipe.Kind {
+		case model.WipeKindMap:
+			options = append(options, userdata.WithMapWipe(server.ID.String()))
+		case model.WipeKindFull:
+			options = append(options, userdata.WithMapWipe(server.ID.String()))
+			options = append(options, userdata.WithBluePrintWipe(server.ID.String()))
+		}
+	}
 
 	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
 		ctx,
 		dormant.Server.InstanceID,
-		userdata,
+		server.Userdata(options...),
 	); err != nil {
 		return nil, fmt.Errorf("start server instance; %w", err)
 	}
@@ -170,14 +190,25 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
 	}
 
-	update := db.UpdateWipeApplied{
-		WipeID: dormant.Server.Wipes.CurrentWipe().ID,
-	}
-	if err := ctrl.execer.Exec(ctx, update); err != nil {
-		return nil, fmt.Errorf("while updating server wipe: %w", err)
+	// Assumes wipe is being applied as part of the userdata to the StartInstance
+	// call.
+	if !wipe.AppliedAt.Valid {
+		update := db.UpdateWipeApplied{
+			WipeID: wipe.ID,
+		}
+		if err := ctrl.execer.Exec(ctx, update); err != nil {
+			return nil, fmt.Errorf("while updating server wipe: %w", err)
+		}
 	}
 
-	return ctrl.store.GetDormantServer(ctx, id)
+	find = db.FindDormantServer{
+		ServerID: id,
+	}
+	if err := ctrl.finder.Find(ctx, &find); err != nil {
+		return nil, fmt.Errorf("while finding started dormant server: %w", err)
+	}
+
+	return &find.Result, nil
 }
 
 // MakeServerLive instructs the Controller to make the server specified by the id

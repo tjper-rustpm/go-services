@@ -184,7 +184,7 @@ fn_dl_steamcmd
 find /home/rustserver/server/%s -name "player\.blueprints\.*\.db" | xargs rm
  `
 	mapWipeScript = `
-find /home/rustserver/server/%s -name 'proceduralmap\.*\.*\.*\.map' | xargs rm
+find /home/rustserver/server/%s -name "proceduralmap\.*\.*\.*\.map" | xargs rm
  `
 
 	installOxideScript = `

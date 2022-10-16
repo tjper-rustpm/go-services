@@ -14,25 +14,23 @@ func NewMockManager() *MockManager {
 // MockManager provides methods to mock interactions with cronman servers. This
 // is typically used in testing to avoid interacting with AWS.
 type MockManager struct {
-	createInstanceOutput *CreateInstanceOutput
-	createInstanceError  error
-
-	makeInstanceAvailableOutput *AssociationOutput
-	makeInstanceAvailableError  error
-
-	startInstanceHandler func(context.Context, string, string) error
+	createInstanceHandler        func(context.Context, model.InstanceKind) (*CreateInstanceOutput, error)
+	makeInstanceAvailableHandler func(context.Context, string, string) (*AssociationOutput, error)
+	startInstanceHandler         func(context.Context, string, string) error
 }
 
-// SetCreateInstanceOutput sets the output of the instance's CreateInstance
-// method.
-func (m *MockManager) SetCreateInstanceOutput(v *CreateInstanceOutput, err error) {
-	m.createInstanceOutput = v
-	m.createInstanceError = err
+// SetCreateInstanceHandler sets the handler of the CreateInstance method to
+// the passed function.
+func (m *MockManager) SetCreateInstanceHandler(handler func(context.Context, model.InstanceKind) (*CreateInstanceOutput, error)) {
+	m.createInstanceHandler = handler
 }
 
 // CreateInstance mocks the creation of a cronman server instance.
-func (m MockManager) CreateInstance(_ context.Context, _ model.InstanceKind) (*CreateInstanceOutput, error) {
-	return m.createInstanceOutput, m.createInstanceError
+func (m MockManager) CreateInstance(ctx context.Context, kind model.InstanceKind) (*CreateInstanceOutput, error) {
+	if m.createInstanceHandler == nil {
+		return nil, nil
+	}
+	return m.createInstanceHandler(ctx, kind)
 }
 
 // SetStartInstanceHandler sets the handler of the StartInstance method to the
@@ -54,16 +52,18 @@ func (m MockManager) StopInstance(_ context.Context, _ string) error {
 	return nil
 }
 
-// SetMakeInstanceAvailableOutput sets the output of the instance's
-// MakeInstanceAvailable method.
-func (m *MockManager) SetMakeInstanceAvailableOutput(v *AssociationOutput, err error) {
-	m.makeInstanceAvailableOutput = v
-	m.makeInstanceAvailableError = err
+// SetMakeInstanceAvailableHandler sets the handler of the MakeInstanceAvailable
+// method to the passed function.
+func (m *MockManager) SetMakeInstanceAvailableOutput(handler func(context.Context, string, string) (*AssociationOutput, error)) {
+	m.makeInstanceAvailableHandler = handler
 }
 
 // MakeInstanceAvailable mocks the making a cronman server instance available.
-func (m MockManager) MakeInstanceAvailable(_ context.Context, _ string, _ string) (*AssociationOutput, error) {
-	return m.makeInstanceAvailableOutput, m.makeInstanceAvailableError
+func (m MockManager) MakeInstanceAvailable(ctx context.Context, instanceID string, allocationID string) (*AssociationOutput, error) {
+	if m.makeInstanceAvailableHandler == nil {
+		return nil, nil
+	}
+	return m.makeInstanceAvailableHandler(ctx, instanceID, allocationID)
 }
 
 // MakeInstanceUnavailable mocks the making a cronman server instance

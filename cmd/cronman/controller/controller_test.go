@@ -2,16 +2,21 @@ package controller
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
+	"github.com/tjper/rustcron/cmd/cronman/server"
 	"github.com/tjper/rustcron/internal/gorm"
 	imodel "github.com/tjper/rustcron/internal/model"
 	itime "github.com/tjper/rustcron/internal/time"
@@ -43,7 +48,7 @@ func TestLiveServerRconForEach(t *testing.T) {
 			expected := make(model.LiveServers, len(servers))
 			copy(expected, servers)
 
-			finder := newFinderMock(servers)
+			finder := newLiveServersFinderMock(servers)
 
 			controller := &Controller{
 				logger: zap.NewNop(),
@@ -315,6 +320,217 @@ func TestWipeServer(t *testing.T) {
 	}
 }
 
+func TestStartServer(t *testing.T) {
+	t.Parallel()
+
+	type expected struct {
+		userdataREs         []*regexp.Regexp
+		negativeUserdataREs []*regexp.Regexp
+		wipeApplied         bool
+	}
+	tests := map[string]struct {
+		dormant model.DormantServer
+		exp     expected
+	}{
+		"no wipe to apply": {
+			dormant: model.DormantServer{
+				Model: imodel.Model{
+					ID: uuid.New(),
+				},
+				Server: model.Server{
+					Model:        imodel.Model{ID: uuid.New()},
+					Name:         "",
+					RconPassword: "",
+					MaxPlayers:   0,
+					MapSize:      0,
+					TickRate:     0,
+					BannerURL:    "",
+					Description:  "",
+					Options:      nil,
+					Region:       model.RegionUsEast,
+					Moderators: model.Moderators{
+						{SteamID: "admin-users-steam-id"},
+					},
+					Vips: model.Vips{},
+					Wipes: model.Wipes{
+						{Model: imodel.Model{At: imodel.At{CreatedAt: time.Now().Add(-24 * time.Hour)}}, Kind: model.WipeKindFull, AppliedAt: sql.NullTime{Time: time.Now().Add(-23 * time.Hour), Valid: true}},
+					},
+				},
+			},
+			exp: expected{
+				negativeUserdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`player\\\.blueprints.+\|\sxargs\srm`),
+					regexp.MustCompile(`proceduralmap.+\|\sxargs\srm`),
+				},
+				wipeApplied: false,
+			},
+		},
+		"map-wipe to apply": {
+			dormant: model.DormantServer{
+				Model: imodel.Model{
+					ID: uuid.New(),
+				},
+				Server: model.Server{
+					Model:        imodel.Model{ID: uuid.New()},
+					Name:         "",
+					RconPassword: "",
+					MaxPlayers:   0,
+					MapSize:      0,
+					TickRate:     0,
+					BannerURL:    "",
+					Description:  "",
+					Options:      nil,
+					Region:       model.RegionUsEast,
+					Moderators: model.Moderators{
+						{SteamID: "admin-users-steam-id"},
+					},
+					Vips: model.Vips{},
+					Wipes: model.Wipes{
+						{
+							Model:     imodel.Model{At: imodel.At{CreatedAt: time.Now().Add(-24 * time.Hour)}},
+							Kind:      model.WipeKindMap,
+							AppliedAt: sql.NullTime{Time: time.Time{}, Valid: false},
+						},
+					},
+				},
+			},
+			exp: expected{
+				userdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`proceduralmap.+\|\sxargs\srm`),
+				},
+				negativeUserdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`player\\\.blueprints.+\|\sxargs\srm`),
+				},
+				wipeApplied: true,
+			},
+		},
+		"full-wipe to apply": {
+			dormant: model.DormantServer{
+				Model: imodel.Model{
+					ID: uuid.New(),
+				},
+				Server: model.Server{
+					Model:        imodel.Model{ID: uuid.New()},
+					Name:         "",
+					RconPassword: "",
+					MaxPlayers:   0,
+					MapSize:      0,
+					TickRate:     0,
+					BannerURL:    "",
+					Description:  "",
+					Options:      nil,
+					Region:       model.RegionUsEast,
+					Moderators: model.Moderators{
+						{SteamID: "admin-users-steam-id"},
+					},
+					Vips: model.Vips{},
+					Wipes: model.Wipes{
+						{
+							Model:     imodel.Model{At: imodel.At{CreatedAt: time.Now().Add(-24 * time.Hour)}},
+							Kind:      model.WipeKindFull,
+							AppliedAt: sql.NullTime{Time: time.Time{}, Valid: false},
+						},
+					},
+				},
+			},
+			exp: expected{
+				userdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`player\\\.blueprints.+\|\sxargs\srm`),
+					regexp.MustCompile(`proceduralmap.+\|\sxargs\srm`),
+				},
+				wipeApplied: true,
+			},
+		},
+		"one expired vip": {
+			dormant: model.DormantServer{
+				Model: imodel.Model{
+					ID: uuid.New(),
+				},
+				Server: model.Server{
+					Model:        imodel.Model{ID: uuid.New()},
+					Name:         "",
+					RconPassword: "",
+					MaxPlayers:   0,
+					MapSize:      0,
+					TickRate:     0,
+					BannerURL:    "",
+					Description:  "",
+					Options:      nil,
+					Region:       model.RegionUsEast,
+					Moderators: model.Moderators{
+						{SteamID: "admin-users-steam-id"},
+					},
+					Vips: model.Vips{
+						{SteamID: "expired-vip-steam-id", ExpiresAt: time.Now().Add(-time.Minute)},
+					},
+					Wipes: model.Wipes{
+						{Model: imodel.Model{At: imodel.At{CreatedAt: time.Now().Add(-24 * time.Hour)}}, Kind: model.WipeKindFull, AppliedAt: sql.NullTime{Time: time.Now().Add(-23 * time.Hour), Valid: true}},
+					},
+				},
+			},
+			exp: expected{
+				negativeUserdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`oxide\.usergroup add expired-vip-steam-id vip`),
+				},
+				wipeApplied: false,
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			serverManager := server.NewMockManager()
+			serverManager.SetStartInstanceHandler(func(_ context.Context, _ string, userdata string) error {
+				for _, regexp := range test.exp.userdataREs {
+					require.Regexp(t, regexp, userdata)
+				}
+				for _, regexp := range test.exp.negativeUserdataREs {
+					require.NotRegexp(t, regexp, userdata)
+				}
+				return nil
+			})
+			serverManager.SetMakeInstanceAvailableOutput(func(ctx context.Context, s1, s2 string) (*server.AssociationOutput, error) {
+				return &server.AssociationOutput{
+					AssociateAddressOutput: ec2.AssociateAddressOutput{
+						AssociationId: aws.String("started-server-association-id"),
+					},
+				}, nil
+			})
+
+			var wipeApplied bool
+			updateWipeAppliedCheck := func(e gorm.Execer) {
+				_, ok := e.(db.UpdateWipeApplied)
+				require.True(t, ok)
+				wipeApplied = true
+			}
+
+			controller := &Controller{
+				logger: zap.NewNop(),
+				waiter: rcon.NewWaiterMock(100 * time.Millisecond),
+				finder: newDormantServerFinderMock(test.dormant),
+				execer: newExecerMock(updateWipeAppliedCheck),
+				serverController: NewServerDirector(
+					serverManager,
+					serverManager,
+					serverManager,
+				),
+			}
+
+			id := uuid.New()
+
+			_, err := controller.StartServer(ctx, id)
+			require.Nil(t, err)
+
+			require.Equal(t, test.exp.wipeApplied, wipeApplied, "wipe not applied as expected")
+		})
+	}
+}
+
 // --- mocks ---
 
 func newExecerMock(check func(gorm.Execer)) *execerMock {
@@ -331,26 +547,44 @@ var (
 	errUnexpectedType = errors.New("unexpected type")
 )
 
-func (m execerMock) Exec(ctx context.Context, entity gorm.Execer) error {
+func (m execerMock) Exec(_ context.Context, entity gorm.Execer) error {
 	m.check(entity)
 
 	return nil
 }
 
-func newFinderMock(servers model.LiveServers) *finderMock {
-	return &finderMock{servers: servers}
+func newLiveServersFinderMock(servers model.LiveServers) *liveServersFinderMock {
+	return &liveServersFinderMock{servers: servers}
 }
 
-type finderMock struct {
+type liveServersFinderMock struct {
 	servers model.LiveServers
 }
 
-func (m finderMock) Find(ctx context.Context, f gorm.Finder) error {
+func (m liveServersFinderMock) Find(ctx context.Context, f gorm.Finder) error {
 	servers, ok := f.(*model.LiveServers)
 	if !ok {
 		return fmt.Errorf("while checking gorm.Finder type: %w", errUnexpectedType)
 	}
 	*servers = m.servers
+	return nil
+}
+
+func newDormantServerFinderMock(dormant model.DormantServer) *dormantServerFinderMock {
+	return &dormantServerFinderMock{dormant: dormant}
+}
+
+type dormantServerFinderMock struct {
+	dormant model.DormantServer
+}
+
+func (m dormantServerFinderMock) Find(ctx context.Context, f gorm.Finder) error {
+	finder, ok := f.(*db.FindDormantServer)
+	if !ok {
+		return fmt.Errorf("while checking gorm.Finder: %w", errUnexpectedType)
+	}
+
+	finder.Result = m.dormant
 	return nil
 }
 
