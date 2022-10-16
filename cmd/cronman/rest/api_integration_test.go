@@ -48,18 +48,18 @@ func TestCreateServer(t *testing.T) {
 		allocationID, err := rand.GenerateString(16)
 		require.Nil(t, err)
 
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
+		suite.serverManager.SetCreateInstanceHandler(func(context.Context, model.InstanceKind) (*server.CreateInstanceOutput, error) {
+			return &server.CreateInstanceOutput{
+					Instance: types.Instance{
+						InstanceId: aws.String(instanceID),
+					},
+					Address: ec2.AllocateAddressOutput{
+						AllocationId: aws.String(allocationID),
+						PublicIp:     aws.String("127.0.0.1"),
+					},
 				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
+				nil
+		})
 
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer resp.Body.Close()
@@ -74,18 +74,18 @@ func TestCreateServer(t *testing.T) {
 		allocationID, err := rand.GenerateString(16)
 		require.Nil(t, err)
 
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
+		suite.serverManager.SetCreateInstanceHandler(func(context.Context, model.InstanceKind) (*server.CreateInstanceOutput, error) {
+			return &server.CreateInstanceOutput{
+					Instance: types.Instance{
+						InstanceId: aws.String(instanceID),
+					},
+					Address: ec2.AllocateAddressOutput{
+						AllocationId: aws.String(allocationID),
+						PublicIp:     aws.String("127.0.0.1"),
+					},
 				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
+				nil
+		})
 
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/options-body.json")
 		defer resp.Body.Close()
@@ -102,18 +102,18 @@ func TestCreateServer(t *testing.T) {
 		allocationID, err := rand.GenerateString(16)
 		require.Nil(t, err)
 
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
+		suite.serverManager.SetCreateInstanceHandler(func(context.Context, model.InstanceKind) (*server.CreateInstanceOutput, error) {
+			return &server.CreateInstanceOutput{
+					Instance: types.Instance{
+						InstanceId: aws.String(instanceID),
+					},
+					Address: ec2.AllocateAddressOutput{
+						AllocationId: aws.String(allocationID),
+						PublicIp:     aws.String("127.0.0.1"),
+					},
 				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
+				nil
+		})
 
 		resp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer resp.Body.Close()
@@ -138,18 +138,18 @@ func TestStartServer(t *testing.T) {
 		allocationID, err := rand.GenerateString(16)
 		require.Nil(t, err)
 
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
+		suite.serverManager.SetCreateInstanceHandler(func(context.Context, model.InstanceKind) (*server.CreateInstanceOutput, error) {
+			return &server.CreateInstanceOutput{
+					Instance: types.Instance{
+						InstanceId: aws.String(instanceID),
+					},
+					Address: ec2.AllocateAddressOutput{
+						AllocationId: aws.String(allocationID),
+						PublicIp:     aws.String("127.0.0.1"),
+					},
 				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
+				nil
+		})
 
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
@@ -222,18 +222,18 @@ func TestStopServer(t *testing.T) {
 		allocationID, err := rand.GenerateString(16)
 		require.Nil(t, err)
 
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
+		suite.serverManager.SetCreateInstanceHandler(func(context.Context, model.InstanceKind) (*server.CreateInstanceOutput, error) {
+			return &server.CreateInstanceOutput{
+					Instance: types.Instance{
+						InstanceId: aws.String(instanceID),
+					},
+					Address: ec2.AllocateAddressOutput{
+						AllocationId: aws.String(allocationID),
+						PublicIp:     aws.String("127.0.0.1"),
+					},
 				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
+				nil
+		})
 
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
@@ -323,18 +323,18 @@ func TestWipeServer(t *testing.T) {
 		allocationID, err := rand.GenerateString(16)
 		require.Nil(t, err)
 
-		suite.serverManager.SetCreateInstanceOutput(
-			&server.CreateInstanceOutput{
-				Instance: types.Instance{
-					InstanceId: aws.String(instanceID),
+		suite.serverManager.SetCreateInstanceHandler(func(context.Context, model.InstanceKind) (*server.CreateInstanceOutput, error) {
+			return &server.CreateInstanceOutput{
+					Instance: types.Instance{
+						InstanceId: aws.String(instanceID),
+					},
+					Address: ec2.AllocateAddressOutput{
+						AllocationId: aws.String(allocationID),
+						PublicIp:     aws.String("127.0.0.1"),
+					},
 				},
-				Address: ec2.AllocateAddressOutput{
-					AllocationId: aws.String(allocationID),
-					PublicIp:     aws.String("127.0.0.1"),
-				},
-			},
-			nil,
-		)
+				nil
+		})
 
 		createResp := suite.postCreateServer(ctx, t, sess, "testdata/default-body.json")
 		defer createResp.Body.Close()
@@ -412,7 +412,7 @@ func TestWipeServer(t *testing.T) {
 			require.Equal(t, instanceID, id, "expected instance ID: \"%s\", actual: \"%s\"", instanceID, id)
 			require.Regexp(t, fmt.Sprintf("server\\.seed %d", seed), userdata)
 			require.Regexp(t, fmt.Sprintf("server\\.salt %d", salt), userdata)
-			require.Regexp(t, `'proceduralmap\\\.\*\\\.\*\\\.\*\\\.map' \| xargs rm`, userdata)
+			require.Regexp(t, `"proceduralmap\\\.\*\\\.\*\\\.\*\\\.map" \| xargs rm`, userdata)
 			return nil
 		}
 		suite.serverManager.SetStartInstanceHandler(check)
@@ -447,7 +447,7 @@ func TestWipeServer(t *testing.T) {
 			require.Equal(t, instanceID, id, "expected instance ID: \"%s\", actual: \"%s\"", instanceID, id)
 			require.Regexp(t, fmt.Sprintf("server\\.seed %d", seed), userdata)
 			require.Regexp(t, fmt.Sprintf("server\\.salt %d", salt), userdata)
-			require.NotRegexp(t, `'proceduralmap\\\.\*\\\.\*\\\.\*\\\.map' \| xargs rm`, userdata)
+			require.NotRegexp(t, `"proceduralmap\\\.\*\\\.\*\\\.\*\\\.map" \| xargs rm`, userdata)
 			return nil
 		}
 		suite.serverManager.SetStartInstanceHandler(check)
@@ -470,7 +470,7 @@ func TestWipeServer(t *testing.T) {
 	t.Run("full wipe live server", func(t *testing.T) {
 		check := func(_ context.Context, id string, userdata string) error {
 			require.Equal(t, instanceID, id, "expected instance ID: \"%s\", actual: \"%s\"", instanceID, id)
-			require.Regexp(t, `'proceduralmap\\\.\*\\\.\*\\\.\*\\\.map' \| xargs rm`, userdata)
+			require.Regexp(t, `"proceduralmap\\\.\*\\\.\*\\\.\*\\\.map" \| xargs rm`, userdata)
 			require.Regexp(t, `"player\\\.blueprints\\\.\*\\\.db" \| xargs rm`, userdata)
 			return nil
 		}
@@ -637,14 +637,14 @@ func (s suite) postStartServer(ctx context.Context, t *testing.T, sess *session.
 	associationID, err := rand.GenerateString(16)
 	require.Nil(t, err)
 
-	s.serverManager.SetMakeInstanceAvailableOutput(
-		&server.AssociationOutput{
-			AssociateAddressOutput: ec2.AssociateAddressOutput{
-				AssociationId: aws.String(associationID),
+	s.serverManager.SetMakeInstanceAvailableHandler(func(context.Context, string, string) (*server.AssociationOutput, error) {
+		return &server.AssociationOutput{
+				AssociateAddressOutput: ec2.AssociateAddressOutput{
+					AssociationId: aws.String(associationID),
+				},
 			},
-		},
-		nil,
-	)
+			nil
+	})
 
 	body := map[string]interface{}{
 		"serverId": serverID,

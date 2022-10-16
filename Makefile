@@ -60,7 +60,7 @@ test-user-rest: ## Integration test user REST API.
 
 .PHONY: test-cronman-rest
 test-cronman-rest: ## Integration test cronman API.
-	@COMMAND="go test -v -count=1 -tags=integration ./cmd/cronman/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --exit-code-from test
+	@COMMAND="go test -v -count=1 -tags=integration ./cmd/cronman/rest" docker-compose -f deploy/docker-compose.test.yml up --build -V --abort-on-container-exit --force-recreate --exit-code-from test
 	@docker-compose -f deploy/docker-compose.test.yml down
 
 .PHONY: test-cronman-stream

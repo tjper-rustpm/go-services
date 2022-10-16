@@ -127,19 +127,31 @@ type FindDormantServer struct {
 
 // Find implements the igorm.Finder interface.
 func (f *FindDormantServer) Find(ctx context.Context, db *gorm.DB) error {
+	var server model.Server
 	err := db.
 		WithContext(ctx).
-		Model(&f.Result).
-		Preload("Server", "id = ?", f.ServerID).
-		Preload("Server.Wipes").
-		Preload("Server.Tags").
-		Preload("Server.Events").
-		Preload("Server.Moderators").
-		Preload("Server.Vips").
-		First(&f.Result).Error
+		Model(&server).
+		Preload("Wipes").
+		Preload("Tags").
+		Preload("Events").
+		Preload("Moderators").
+		Preload("Vips").
+		First(&server, f.ServerID).Error
+	if err != nil {
+		return fmt.Errorf("while retrieving server: %w", err)
+	}
+
+	var dormant model.DormantServer
+	err = db.
+		WithContext(ctx).
+		Model(&dormant).
+		First(&dormant, server.StateID).Error
 	if err != nil {
 		return fmt.Errorf("while retrieving dormant server: %w", err)
 	}
+
+	dormant.Server = server
+	f.Result = dormant
 
 	return nil
 }

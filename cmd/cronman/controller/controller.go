@@ -139,7 +139,7 @@ func (ctrl Controller) StartServer(
 	}
 	dormant := find.Result
 
-	server := find.Result.Server
+	server := dormant.Server
 	options := []userdata.Option{
 		userdata.WithQueueBypassPlugin(),
 		userdata.WithUserCfg(server.ID.String(), server.Moderators.SteamIDs()),
@@ -157,24 +157,24 @@ func (ctrl Controller) StartServer(
 		}
 	}
 
-	if err := ctrl.serverController.Region(dormant.Server.Region).StartInstance(
+	if err := ctrl.serverController.Region(server.Region).StartInstance(
 		ctx,
-		dormant.Server.InstanceID,
+		server.InstanceID,
 		server.Userdata(options...),
 	); err != nil {
 		return nil, fmt.Errorf("start server instance; %w", err)
 	}
 
-	association, err := ctrl.serverController.Region(dormant.Server.Region).MakeInstanceAvailable(
+	association, err := ctrl.serverController.Region(server.Region).MakeInstanceAvailable(
 		ctx,
-		dormant.Server.InstanceID,
-		dormant.Server.AllocationID,
+		server.InstanceID,
+		server.AllocationID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make server instance available; %w", err)
 	}
 	defer func() {
-		if err := ctrl.serverController.Region(dormant.Server.Region).MakeInstanceUnavailable(
+		if err := ctrl.serverController.Region(server.Region).MakeInstanceUnavailable(
 			ctx,
 			*association.AssociationId,
 		); err != nil {
@@ -184,8 +184,8 @@ func (ctrl Controller) StartServer(
 
 	if err := ctrl.pingUntilReady(
 		ctx,
-		dormant.Server.ElasticIP,
-		dormant.Server.RconPassword,
+		server.ElasticIP,
+		server.RconPassword,
 	); err != nil {
 		return nil, fmt.Errorf("unable to ping server instance; %w", err)
 	}

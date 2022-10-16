@@ -148,7 +148,7 @@ su -c "mkdir -p /home/rustserver/server/Rustpm East Main/cfg" - rustserver
 
 find /home/rustserver/server/Rustpm East Main -name "player\.blueprints\.*\.db" | xargs rm
  
-find /home/rustserver/server/Rustpm East Main -name 'proceduralmap\.*\.*\.*\.map' | xargs rm
+find /home/rustserver/server/Rustpm East Main -name "proceduralmap\.*\.*\.*\.map" | xargs rm
  
 export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRARY_PATH};
 

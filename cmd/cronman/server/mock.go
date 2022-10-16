@@ -54,7 +54,7 @@ func (m MockManager) StopInstance(_ context.Context, _ string) error {
 
 // SetMakeInstanceAvailableHandler sets the handler of the MakeInstanceAvailable
 // method to the passed function.
-func (m *MockManager) SetMakeInstanceAvailableOutput(handler func(context.Context, string, string) (*AssociationOutput, error)) {
+func (m *MockManager) SetMakeInstanceAvailableHandler(handler func(context.Context, string, string) (*AssociationOutput, error)) {
 	m.makeInstanceAvailableHandler = handler
 }
 

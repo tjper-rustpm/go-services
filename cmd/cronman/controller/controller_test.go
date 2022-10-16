@@ -494,7 +494,7 @@ func TestStartServer(t *testing.T) {
 				}
 				return nil
 			})
-			serverManager.SetMakeInstanceAvailableOutput(func(ctx context.Context, s1, s2 string) (*server.AssociationOutput, error) {
+			serverManager.SetMakeInstanceAvailableHandler(func(ctx context.Context, s1, s2 string) (*server.AssociationOutput, error) {
 				return &server.AssociationOutput{
 					AssociateAddressOutput: ec2.AssociateAddressOutput{
 						AssociationId: aws.String("started-server-association-id"),
