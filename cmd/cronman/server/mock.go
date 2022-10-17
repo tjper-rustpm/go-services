@@ -28,7 +28,7 @@ func (m *MockManager) SetCreateInstanceHandler(handler func(context.Context, mod
 // CreateInstance mocks the creation of a cronman server instance.
 func (m MockManager) CreateInstance(ctx context.Context, kind model.InstanceKind) (*CreateInstanceOutput, error) {
 	if m.createInstanceHandler == nil {
-		return nil, nil
+		return &CreateInstanceOutput{}, nil
 	}
 	return m.createInstanceHandler(ctx, kind)
 }
@@ -61,7 +61,7 @@ func (m *MockManager) SetMakeInstanceAvailableHandler(handler func(context.Conte
 // MakeInstanceAvailable mocks the making a cronman server instance available.
 func (m MockManager) MakeInstanceAvailable(ctx context.Context, instanceID string, allocationID string) (*AssociationOutput, error) {
 	if m.makeInstanceAvailableHandler == nil {
-		return nil, nil
+		return &AssociationOutput{}, nil
 	}
 	return m.makeInstanceAvailableHandler(ctx, instanceID, allocationID)
 }
