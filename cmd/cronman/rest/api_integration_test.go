@@ -515,7 +515,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	s := integration.InitSuite(ctx, t)
 	sessions := session.InitSuite(ctx, t)
 
-	logger := zap.NewExample()
+	logger := zap.NewNop()
 
 	const (
 		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"

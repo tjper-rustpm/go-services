@@ -42,25 +42,25 @@ func TestInvoicePaidEvent(t *testing.T) {
 		subscription: uuid.New(),
 		server:       initializer.alpha.Server.ID,
 		steam:        "alpha-steam-id",
-		expiresAt:    time.Now().Add(time.Hour * 24 * 31), // 31 days in the future
+		expiresAt:    time.Now().Add(time.Hour * 24 * 30), // 30 days in the future
 	}
 	bravo := data{
 		subscription: uuid.New(),
 		server:       initializer.alpha.Server.ID,
 		steam:        "bravo-steam-id",
-		expiresAt:    time.Now().Add(time.Hour * 24 * 31), // 31 days in the future
+		expiresAt:    time.Now().Add(time.Hour * 24 * 30), // 30 days in the future
 	}
 	charlie := data{
 		subscription: uuid.New(),
 		server:       initializer.charlie.Server.ID,
 		steam:        "charlie-steam-id",
-		expiresAt:    time.Now().Add(time.Hour * 24 * 31), // 31 days in the future
+		expiresAt:    time.Now().Add(time.Hour * 24 * 30), // 30 days in the future
 	}
 	live := data{
 		subscription: uuid.New(),
 		server:       initializer.live.Server.ID,
 		steam:        "live-steam-id",
-		expiresAt:    time.Now().Add(time.Hour * 24 * 31), // 31 days in the future
+		expiresAt:    time.Now().Add(time.Hour * 24 * 30), // 30 days in the future
 	}
 
 	type expected struct {
