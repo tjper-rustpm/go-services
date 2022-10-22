@@ -466,6 +466,76 @@ func (ctrl *Controller) RemoveServerModerators(
 	return nil
 }
 
+func (ctrl *Controller) AddServerOwners(
+	ctx context.Context,
+	serverID uuid.UUID,
+	owners model.Owners,
+) error {
+	server, err := ctrl.store.GetServer(ctx, serverID)
+	if err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
+
+	for i := range owners {
+		owners[i].ServerID = serverID
+	}
+
+	if server.StateType == model.LiveServerState {
+		if err := ctrl.rconAddServerOwners(
+			ctx,
+			server.ElasticIP,
+			server.RconPassword,
+			owners,
+		); err != nil {
+			return err
+		}
+	}
+
+	if err := ctrl.store.Create(ctx, owners); err != nil {
+		return fmt.Errorf("create server owners; serverID: %s, error: %w", serverID, err)
+	}
+
+	return nil
+}
+
+func (ctrl *Controller) RemoveServerOwners(
+	ctx context.Context,
+	serverID uuid.UUID,
+	ownerIDs []uuid.UUID,
+) error {
+	server, err := ctrl.store.GetServer(ctx, serverID)
+	if err != nil {
+		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
+	}
+
+	var owners model.Owners
+	if err := ctrl.store.Find(ctx, owners, ownerIDs); err != nil {
+		return fmt.Errorf(
+			"find owners; serverID: %s, ownerIDs: %v, error: %w",
+			serverID,
+			ownerIDs,
+			err,
+		)
+	}
+
+	if server.StateType == model.LiveServerState {
+		if err := ctrl.rconRemoveServerOwners(
+			ctx,
+			server.ElasticIP,
+			server.RconPassword,
+			owners,
+		); err != nil {
+			return err
+		}
+	}
+
+	if err := ctrl.store.Delete(ctx, &model.Owner{}, ownerIDs); err != nil {
+		return fmt.Errorf("delete server owners; serverID: %s, error: %w", serverID, err)
+	}
+
+	return nil
+}
+
 // LiveServersRconForEach executes the specified function for each live server.
 func (ctrl *Controller) LiveServerRconForEach(
 	ctx context.Context,
@@ -622,8 +692,66 @@ func (ctrl Controller) rconRemoveServerModerators(
 		if err := client.RemoveModerator(
 			ctx,
 			moderator.SteamID,
-		); err != nil && !errors.Is(err, rcon.ErrModeratorExists) {
+		); err != nil && !errors.Is(err, rcon.ErrModeratorDNE) {
 			logger.Error("remove moderators", zap.Error(err))
+		}
+	}
+	return nil
+}
+
+func (ctrl *Controller) rconAddServerOwners(
+	ctx context.Context,
+	elasticIP string,
+	password string,
+	owners model.Owners,
+) error {
+	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
+
+	client, err := ctrl.hub.Dial(
+		ctx,
+		fmt.Sprintf("%s:28016", elasticIP),
+		password,
+	)
+	if err != nil {
+		return fmt.Errorf("dial rcon; %w", err)
+	}
+	defer client.Close()
+
+	for _, owner := range owners {
+		if err := client.AddOwner(
+			ctx,
+			owner.SteamID,
+		); err != nil && !errors.Is(err, rcon.ErrOwnerExists) {
+			logger.Error("unable to add owners to server", zap.Error(err))
+		}
+	}
+	return nil
+}
+
+func (ctrl Controller) rconRemoveServerOwners(
+	ctx context.Context,
+	elasticIP string,
+	password string,
+	owners model.Owners,
+) error {
+	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
+
+	client, err := ctrl.hub.Dial(
+		ctx,
+		fmt.Sprintf("%s:28016", elasticIP),
+		password,
+	)
+	if err != nil {
+		return fmt.Errorf("dial rcon; %w", err)
+	}
+	defer client.Close()
+
+	for _, owner := range owners {
+		if err := client.RemoveOwner(
+			ctx,
+			owner.SteamID,
+		); err != nil && !errors.Is(err, rcon.ErrOwnerDNE) {
+			logger.Error("remove owners", zap.Error(err))
 		}
 	}
 	return nil

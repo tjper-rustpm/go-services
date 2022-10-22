@@ -154,6 +154,16 @@ type RemoveServerModeratorsBody struct {
 	ModeratorIDs []uuid.UUID `json:"moderatorIds" validate:"required"`
 }
 
+type AddServerOwnersBody struct {
+	ServerID uuid.UUID `json:"serverId" validate:"required"`
+	Owners   Owners    `json:"owners" validate:"required"`
+}
+
+type RemoveServerOwnersBody struct {
+	ServerID uuid.UUID   `json:"serverId" validate:"required"`
+	OwnerIDs []uuid.UUID `json:"ownerIds" validate:"required"`
+}
+
 func ServerFromModel(server model.Server) *Server {
 	return &Server{
 		Name:         server.Name,

@@ -21,8 +21,16 @@ var (
 	ErrModeratorExists = errors.New("moderator already exists")
 
 	// ErrModeratorDNE indicates that the moderator being removed via
-	// Client.RemoveModerator already does not exist.
+	// Client.RemoveModerator does not exist.
 	ErrModeratorDNE = errors.New("moderator does not exist")
+
+	// ErrOwnerExists indicates that the owner being created via Client.AddOwner
+	// already exists.
+	ErrOwnerExists = errors.New("owner already exists")
+
+	// ErrOwnerDNE indicates that the owner being removed via Client.RemoveOwner
+	// does not exist.
+	ErrOwnerDNE = errors.New("owner does not exist")
 
 	// ErrPermissionAlreadyGranted indicates that the permission specified has
 	// already been granted for the specified user.
@@ -232,6 +240,59 @@ func (c Client) RemoveModerator(ctx context.Context, id string) error {
 		return ErrModeratorDNE
 	}
 	if in.Message != fmt.Sprintf("Removed Moderator: %s", id) {
+		return errUnexpectedInboundMessage
+	}
+	return nil
+}
+
+// AddOwner adds the owner specified by the id to the Rust server.
+func (c Client) AddOwner(ctx context.Context, id string) error {
+	out := NewOutbound(fmt.Sprintf("global.ownerid \"%s\"", id))
+	inboundc, err := c.router.Request(ctx, *out)
+	if err != nil {
+		return fmt.Errorf("error writing add-owner; %w", err)
+	}
+	defer c.router.CloseRoute(out.Identifier)
+
+	in, err := c.waitForInbound(ctx, inboundc)
+	if err != nil {
+		return fmt.Errorf("error waiting for inbound; %w", err)
+	}
+
+	if err := checkInbound(in, out.Identifier); err != nil {
+		return err
+	}
+	if in.Message == fmt.Sprintf("User %s is already a Owner", id) {
+		return ErrOwnerExists
+	}
+	if in.Message != fmt.Sprintf("Added owner unnamed, steamid %s", id) {
+		return errUnexpectedInboundMessage
+	}
+
+	return nil
+}
+
+// RemoveOwner removes the owner specified by the id from the Rust
+// server.
+func (c Client) RemoveOwner(ctx context.Context, id string) error {
+	out := NewOutbound(fmt.Sprintf("global.removeowner \"%s\"", id))
+	inboundc, err := c.router.Request(ctx, *out)
+	if err != nil {
+		return fmt.Errorf("error writing remove-owner; %w", err)
+	}
+	defer c.router.CloseRoute(out.Identifier)
+
+	in, err := c.waitForInbound(ctx, inboundc)
+	if err != nil {
+		return fmt.Errorf("error waiting for inbound; %w", err)
+	}
+	if err := checkInbound(in, out.Identifier); err != nil {
+		return err
+	}
+	if in.Message == fmt.Sprintf("User %s isn't a owner", id) {
+		return ErrOwnerDNE
+	}
+	if in.Message != fmt.Sprintf("Removed Owner: %s", id) {
 		return errUnexpectedInboundMessage
 	}
 	return nil

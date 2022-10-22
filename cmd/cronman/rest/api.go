@@ -39,6 +39,9 @@ type IController interface {
 
 	AddServerModerators(context.Context, uuid.UUID, model.Moderators) error
 	RemoveServerModerators(context.Context, uuid.UUID, []uuid.UUID) error
+
+	AddServerOwners(context.Context, uuid.UUID, model.Owners) error
+	RemoveServerOwners(context.Context, uuid.UUID, []uuid.UUID) error
 }
 
 type ISessionMiddleware interface {
@@ -84,6 +87,9 @@ func NewAPI(
 
 			router.Method(http.MethodPost, "/server/moderators", AddServerModerators{API: api})
 			router.Method(http.MethodDelete, "/server/moderators", RemoveServerModerators{API: api})
+
+			router.Method(http.MethodPost, "/server/owners", AddServerOwners{API: api})
+			router.Method(http.MethodDelete, "/server/owners", RemoveServerOwners{API: api})
 
 			router.Group(func(router chi.Router) {
 				router.Use(middleware.Timeout(30 * time.Minute))

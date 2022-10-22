@@ -15,6 +15,8 @@ type IRcon interface {
 	Say(context.Context, string) error
 	AddModerator(context.Context, string) error
 	RemoveModerator(context.Context, string) error
+	AddOwner(context.Context, string) error
+	RemoveOwner(context.Context, string) error
 	GrantPermission(context.Context, string, string) error
 	RevokePermission(context.Context, string, string) error
 	CreateGroup(context.Context, string) error

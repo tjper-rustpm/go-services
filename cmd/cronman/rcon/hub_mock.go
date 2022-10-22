@@ -92,6 +92,12 @@ func (m ClientMock) AddModerator(_ context.Context, _ string) error { return nil
 // RemoveModerator mocks Client.RemoveModerator.
 func (m ClientMock) RemoveModerator(_ context.Context, _ string) error { return nil }
 
+// AddOwner mocks Client.AddOwner.
+func (m ClientMock) AddOwner(_ context.Context, _ string) error { return nil }
+
+// RemoveOwner mocks Client.RemoveOwner.
+func (m ClientMock) RemoveOwner(_ context.Context, _ string) error { return nil }
+
 // GrantPermission mocks Client.GrantPermission.
 func (m ClientMock) GrantPermission(_ context.Context, steamID string, permission string) error {
 	m.hub.stack = append(m.hub.stack, fmt.Sprintf("%s %s %s %s", m.url, m.password, steamID, permission))

@@ -50,6 +50,22 @@ func TestIntegration(t *testing.T) {
 		err := suite.client.RemoveModerator(ctx, "76561197962911631")
 		require.ErrorIs(t, err, ErrModeratorDNE)
 	})
+	t.Run("add owner", func(t *testing.T) {
+		err := suite.client.AddOwner(ctx, "87672208073022742")
+		require.Nil(t, err)
+	})
+	t.Run("add existing owner", func(t *testing.T) {
+		err := suite.client.AddOwner(ctx, "87672208073022742")
+		require.ErrorIs(t, err, ErrOwnerExists)
+	})
+	t.Run("remove owner", func(t *testing.T) {
+		err := suite.client.RemoveOwner(ctx, "87672208073022742")
+		require.Nil(t, err)
+	})
+	t.Run("remove none-existent owner", func(t *testing.T) {
+		err := suite.client.RemoveOwner(ctx, "87672208073022742")
+		require.ErrorIs(t, err, ErrOwnerDNE)
+	})
 	t.Run("grant bypass queue", func(t *testing.T) {
 		err := suite.client.GrantPermission(ctx, "76561197962911631", "bypassqueue.allow")
 		require.Nil(t, err)
