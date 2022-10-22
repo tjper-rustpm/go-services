@@ -107,6 +107,20 @@ CREATE TABLE IF NOT EXISTS servers.moderators (
   FOREIGN KEY (server_id) REFERENCES servers.servers (id)
 );
 
+CREATE TABLE IF NOT EXISTS servers.owners (
+  id        UUID NOT NULL DEFAULT gen_random_uuid(),
+  server_id UUID NOT NULL,
+
+  steam_id VARCHAR NOT NULL,
+
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+
+  PRIMARY KEY (id),
+  FOREIGN KEY (server_id) REFERENCES servers.servers (id)
+);
+
 CREATE TABLE IF NOT EXISTS servers.events (
   id        UUID NOT NULL DEFAULT gen_random_uuid(),
   server_id UUID NOT NULL,
