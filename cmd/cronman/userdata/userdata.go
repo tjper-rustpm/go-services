@@ -293,9 +293,12 @@ func WithQueueBypassPlugin() Option {
 
 // WithUserCfg returns an Option that configures the userdata to create a user
 // config.
-func WithUserCfg(identity string, steamIDs []string) Option {
-	cmds := make([]string, 0, len(steamIDs))
-	for _, id := range steamIDs {
+func WithUserCfg(identity string, ownerIDs, moderatorIDs []string) Option {
+	cmds := make([]string, 0, len(ownerIDs)+len(moderatorIDs))
+	for _, id := range ownerIDs {
+		cmds = append(cmds, fmt.Sprintf("ownerid %s", id))
+	}
+	for _, id := range moderatorIDs {
 		cmds = append(cmds, fmt.Sprintf("moderatorid %s", id))
 	}
 	return func() string {

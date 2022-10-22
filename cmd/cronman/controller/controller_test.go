@@ -475,6 +475,44 @@ func TestStartServer(t *testing.T) {
 				wipeApplied: false,
 			},
 		},
+		"owner and moderator exist": {
+			dormant: model.DormantServer{
+				Model: imodel.Model{
+					ID: uuid.New(),
+				},
+				Server: model.Server{
+					Model:        imodel.Model{ID: uuid.New()},
+					Name:         "",
+					RconPassword: "",
+					MaxPlayers:   0,
+					MapSize:      0,
+					TickRate:     0,
+					BannerURL:    "",
+					Description:  "",
+					Options:      nil,
+					Region:       model.RegionUsEast,
+					Moderators: model.Moderators{
+						{SteamID: "moderator-steam-id"},
+					},
+					Owners: model.Owners{
+						{SteamID: "owner-steam-id"},
+					},
+					Vips: model.Vips{
+						{SteamID: "expired-vip-steam-id", ExpiresAt: time.Now().Add(-time.Minute)},
+					},
+					Wipes: model.Wipes{
+						{Model: imodel.Model{At: imodel.At{CreatedAt: time.Now().Add(-24 * time.Hour)}}, Kind: model.WipeKindFull, AppliedAt: sql.NullTime{Time: time.Now().Add(-23 * time.Hour), Valid: true}},
+					},
+				},
+			},
+			exp: expected{
+				userdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`moderatorid moderator-steam-id`),
+					regexp.MustCompile(`ownerid owner-steam-id`),
+				},
+				wipeApplied: false,
+			},
+		},
 	}
 
 	for name, test := range tests {

@@ -142,7 +142,11 @@ func (ctrl Controller) StartServer(
 	server := dormant.Server
 	options := []userdata.Option{
 		userdata.WithQueueBypassPlugin(),
-		userdata.WithUserCfg(server.ID.String(), server.Moderators.SteamIDs()),
+		userdata.WithUserCfg(
+			server.ID.String(),
+			server.Owners.SteamIDs(),
+			server.Moderators.SteamIDs(),
+		),
 		userdata.WithServerCfg(server.ID.String(), server.Vips.Active().SteamIDs()),
 	}
 

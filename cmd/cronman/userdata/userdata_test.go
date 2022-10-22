@@ -133,7 +133,13 @@ func TestGenerate(t *testing.T) {
 			tickRate:     30,
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
-			opts:         []Option{WithUserCfg("Rustpm East Main", []string{"user1", "user2", "user3"})},
+			opts: []Option{
+				WithUserCfg(
+					"Rustpm East Main",
+					[]string{"ownerid1"},
+					[]string{"moderatorid1", "moderatorid2", "moderatorid3"},
+				),
+			},
 		},
 		"servercfg": {
 			ip:           "east-main.rustpm.com",
