@@ -41,10 +41,16 @@ type IController interface {
 	RemoveServerModerators(context.Context, uuid.UUID, []uuid.UUID) error
 }
 
+type ISessionMiddleware interface {
+	InjectSessionIntoCtx() func(http.Handler) http.Handler
+	Touch() func(http.Handler) http.Handler
+	HasRole(session.Role) func(http.Handler) http.Handler
+}
+
 func NewAPI(
 	logger *zap.Logger,
 	ctrl IController,
-	sessionMiddleware *ihttp.SessionMiddleware,
+	sessionMiddleware ISessionMiddleware,
 	healthz http.Handler,
 ) *API {
 	api := API{

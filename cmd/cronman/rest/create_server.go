@@ -25,6 +25,11 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := b.validateOwnerAndModeratorIntersection(); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
 	id, err := uuid.NewRandom()
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)

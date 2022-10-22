@@ -48,9 +48,14 @@
 	],
 	"moderators": [
 		{
-			"steamId": "76561197962911631"
+			"steamId": "87672208073022742"
 		}
 	],
+  "owners": [
+    {
+      "steamId": "76561197962911631"
+    }
+  ],
 	"tags": [
 		{
 			"description": "Blueprint Wipe Schedule",

@@ -46,6 +46,7 @@ type Server struct {
 	Tags       Tags
 	Events     Events
 	Moderators Moderators
+	Owners     Owners
 	Vips       Vips
 }
 

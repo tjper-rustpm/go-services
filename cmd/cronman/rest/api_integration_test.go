@@ -33,7 +33,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestCreateServer(t *testing.T) {
+func TestCreateServerAuthz(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

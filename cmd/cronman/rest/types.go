@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"errors"
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/controller"
@@ -26,8 +27,9 @@ type CreateServerBody struct {
 	Region       model.Region           `json:"region" validate:"required"`
 	Options      map[string]interface{} `json:"options"`
 
-	Events     Events     `json:"events" validate:"required,dive,required"`
+	Events     Events     `json:"events" validate:"required,min=1,dive,required"`
 	Moderators Moderators `json:"moderators" validate:"required,dive,required"`
+	Owners     Owners     `json:"owners" validate:"required,min=1,dive,required"`
 	Tags       Tags       `json:"tags" validate:"required,dive,required"`
 }
 
@@ -45,6 +47,14 @@ func (body CreateServerBody) ToModelServer(id uuid.UUID) model.Server {
 		moderators = append(
 			moderators,
 			model.Moderator{SteamID: moderator.SteamID},
+		)
+	}
+
+	owners := make(model.Owners, 0, len(body.Owners))
+	for _, owner := range body.Owners {
+		owners = append(
+			owners,
+			model.Owner{SteamID: owner.SteamID},
 		)
 	}
 
@@ -75,8 +85,24 @@ func (body CreateServerBody) ToModelServer(id uuid.UUID) model.Server {
 		},
 		Events:     events,
 		Moderators: moderators,
+		Owners:     owners,
 		Tags:       tags,
 	}
+}
+
+var errModeratorsAndOwnersCollision = errors.New("moderators and owners for a given server must be unique")
+
+func (body CreateServerBody) validateOwnerAndModeratorIntersection() error {
+	intersection := make(map[string]struct{})
+	for _, moderator := range body.Moderators {
+		intersection[moderator.SteamID] = struct{}{}
+	}
+	for _, owner := range body.Owners {
+		if _, ok := intersection[owner.SteamID]; ok {
+			return errModeratorsAndOwnersCollision
+		}
+	}
+	return nil
 }
 
 type CreateServerResponse struct {
@@ -351,6 +377,40 @@ func (mods Moderators) ToModelModerators() model.Moderators {
 }
 
 type Moderator struct {
+	ID      uuid.UUID `json:"id"`
+	SteamID string    `json:"steamId" validate:"required"`
+}
+
+func OwnersFromModel(modelOwners model.Owners) Owners {
+	owners := make(Owners, 0, len(modelOwners))
+	for _, owner := range modelOwners {
+		owners = append(
+			owners,
+			Owner{
+				ID:      owner.ID,
+				SteamID: owner.SteamID,
+			},
+		)
+	}
+	return owners
+}
+
+type Owners []Owner
+
+func (mods Owners) ToModelOwners() model.Owners {
+	modelOwners := make(model.Owners, 0, len(mods))
+	for _, owner := range mods {
+		modelOwners = append(
+			modelOwners,
+			model.Owner{
+				SteamID: owner.SteamID,
+			},
+		)
+	}
+	return modelOwners
+}
+
+type Owner struct {
 	ID      uuid.UUID `json:"id"`
 	SteamID string    `json:"steamId" validate:"required"`
 }
