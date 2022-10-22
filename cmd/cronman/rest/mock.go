@@ -163,6 +163,24 @@ func WithRemoveServerModerators(fn removeServerModeratorsFunc) ControllerMockOpt
 	}
 }
 
+// WithAddServerOwners provides a ControllerMockOption that configures a
+// ControllerMock to utilize the passed function to mock AddServerOwners
+// functionality.
+func WithAddServerOwners(fn addServerOwnersFunc) ControllerMockOption {
+	return func(mock *ControllerMock) {
+		mock.addServerOwners = fn
+	}
+}
+
+// WithRemoveServerOwners provides a ControllerMockOption that configures a
+// ControllerMock to utilize the passed function to mock RemoveServerOwners
+// functionality.
+func WithRemoveServerOwners(fn removeServerOwnersFunc) ControllerMockOption {
+	return func(mock *ControllerMock) {
+		mock.removeServerOwners = fn
+	}
+}
+
 type (
 	createServerFunc           func(context.Context, model.Server) (*model.DormantServer, error)
 	getServerFunc              func(context.Context, uuid.UUID) (interface{}, error)
@@ -179,6 +197,8 @@ type (
 	removeServerEventsFunc     func(context.Context, uuid.UUID, []uuid.UUID) error
 	addServerModeratorsFunc    func(context.Context, uuid.UUID, model.Moderators) error
 	removeServerModeratorsFunc func(context.Context, uuid.UUID, []uuid.UUID) error
+	addServerOwnersFunc        func(context.Context, uuid.UUID, model.Owners) error
+	removeServerOwnersFunc     func(context.Context, uuid.UUID, []uuid.UUID) error
 )
 
 // ControllerMock is typically used to implement the IController interface for
@@ -199,6 +219,8 @@ type ControllerMock struct {
 	removeServerEvents     removeServerEventsFunc
 	addServerModerators    addServerModeratorsFunc
 	removeServerModerators removeServerModeratorsFunc
+	addServerOwners        addServerOwnersFunc
+	removeServerOwners     removeServerOwnersFunc
 }
 
 // CreateServer executes the handler set with WithCreateServer.
@@ -319,4 +341,20 @@ func (m ControllerMock) RemoveServerModerators(ctx context.Context, id uuid.UUID
 		return ErrMisconfiguredMock
 	}
 	return m.removeServerModerators(ctx, id, ids)
+}
+
+// AddServerOwners executes the handler set with WithAddServerOwners.
+func (m ControllerMock) AddServerOwners(ctx context.Context, id uuid.UUID, owners model.Owners) error {
+	if m.addServerOwners == nil {
+		return ErrMisconfiguredMock
+	}
+	return m.addServerOwners(ctx, id, owners)
+}
+
+// RemoveServerOwners executes the handler set with WithRemoveServerOwners.
+func (m ControllerMock) RemoveServerOwners(ctx context.Context, id uuid.UUID, ids []uuid.UUID) error {
+	if m.removeServerOwners == nil {
+		return ErrMisconfiguredMock
+	}
+	return m.removeServerOwners(ctx, id, ids)
 }
