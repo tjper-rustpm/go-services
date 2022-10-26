@@ -21,6 +21,87 @@ import (
 	"go.uber.org/zap"
 )
 
+func TestFindServers(t *testing.T) {
+	t.Parallel()
+
+	type expected struct {
+		servers model.Servers
+		status  int
+	}
+	tests := map[string]struct {
+		servers model.Servers
+		exp     expected
+	}{
+		"no servers": {
+			servers: model.Servers{},
+			exp: expected{
+				servers: model.Servers{},
+				status:  http.StatusOK,
+			},
+		},
+		"one server": {
+			servers: model.Servers{
+				{ActiveSubscriptions: 100, SubscriptionLimit: 200},
+			},
+			exp: expected{
+				servers: model.Servers{
+					{ActiveSubscriptions: 100, SubscriptionLimit: 200},
+				},
+				status: http.StatusOK,
+			},
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			store := db.NewStoreMock(
+				db.WithFindServers(func(context.Context) (model.Servers, error) {
+					return test.servers, nil
+				}),
+			)
+
+			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
+				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
+				ihttp.WithTouch(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+			)
+
+			api := NewAPI(
+				zap.NewNop(),
+				store,
+				staging.NewClientMock(),
+				stream.NewClientMock(),
+				stripe.NewMock(),
+				sessionMiddleware,
+				healthz.NewHTTP(),
+			)
+
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/v1/servers", nil)
+
+			api.Mux.ServeHTTP(rr, req)
+
+			resp := rr.Result()
+			defer resp.Body.Close()
+
+			require.Equal(t, test.exp.status, resp.StatusCode)
+
+			if resp.StatusCode != http.StatusOK {
+				return
+			}
+
+			var servers model.Servers
+			err := json.NewDecoder(resp.Body).Decode(&servers)
+			require.Nil(t, err)
+		})
+	}
+}
+
 func TestUpdateServer(t *testing.T) {
 	t.Parallel()
 

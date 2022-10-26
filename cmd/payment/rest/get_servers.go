@@ -26,7 +26,7 @@ func (ep Servers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(servers); err != nil {
+	if err := json.NewEncoder(w).Encode(&servers); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 	}
 }
