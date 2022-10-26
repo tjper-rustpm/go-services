@@ -110,9 +110,12 @@ func (s Server) WipeApplied() bool {
 
 func (s Server) Clone() *Server {
 	cloned := s
+	cloned.Wipes = s.Wipes.Clone()
 	cloned.Tags = s.Tags.Clone()
 	cloned.Events = s.Events.Clone()
 	cloned.Moderators = s.Moderators.Clone()
+	cloned.Owners = s.Owners.Clone()
+	cloned.Vips = s.Vips.Clone()
 	return &cloned
 }
 
@@ -122,9 +125,12 @@ func (s *Server) Scrub() {
 	s.AllocationID = "allocation-ID"
 	s.ElasticIP = "elastic-IP"
 
+	s.Wipes.Scrub()
 	s.Tags.Scrub()
 	s.Events.Scrub()
 	s.Moderators.Scrub()
+	s.Owners.Scrub()
+	s.Vips.Scrub()
 }
 
 type LiveServers []LiveServer

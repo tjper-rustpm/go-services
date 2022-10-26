@@ -3,6 +3,7 @@
 package gorm
 
 import (
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -11,6 +12,15 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
+)
+
+var (
+	// ErrAlreadyExists indicates that an attempt was made to create an entity that
+	// already exists.
+	ErrAlreadyExists = errors.New("entity already exists")
+
+	// ErrNotFound indicates the entity was not found.
+	ErrNotFound = gorm.ErrRecordNotFound
 )
 
 // Open opens a connection with the specified DSN.

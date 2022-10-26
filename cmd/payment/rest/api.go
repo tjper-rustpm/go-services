@@ -3,10 +3,11 @@ package rest
 import (
 	"context"
 	"net/http"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
-	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/validator"
@@ -14,19 +15,20 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	validatorv10 "github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 )
 
 // IStore encompasses all interactions with the payment store.
 type IStore interface {
-	Create(context.Context, gorm.Creator) error
-	First(context.Context, gorm.Firster) error
-
-	FindByUserID(context.Context, gorm.FinderByUserID, uuid.UUID) error
-	FindActiveSubscriptions(context.Context, *model.Servers) error
-	IsSubscribedToServer(context.Context, *model.Customer, uuid.UUID) (bool, error)
+	FirstServerByID(context.Context, uuid.UUID) (*model.Server, error)
+	FirstCustomerByUserID(context.Context, uuid.UUID) (*model.Customer, error)
+	FirstSubscriptionByID(context.Context, uuid.UUID) (*model.Subscription, error)
+	FindSubscriptionsByUserID(context.Context, uuid.UUID) (model.Subscriptions, error)
+	FindServers(context.Context) (model.Servers, error)
+	CreateServer(context.Context, *model.Server) error
+	UpdateServer(context.Context, uuid.UUID, map[string]interface{}) (*model.Server, error)
+	IsCustomerSubscribed(context.Context, uuid.UUID, uuid.UUID) (bool, error)
 }
 
 // IStream encompasses all interactions with the event stream.
@@ -41,14 +43,29 @@ type IStripe interface {
 	ConstructEvent([]byte, string) (stripe.Event, error)
 }
 
+// IStaging encompasses all interactions with checkout staging.
+type IStaging interface {
+	StageCheckout(context.Context, staging.Checkout, time.Time) (string, error)
+	FetchCheckout(context.Context, string) (*staging.Checkout, error)
+}
+
+// ISessionMiddleware encompasses all interactions with session related
+// middleware.
+type ISessionMiddleware interface {
+	InjectSessionIntoCtx() func(http.Handler) http.Handler
+	Touch() func(http.Handler) http.Handler
+	HasRole(session.Role) func(http.Handler) http.Handler
+	IsAuthenticated() func(http.Handler) http.Handler
+}
+
 // NewAPI creates a API instance.
 func NewAPI(
 	logger *zap.Logger,
 	store IStore,
-	staging *staging.Client,
+	staging IStaging,
 	stream IStream,
 	stripe IStripe,
-	sessionMiddleware *ihttp.SessionMiddleware,
+	sessionMiddleware ISessionMiddleware,
 	healthz http.Handler,
 	options ...Option,
 ) *API {
@@ -90,6 +107,7 @@ func NewAPI(
 				router.Use(sessionMiddleware.HasRole(session.RoleAdmin))
 
 				router.Method(http.MethodPost, "/server", CreateServer{API: api})
+				router.Method(http.MethodPatch, "/server", UpdateServer{API: api})
 			})
 		})
 	})
@@ -105,7 +123,7 @@ type API struct {
 	logger *zap.Logger
 	valid  *validatorv10.Validate
 
-	staging *staging.Client
+	staging IStaging
 	store   IStore
 	stripe  IStripe
 	stream  IStream

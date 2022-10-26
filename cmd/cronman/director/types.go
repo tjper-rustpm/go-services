@@ -4,12 +4,12 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/controller"
-	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/lock"
 	"github.com/tjper/rustcron/cmd/cronman/redis"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 const (
@@ -28,7 +28,7 @@ type Director struct {
 	logger     *zap.Logger
 	redis      *redis.Redis
 	controller *controller.Controller
-	store      db.IStore
+	store      *gorm.DB
 
 	distributedLock *lock.Distributed
 }
@@ -36,7 +36,7 @@ type Director struct {
 func New(
 	logger *zap.Logger,
 	redis *redis.Redis,
-	store db.IStore,
+	store *gorm.DB,
 	controller *controller.Controller,
 ) *Director {
 	return &Director{

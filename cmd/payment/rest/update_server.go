@@ -5,19 +5,18 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 
 	"github.com/google/uuid"
 )
 
-type CreateServer struct{ API }
+type UpdateServer struct{ API }
 
-func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep UpdateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
-		ID                uuid.UUID `json:"id" validate:"required"`
-		SubscriptionLimit int       `json:"subscriptionLimit" validate:"required"`
+		ID      uuid.UUID              `json:"id" validate:"required"`
+		Changes map[string]interface{} `json:"changes" validate:"required,dive,keys,eq=subscriptionLimit"`
 	}
 
 	var b body
@@ -31,13 +30,9 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	server := &model.Server{
-		ID:                b.ID,
-		SubscriptionLimit: uint16(b.SubscriptionLimit),
-	}
-	err := ep.store.CreateServer(r.Context(), server)
-	if errors.Is(err, gorm.ErrAlreadyExists) {
-		ihttp.ErrConflict(w)
+	server, err := ep.store.UpdateServer(r.Context(), b.ID, b.Changes)
+	if errors.Is(err, gorm.ErrNotFound) {
+		ihttp.ErrNotFound(w)
 		return
 	}
 	if err != nil {
@@ -47,7 +42,8 @@ func (ep CreateServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 
-	if err := json.NewEncoder(w).Encode(server); err != nil {
+	if err := json.NewEncoder(w).Encode(&server); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
+		return
 	}
 }

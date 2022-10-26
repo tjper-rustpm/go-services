@@ -20,7 +20,6 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/rest"
 	"github.com/tjper/rustcron/cmd/cronman/server"
 	"github.com/tjper/rustcron/cmd/cronman/stream"
-	igorm "github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
@@ -38,11 +37,8 @@ func main() {
 	logger := newLogger()
 	defer func() { _ = logger.Sync() }()
 
-	dbconn := newDBConnection(logger)
-	migrateDB(logger, dbconn)
-
-	store := db.NewStore(logger, dbconn)
-	storev2 := igorm.NewStore(dbconn)
+	store := newDBConnection(logger)
+	migrateDB(logger, store)
 
 	serverDirector := newServerDirector(context.Background(), logger)
 
@@ -52,12 +48,11 @@ func main() {
 	rconHub := rcon.NewHub(logger)
 	rconWaiter := rcon.NewWaiter(logger, time.Minute)
 	directorNotifier := director.NewNotifier(logger, redisClient)
-	streamHandler := stream.NewHandler(logger, storev2, streamClient, rconHub)
+	streamHandler := stream.NewHandler(logger, store, streamClient, rconHub)
 
 	ctrl := controller.New(
 		logger,
 		store,
-		storev2,
 		serverDirector,
 		rconHub,
 		rconWaiter,

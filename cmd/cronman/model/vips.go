@@ -1,26 +1,15 @@
 package model
 
 import (
-	"context"
-	"fmt"
 	"time"
 
 	"github.com/tjper/rustcron/internal/model"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // Vips is a slice of Vip instances.
 type Vips []Vip
-
-// FindByServerID retrieves the Vips related to the specified serverID.
-func (vs *Vips) FindByServerID(ctx context.Context, db *gorm.DB, serverID uuid.UUID) error {
-	if err := db.WithContext(ctx).Where("server_id = ?", serverID).Find(vs).Error; err != nil {
-		return fmt.Errorf("model Vips.FindByServerID: %w", err)
-	}
-	return nil
-}
 
 // Active filters and returns retrieves the subset of active Vips.
 func (vs Vips) Active() Vips {
@@ -43,6 +32,20 @@ func (vs Vips) SteamIDs() []string {
 	return steamIDs
 }
 
+func (vs Vips) Scrub() {
+	for i := range vs {
+		vs[i].Scrub()
+	}
+}
+
+func (vs Vips) Clone() Vips {
+	cloned := make(Vips, 0, len(vs))
+	for _, vip := range vs {
+		cloned = append(cloned, vip.Clone())
+	}
+	return cloned
+}
+
 // Vip is a "very important person" on a cronman server. The are granted
 // special privileges such as queue skip.
 type Vip struct {
@@ -53,10 +56,11 @@ type Vip struct {
 	ExpiresAt      time.Time
 }
 
-// Create creates the Vip in the specified db.
-func (v *Vip) Create(ctx context.Context, db *gorm.DB) error {
-	if err := db.WithContext(ctx).Create(v).Error; err != nil {
-		return fmt.Errorf("model Vip.Create: %w", err)
-	}
-	return nil
+func (vip Vip) Clone() Vip {
+	return vip
+}
+
+func (vip *Vip) Scrub() {
+	vip.Model.Scrub()
+	vip.ServerID = uuid.Nil
 }

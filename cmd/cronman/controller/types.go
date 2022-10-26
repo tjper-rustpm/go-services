@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
-	"github.com/tjper/rustcron/internal/gorm"
 	itime "github.com/tjper/rustcron/internal/time"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -50,42 +49,10 @@ type INotifier interface {
 	Notify(ctx context.Context) error
 }
 
-// StoreCreator is a single method interface that creates an entity in the
-// store.
-type StoreCreator interface {
-	// Create creates an entity based on the passed gorm.Creator in the store.
-	Create(context.Context, gorm.Creator) error
-}
-
-// StoreExecer is a single method interface that executes logic against the
-// store.
-type StoreExecer interface {
-	// Exec should execute the gorm.Execr entity.
-	Exec(context.Context, gorm.Execer) error
-}
-
-// StoreFinder is a single method interface facilitating the finding of
-// entities.
-type StoreFinder interface {
-	// Find should lists and store all entites compatible with the
-	// underlying gorm.Finder type and store them in within the gorm.Finder
-	// argument.
-	Find(context.Context, gorm.Finder) error
-}
-
-// IStore is a collection of interfaces used to interact with the cronman
-// store.
-type IStore interface {
-	StoreFinder
-	StoreExecer
-	StoreCreator
-}
-
 // New creates a new Controller object.
 func New(
 	logger *zap.Logger,
-	store db.IStore,
-	storev2 IStore,
+	store *gorm.DB,
 	serverController *ServerDirector,
 	hub IHub,
 	waiter IWaiter,
@@ -95,9 +62,6 @@ func New(
 		logger:           logger.With(zap.String("controller-id", uuid.NewString())),
 		time:             new(itime.Time),
 		store:            store,
-		finder:           storev2,
-		execer:           storev2,
-		creator:          storev2,
 		serverController: serverController,
 		hub:              hub,
 		waiter:           waiter,
@@ -111,10 +75,7 @@ type Controller struct {
 	logger *zap.Logger
 	time   ITime
 
-	store   db.IStore
-	finder  StoreFinder
-	execer  StoreExecer
-	creator StoreCreator
+	store *gorm.DB
 
 	serverController *ServerDirector
 	hub              IHub

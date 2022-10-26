@@ -78,6 +78,46 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("update alpha server subscription limit", func(t *testing.T) {
+		subscriptionLimit := 100
+		body := map[string]interface{}{
+			"id": alpha,
+			"changes": map[string]interface{}{
+				"subscriptionLimit": subscriptionLimit,
+			},
+		}
+		resp := suite.Request(ctx, t, suite.api, http.MethodPatch, "/v1/server", body, admin)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		var server model.Server
+		err := json.NewDecoder(resp.Body).Decode(&server)
+		require.Nil(t, err)
+
+		require.Equal(t, uint16(subscriptionLimit), server.SubscriptionLimit)
+	})
+
+	t.Run("reset alpha server subscription limit", func(t *testing.T) {
+		subscriptionLimit := 10
+		body := map[string]interface{}{
+			"id": alpha,
+			"changes": map[string]interface{}{
+				"subscriptionLimit": subscriptionLimit,
+			},
+		}
+		resp := suite.Request(ctx, t, suite.api, http.MethodPatch, "/v1/server", body, admin)
+		defer resp.Body.Close()
+
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		var server model.Server
+		err := json.NewDecoder(resp.Body).Decode(&server)
+		require.Nil(t, err)
+
+		require.Equal(t, uint16(subscriptionLimit), server.SubscriptionLimit)
+	})
+
 	t.Run("create alpha subscription", func(t *testing.T) {
 		suite.testCheckoutSubscribePaidInvoice(ctx, t, alpha)
 	})

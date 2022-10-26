@@ -11,18 +11,12 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/internal/event"
-	"github.com/tjper/rustcron/internal/gorm"
 	imodel "github.com/tjper/rustcron/internal/model"
 	"github.com/tjper/rustcron/internal/stream"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
-
-// IStore encompasses all interactions with the payment store.
-type IStore interface {
-	Create(context.Context, gorm.Creator) error
-	First(context.Context, gorm.Firster) error
-}
 
 // IStream encompasses all interactions with the event stream.
 type IStream interface {
@@ -38,7 +32,7 @@ type IRconHub interface {
 // NewHandler creates a Handler instance.
 func NewHandler(
 	logger *zap.Logger,
-	store IStore,
+	store *gorm.DB,
 	stream IStream,
 	rconHub IRconHub,
 ) *Handler {
@@ -54,7 +48,7 @@ func NewHandler(
 // from the underlying IStream.
 type Handler struct {
 	logger  *zap.Logger
-	store   IStore
+	store   *gorm.DB
 	stream  IStream
 	rconHub IRconHub
 }
@@ -99,16 +93,15 @@ func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.Invoic
 		SteamID:        event.SteamID,
 		ExpiresAt:      time.Now().Add(duration),
 	}
-
-	if err := h.store.Create(ctx, vip); err != nil {
-		return fmt.Errorf("while store.Create: %w", err)
+	if err := h.store.WithContext(ctx).Create(vip).Error; err != nil {
+		return fmt.Errorf("while creating vip: %w", err)
 	}
 
 	server := &model.Server{
 		Model: imodel.Model{ID: event.ServerID},
 	}
-	if err := h.store.First(ctx, server); err != nil {
-		return fmt.Errorf("while store.First: %w", err)
+	if err := h.store.WithContext(ctx).First(server).Error; err != nil {
+		return fmt.Errorf("while retrieving vip's server: %w", err)
 	}
 
 	if !server.IsLive() {

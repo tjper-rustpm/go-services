@@ -116,6 +116,10 @@ linters:
   #   - unused
   fast: false
 
+linters-settings:
+  maintidx:
+    under: 10
+
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.

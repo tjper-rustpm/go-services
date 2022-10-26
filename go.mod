@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/99designs/gqlgen v0.13.0
+	github.com/DATA-DOG/go-sqlmock v1.5.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.3.0
 	github.com/aws/aws-sdk-go-v2/config v1.1.3
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.2.0

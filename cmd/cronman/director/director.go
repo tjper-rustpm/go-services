@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 
 	"github.com/go-redis/redis/v8"
@@ -32,7 +33,7 @@ func (dir Director) WatchAndDirect(ctx context.Context) error {
 	}()
 
 	for {
-		events, err := dir.store.ListActiveServerEvents(ctx)
+		events, err := db.ListActiveServerEvents(ctx, dir.store)
 		if err != nil {
 			return fmt.Errorf("failed to list events; %w", err)
 		}

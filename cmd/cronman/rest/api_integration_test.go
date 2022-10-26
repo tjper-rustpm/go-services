@@ -18,7 +18,6 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
-	"github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
@@ -522,18 +521,17 @@ func setup(ctx context.Context, t *testing.T) *suite {
 		migrations = "file://../db/migrations"
 	)
 
-	dbconn, err := db.Open(dsn)
+	store, err := db.Open(dsn)
 	require.Nil(t, err)
 
-	err = db.Migrate(dbconn, migrations)
+	err = db.Migrate(store, migrations)
 	require.Nil(t, err)
 
 	serverManager := server.NewMockManager()
 
 	ctrl := controller.New(
 		logger,
-		db.NewStore(logger, dbconn),
-		gorm.NewStore(dbconn),
+		store,
 		controller.NewServerDirector(
 			serverManager,
 			serverManager,

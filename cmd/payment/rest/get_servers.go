@@ -20,7 +20,8 @@ func (ep Servers) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := ep.store.FindActiveSubscriptions(r.Context(), &servers); err != nil {
+	servers, err := ep.store.FindServers(r.Context())
+	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 		return
 	}

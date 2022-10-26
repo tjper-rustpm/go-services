@@ -44,7 +44,8 @@ func (ctrl Controller) CreateServer(
 	dormant := &model.DormantServer{
 		Server: input,
 	}
-	if err := ctrl.creator.Create(ctx, dormant); err != nil {
+
+	if err := ctrl.store.WithContext(ctx).Create(&dormant).Error; err != nil {
 		return nil, fmt.Errorf("while creating dormant server: %w", err)
 	}
 
@@ -63,7 +64,7 @@ func (ctrl Controller) GetServer(
 	ctx context.Context,
 	id uuid.UUID,
 ) (interface{}, error) {
-	liveServer, err := ctrl.store.GetLiveServer(ctx, id)
+	liveServer, err := db.GetLiveServer(ctx, ctrl.store, id)
 	if err == nil {
 		return liveServer, nil
 	}
@@ -71,7 +72,7 @@ func (ctrl Controller) GetServer(
 		return nil, err
 	}
 
-	dormantServer, err := ctrl.store.GetDormantServer(ctx, id)
+	dormantServer, err := db.GetDormantServer(ctx, ctrl.store, id)
 	if errors.Is(err, ierrors.ErrServerNotDormant) {
 		return nil, ierrors.ErrServerDNE
 	}
@@ -92,7 +93,7 @@ func (ctrl Controller) UpdateServer(
 	ctx context.Context,
 	input UpdateServerInput,
 ) (*model.DormantServer, error) {
-	dormant, err := ctrl.store.UpdateServer(ctx, input.ID, input.Changes)
+	dormant, err := db.UpdateServer(ctx, ctrl.store, input.ID, input.Changes)
 	if err != nil {
 		return nil, fmt.Errorf("update server; %w", err)
 	}
@@ -111,7 +112,7 @@ func (ctrl Controller) ArchiveServer(
 	ctx context.Context,
 	id uuid.UUID,
 ) (*model.ArchivedServer, error) {
-	server, err := ctrl.store.MakeServerArchived(ctx, id)
+	server, err := db.MakeServerArchived(ctx, ctrl.store, id)
 	if err != nil {
 		return nil, err
 	}
@@ -131,13 +132,10 @@ func (ctrl Controller) StartServer(
 ) (*model.DormantServer, error) {
 	logger := ctrl.logger.With(logger.ContextFields(ctx)...)
 
-	find := db.FindDormantServer{
-		ServerID: id,
+	dormant, err := db.GetDormantServer(ctx, ctrl.store, id)
+	if err != nil {
+		return nil, fmt.Errorf("while retrieving dormant server to start: %w", err)
 	}
-	if err := ctrl.finder.Find(ctx, &find); err != nil {
-		return nil, fmt.Errorf("while starting server: %w", err)
-	}
-	dormant := find.Result
 
 	server := dormant.Server
 	options := []userdata.Option{
@@ -197,22 +195,17 @@ func (ctrl Controller) StartServer(
 	// Assumes wipe is being applied as part of the userdata to the StartInstance
 	// call.
 	if !wipe.AppliedAt.Valid {
-		update := db.UpdateWipeApplied{
-			WipeID: wipe.ID,
-		}
-		if err := ctrl.execer.Exec(ctx, update); err != nil {
+		if err := db.ApplyWipe(ctx, ctrl.store, wipe.ID); err != nil {
 			return nil, fmt.Errorf("while updating server wipe: %w", err)
 		}
 	}
 
-	find = db.FindDormantServer{
-		ServerID: id,
-	}
-	if err := ctrl.finder.Find(ctx, &find); err != nil {
-		return nil, fmt.Errorf("while finding started dormant server: %w", err)
+	dormant, err = db.GetDormantServer(ctx, ctrl.store, id)
+	if err != nil {
+		return nil, fmt.Errorf("while retrieving started dormant server: %w", err)
 	}
 
-	return &find.Result, nil
+	return dormant, nil
 }
 
 // MakeServerLive instructs the Controller to make the server specified by the id
@@ -221,7 +214,7 @@ func (ctrl Controller) MakeServerLive(
 	ctx context.Context,
 	id uuid.UUID,
 ) (*model.LiveServer, error) {
-	server, err := ctrl.store.GetDormantServer(ctx, id)
+	server, err := db.GetDormantServer(ctx, ctrl.store, id)
 	if err != nil {
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
@@ -242,8 +235,9 @@ func (ctrl Controller) MakeServerLive(
 		return nil, fmt.Errorf("ping until ready; %w", err)
 	}
 
-	return ctrl.store.MakeServerLive(
+	return db.MakeServerLive(
 		ctx,
+		ctrl.store,
 		db.MakeServerLiveInput{
 			ID:            id,
 			AssociationID: *instance.AssociationId,
@@ -254,11 +248,11 @@ func (ctrl Controller) MakeServerLive(
 // StopServer instructs the Controller stop the server specified by id. Once the
 // method returns successfully, the server has been stopped.
 func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.DormantServer, error) {
-	server, err := ctrl.store.GetLiveServer(ctx, id)
+	server, err := db.GetLiveServer(ctx, ctrl.store, id)
 	if err != nil {
 		return nil, err
 	}
-	dormantServer, err := ctrl.store.MakeServerDormant(ctx, id)
+	dormantServer, err := db.MakeServerDormant(ctx, ctrl.store, id)
 	if err != nil {
 		return nil, err
 	}
@@ -295,12 +289,8 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 }
 
 // WipeServer wipes the specified server.
-func (ctrl *Controller) WipeServer(ctx context.Context, id uuid.UUID, wipe model.Wipe) error {
-	create := db.CreateWipe{
-		ServerID: id,
-		Wipe:     wipe,
-	}
-	if err := ctrl.execer.Exec(ctx, create); err != nil {
+func (ctrl *Controller) WipeServer(ctx context.Context, serverID uuid.UUID, wipe model.Wipe) error {
+	if err := db.WipeServer(ctx, ctrl.store, serverID, wipe); err != nil {
 		return fmt.Errorf("while wiping server: %w", err)
 	}
 	return nil
@@ -321,7 +311,7 @@ func (ctrl *Controller) ListServers(ctx context.Context, dst interface{}) error 
 		return errInvalidServerType
 	}
 
-	if err := ctrl.store.ListServers(ctx, dst); err != nil {
+	if err := db.ListServers(ctx, ctrl.store, dst); err != nil {
 		return err
 	}
 
@@ -333,7 +323,7 @@ func (ctrl *Controller) AddServerTags(
 	serverID uuid.UUID,
 	tags model.Tags,
 ) error {
-	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+	if _, err := db.GetServer(ctx, ctrl.store, serverID); err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
 
@@ -341,7 +331,7 @@ func (ctrl *Controller) AddServerTags(
 		tags[i].ServerID = serverID
 	}
 
-	if err := ctrl.store.Create(ctx, tags); err != nil {
+	if err := ctrl.store.WithContext(ctx).Create(tags).Error; err != nil {
 		return fmt.Errorf("create server tags; serverID: %s, error: %w", serverID, err)
 	}
 	return nil
@@ -352,11 +342,11 @@ func (ctrl *Controller) RemoveServerTags(
 	serverID uuid.UUID,
 	tagIDs []uuid.UUID,
 ) error {
-	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+	if _, err := db.GetServer(ctx, ctrl.store, serverID); err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
 
-	if err := ctrl.store.Delete(ctx, &model.Tag{}, tagIDs); err != nil {
+	if err := ctrl.store.WithContext(ctx).Delete(&model.Tag{}, tagIDs).Error; err != nil {
 		return fmt.Errorf("delete server tags; serverID: %s, error: %w", serverID, err)
 	}
 	return nil
@@ -367,7 +357,7 @@ func (ctrl *Controller) AddServerEvents(
 	serverID uuid.UUID,
 	events model.Events,
 ) error {
-	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+	if _, err := db.GetServer(ctx, ctrl.store, serverID); err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
 
@@ -375,7 +365,7 @@ func (ctrl *Controller) AddServerEvents(
 		events[i].ServerID = serverID
 	}
 
-	if err := ctrl.store.Create(ctx, events); err != nil {
+	if err := ctrl.store.WithContext(ctx).Create(events).Error; err != nil {
 		return fmt.Errorf("create server events; serverID: %s, error: %w", serverID, err)
 	}
 	return nil
@@ -386,11 +376,11 @@ func (ctrl *Controller) RemoveServerEvents(
 	serverID uuid.UUID,
 	eventIDs []uuid.UUID,
 ) error {
-	if _, err := ctrl.store.GetServer(ctx, serverID); err != nil {
+	if _, err := db.GetServer(ctx, ctrl.store, serverID); err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
 
-	if err := ctrl.store.Delete(ctx, &model.Event{}, eventIDs); err != nil {
+	if err := ctrl.store.WithContext(ctx).Delete(&model.Event{}, eventIDs).Error; err != nil {
 		return fmt.Errorf("delete server events; serverID: %s, error: %w", serverID, err)
 	}
 	return nil
@@ -401,7 +391,7 @@ func (ctrl *Controller) AddServerModerators(
 	serverID uuid.UUID,
 	moderators model.Moderators,
 ) error {
-	server, err := ctrl.store.GetServer(ctx, serverID)
+	server, err := db.GetServer(ctx, ctrl.store, serverID)
 	if err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
@@ -421,7 +411,7 @@ func (ctrl *Controller) AddServerModerators(
 		}
 	}
 
-	if err := ctrl.store.Create(ctx, moderators); err != nil {
+	if err := ctrl.store.WithContext(ctx).Create(moderators).Error; err != nil {
 		return fmt.Errorf("create server moderators; serverID: %s, error: %w", serverID, err)
 	}
 
@@ -433,20 +423,12 @@ func (ctrl *Controller) RemoveServerModerators(
 	serverID uuid.UUID,
 	moderatorIDs []uuid.UUID,
 ) error {
-	server, err := ctrl.store.GetServer(ctx, serverID)
+	server, err := db.GetServer(ctx, ctrl.store, serverID)
 	if err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
 
-	var moderators model.Moderators
-	if err := ctrl.store.Find(ctx, moderators, moderatorIDs); err != nil {
-		return fmt.Errorf(
-			"find moderators; serverID: %s, moderatorIDs: %v, error: %w",
-			serverID,
-			moderatorIDs,
-			err,
-		)
-	}
+	moderators := server.Moderators
 
 	if server.StateType == model.LiveServerState {
 		if err := ctrl.rconRemoveServerModerators(
@@ -459,7 +441,7 @@ func (ctrl *Controller) RemoveServerModerators(
 		}
 	}
 
-	if err := ctrl.store.Delete(ctx, &model.Moderator{}, moderatorIDs); err != nil {
+	if err := ctrl.store.WithContext(ctx).Delete(&model.Moderator{}, moderatorIDs).Error; err != nil {
 		return fmt.Errorf("delete server moderators; serverID: %s, error: %w", serverID, err)
 	}
 
@@ -471,7 +453,7 @@ func (ctrl *Controller) AddServerOwners(
 	serverID uuid.UUID,
 	owners model.Owners,
 ) error {
-	server, err := ctrl.store.GetServer(ctx, serverID)
+	server, err := db.GetServer(ctx, ctrl.store, serverID)
 	if err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
@@ -491,7 +473,7 @@ func (ctrl *Controller) AddServerOwners(
 		}
 	}
 
-	if err := ctrl.store.Create(ctx, owners); err != nil {
+	if err := ctrl.store.WithContext(ctx).Create(owners).Error; err != nil {
 		return fmt.Errorf("create server owners; serverID: %s, error: %w", serverID, err)
 	}
 
@@ -503,20 +485,12 @@ func (ctrl *Controller) RemoveServerOwners(
 	serverID uuid.UUID,
 	ownerIDs []uuid.UUID,
 ) error {
-	server, err := ctrl.store.GetServer(ctx, serverID)
+	server, err := db.GetServer(ctx, ctrl.store, serverID)
 	if err != nil {
 		return fmt.Errorf("get server; serverID: %s, error: %w", serverID, err)
 	}
 
-	var owners model.Owners
-	if err := ctrl.store.Find(ctx, owners, ownerIDs); err != nil {
-		return fmt.Errorf(
-			"find owners; serverID: %s, ownerIDs: %v, error: %w",
-			serverID,
-			ownerIDs,
-			err,
-		)
-	}
+	owners := server.Owners
 
 	if server.StateType == model.LiveServerState {
 		if err := ctrl.rconRemoveServerOwners(
@@ -529,7 +503,7 @@ func (ctrl *Controller) RemoveServerOwners(
 		}
 	}
 
-	if err := ctrl.store.Delete(ctx, &model.Owner{}, ownerIDs); err != nil {
+	if err := ctrl.store.WithContext(ctx).Delete(&model.Owner{}, ownerIDs).Error; err != nil {
 		return fmt.Errorf("delete server owners; serverID: %s, error: %w", serverID, err)
 	}
 
@@ -542,7 +516,7 @@ func (ctrl *Controller) LiveServerRconForEach(
 	fn func(context.Context, model.LiveServer, rcon.IRcon) error,
 ) error {
 	var servers model.LiveServers
-	if err := ctrl.finder.Find(ctx, &servers); err != nil {
+	if err := db.ListServers(ctx, ctrl.store, &servers); err != nil {
 		return fmt.Errorf("while listing live servers: %w", err)
 	}
 
@@ -584,20 +558,13 @@ func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.Live
 		return fmt.Errorf("while retrieving server info via rcon: %w", err)
 	}
 
-	update := db.UpdateLiveServerInfo{
-		LiveServerID: server.ID,
-		Changes: map[string]interface{}{
-			"active_players": serverInfo.Players,
-			"queued_players": serverInfo.Queued,
-		},
+	changes := map[string]interface{}{
+		"active_players": serverInfo.Players,
+		"queued_players": serverInfo.Queued,
 	}
-
-	err = ctrl.execer.Exec(ctx, update)
-	if errors.Is(err, db.ErrServerNotLive) {
-		return nil
-	}
+	err = db.UpdateLiveServer(ctx, ctrl.store, server.ID, changes)
 	if err != nil {
-		return fmt.Errorf("while updating server server info: %w", err)
+		return fmt.Errorf("while updating captured server info: %w", err)
 	}
 	return nil
 }

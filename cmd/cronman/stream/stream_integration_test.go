@@ -15,13 +15,13 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/internal/event"
-	"github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/stream"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 func TestInvoicePaidEvent(t *testing.T) {
@@ -184,8 +184,7 @@ func TestInvoicePaidEvent(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 
 			// Check if store is in expected state.
-			var vips model.Vips
-			err := deps.store.FindByServerID(ctx, &vips, test.serverID)
+			vips, err := db.ListVipsByServerID(ctx, deps.store, test.serverID)
 			require.Nil(t, err)
 
 			require.Len(t, vips, len(test.exp.vips), "actual vips different length than expected vips")
@@ -246,13 +245,11 @@ func newDeps(ctx context.Context, t *testing.T) *deps {
 		migrations = "file://../db/migrations"
 	)
 
-	dbconn, err := db.Open(dsn)
+	store, err := db.Open(dsn)
 	require.Nil(t, err)
 
-	err = db.Migrate(dbconn, migrations)
+	err = db.Migrate(store, migrations)
 	require.Nil(t, err)
-
-	store := gorm.NewStore(dbconn)
 
 	rconHub := rcon.NewHubMock()
 
@@ -275,7 +272,7 @@ func newDeps(ctx context.Context, t *testing.T) *deps {
 type deps struct {
 	handler *Handler
 	stream  *stream.Client
-	store   *gorm.Store
+	store   *gorm.DB
 	rconHub *rcon.HubMock
 }
 
@@ -288,13 +285,11 @@ func newInitializer(t *testing.T) *initializer {
 		migrations = "file://../db/migrations"
 	)
 
-	dbconn, err := db.Open(dsn)
+	store, err := db.Open(dsn)
 	require.Nil(t, err)
 
-	err = db.Migrate(dbconn, migrations)
+	err = db.Migrate(store, migrations)
 	require.Nil(t, err)
-
-	store := gorm.NewStore(dbconn)
 
 	return &initializer{
 		store: store,
@@ -303,7 +298,7 @@ func newInitializer(t *testing.T) *initializer {
 }
 
 type initializer struct {
-	store *gorm.Store
+	store *gorm.DB
 
 	once    *sync.Once
 	alpha   *model.DormantServer
@@ -338,7 +333,7 @@ func (i *initializer) run(ctx context.Context, t *testing.T) {
 				},
 			}
 
-			err := i.store.Create(ctx, server)
+			err := i.store.WithContext(ctx).Create(server).Error
 			require.Nil(t, err)
 
 			*dormant = server
@@ -365,7 +360,7 @@ func (i *initializer) run(ctx context.Context, t *testing.T) {
 			},
 		}
 
-		err := i.store.Create(ctx, live)
+		err := i.store.WithContext(ctx).Create(live).Error
 		require.Nil(t, err)
 
 		i.live = live

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/stripe/stripe-go/v72"
-	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
@@ -52,10 +51,7 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure ServerID used in checkout has an associated Server.
-	limit := &model.Server{
-		ID: b.ServerID,
-	}
-	err := ep.store.First(r.Context(), limit)
+	_, err := ep.store.FirstServerByID(r.Context(), b.ServerID)
 	if errors.Is(err, gorm.ErrNotFound) {
 		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
@@ -75,8 +71,7 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure this customer is not already subscribed to specified server.
 	if customerID != "" {
-		customer := &model.Customer{UserID: sess.User.ID}
-		subscribed, err := ep.store.IsSubscribedToServer(r.Context(), customer, b.ServerID)
+		subscribed, err := ep.store.IsCustomerSubscribed(r.Context(), b.ServerID, sess.User.ID)
 		if err != nil {
 			ihttp.ErrInternal(ep.logger, w, err)
 			return
@@ -113,15 +108,12 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ep Checkout) customerID(ctx context.Context, userID uuid.UUID) (string, error) {
-	customer := &model.Customer{
-		UserID: userID,
-	}
-	err := ep.store.First(ctx, customer)
+	customer, err := ep.store.FirstCustomerByUserID(ctx, userID)
 	if errors.Is(err, gorm.ErrNotFound) {
 		return "", nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("fetch customer ID; error: %w", err)
+		return "", fmt.Errorf("while retrieving customer ID; error: %w", err)
 	}
 
 	return customer.StripeCustomerID, nil

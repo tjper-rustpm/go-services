@@ -9,12 +9,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/event"
 	"github.com/tjper/rustcron/internal/gorm"
-	imodel "github.com/tjper/rustcron/internal/model"
 	"github.com/tjper/rustcron/internal/stream"
 
 	"github.com/google/uuid"
@@ -24,10 +22,10 @@ import (
 
 // IStore encompasses all interactions with the payment store.
 type IStore interface {
-	First(context.Context, gorm.Firster) error
-	FirstByStripeEventID(context.Context, db.FirsterByStripeEventID) error
-
-	CreateSubscription(context.Context, *model.Subscription, *model.Customer, uuid.UUID) error
+	FirstSubscriptionByID(context.Context, uuid.UUID) (*model.Subscription, error)
+	FirstSubscriptionByStripeEventID(context.Context, string) (*model.Subscription, error)
+	FirstInvoiceByStripeEventID(context.Context, string) (*model.Invoice, error)
+	CreateSubscription(context.Context, *model.Subscription, *model.Customer) error
 	CreateInvoice(context.Context, *model.Invoice, string) error
 }
 
@@ -155,13 +153,7 @@ func (h Handler) processCheckoutSessionComplete(ctx context.Context, event strip
 		)
 	}
 
-	subscription := &model.Subscription{
-		StripeCheckoutID:     checkout.ID,
-		StripeSubscriptionID: checkout.Subscription.ID,
-		StripeEventID:        event.ID,
-	}
-
-	err = h.store.FirstByStripeEventID(ctx, subscription)
+	_, err = h.store.FirstSubscriptionByStripeEventID(ctx, event.ID)
 	if err == nil {
 		// Subscription has already been processed, return early.
 		return nil
@@ -170,19 +162,23 @@ func (h Handler) processCheckoutSessionComplete(ctx context.Context, event strip
 		return fmt.Errorf("find subscription be event ID; error: %w", err)
 	}
 
+	subscription := model.Subscription{
+		StripeCheckoutID:     checkout.ID,
+		StripeSubscriptionID: checkout.Subscription.ID,
+		StripeEventID:        event.ID,
+		ServerID:             stagedCheckout.ServerID,
+	}
 	if err := h.store.CreateSubscription(
 		ctx,
-		subscription,
+		&subscription,
 		&model.Customer{
 			UserID:           stagedCheckout.UserID,
 			StripeCustomerID: checkout.Customer.ID,
 			SteamID:          stagedCheckout.SteamID,
 		},
-		stagedCheckout.ServerID,
 	); err != nil {
 		return fmt.Errorf(
-			"create subscription; eventID: %s, error: %w",
-			event.ID,
+			"while creating checkout complete subscription: %w",
 			err,
 		)
 	}
@@ -214,12 +210,7 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		return nil
 	}
 
-	invoiceModel := &model.Invoice{
-		Status:        model.InvoiceStatus(string(invoice.Status)),
-		StripeEventID: event.ID,
-	}
-
-	err := h.store.FirstByStripeEventID(ctx, invoiceModel)
+	_, err := h.store.FirstInvoiceByStripeEventID(ctx, event.ID)
 	if err == nil {
 		// Invoice has already been processed, return early.
 		return nil
@@ -228,7 +219,11 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		return fmt.Errorf("store.FindByStripeEventID: %w", err)
 	}
 
-	err = h.store.CreateInvoice(ctx, invoiceModel, invoice.Subscription.ID)
+	invoiceModel := model.Invoice{
+		Status:        model.InvoiceStatus(string(invoice.Status)),
+		StripeEventID: event.ID,
+	}
+	err = h.store.CreateInvoice(ctx, &invoiceModel, invoice.Subscription.ID)
 	if errors.Is(err, gorm.ErrNotFound) {
 		return errInvoiceSubscriptionDNE
 	}
@@ -236,10 +231,7 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		return fmt.Errorf("store.CreateInvoice: %w", err)
 	}
 
-	subscription := &model.Subscription{
-		Model: imodel.Model{ID: invoiceModel.SubscriptionID},
-	}
-	err = h.store.First(ctx, subscription)
+	subscription, err := h.store.FirstSubscriptionByID(ctx, invoiceModel.SubscriptionID)
 	if err != nil {
 		return fmt.Errorf("store.First: %w", err)
 	}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
@@ -37,10 +36,7 @@ func (ep Billing) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	customer := &model.Customer{
-		UserID: sess.User.ID,
-	}
-	err := ep.store.First(r.Context(), customer)
+	customer, err := ep.store.FirstCustomerByUserID(r.Context(), sess.User.ID)
 	if errors.Is(err, gorm.ErrNotFound) {
 		ihttp.ErrNotFound(w)
 		return
