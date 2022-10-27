@@ -98,6 +98,8 @@ func TestFindServers(t *testing.T) {
 			var servers model.Servers
 			err := json.NewDecoder(resp.Body).Decode(&servers)
 			require.Nil(t, err)
+
+			require.Equal(t, test.exp.servers, servers)
 		})
 	}
 }
