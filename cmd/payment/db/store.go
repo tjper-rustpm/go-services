@@ -140,7 +140,11 @@ LEFT JOIN (
 GROUP BY servers.id
 `
 
-	var servers model.Servers
+	// NOTE: Use make to initialize array so that even if SELECT returns zero rows,
+	// this function returns an empty slice. Using var servers model.Servers below
+	// declare the servers variable would result in null be returned in the event
+	// SELECT returned zero rows.
+	servers := make(model.Servers, 0)
 	if err := s.db.WithContext(ctx).Raw(sql).Scan(&servers).Error; err != nil {
 		return nil, fmt.Errorf("while finding servers: %w", err)
 	}
