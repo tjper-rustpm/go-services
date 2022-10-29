@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/cmd/cronman/db"
+	"github.com/tjper/rustcron/cmd/cronman/mapgen"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 
 	"github.com/go-redis/redis/v8"
@@ -123,9 +124,9 @@ func (dir Director) Direct(ctx context.Context, event model.Event) {
 	case model.EventKindLive:
 		err = dir.serverLive(ctx, event.ServerID)
 	case model.EventKindMapWipe:
-		err = dir.mapWipeServer(ctx, event.ServerID)
+		err = dir.wipeServer(ctx, event.ServerID, model.NewMapWipe)
 	case model.EventKindFullWipe:
-		err = dir.fullWipeServer(ctx, event.ServerID)
+		err = dir.wipeServer(ctx, event.ServerID, model.NewFullWipe)
 	}
 	if err != nil {
 		dir.logger.Error(
@@ -158,13 +159,17 @@ func (dir Director) stopServer(ctx context.Context, serverID uuid.UUID) error {
 	return nil
 }
 
-func (dir Director) wipeServer(ctx context.Context, serverID uuid.UUID, wipe model.Wipe) error {
-	server, err := dir.controller.GetServer(ctx, serverID)
+func (dir Director) wipeServer(
+	ctx context.Context,
+	serverID uuid.UUID,
+	newWipe func(uint32, uint32) *model.Wipe,
+) error {
+	serverI, err := dir.controller.GetServer(ctx, serverID)
 	if err != nil {
 		return err
 	}
 
-	_, isLive := server.(*model.LiveServer)
+	_, isLive := serverI.(*model.LiveServer)
 
 	if isLive {
 		if _, err := dir.controller.StopServer(ctx, serverID); err != nil {
@@ -183,22 +188,20 @@ func (dir Director) wipeServer(ctx context.Context, serverID uuid.UUID, wipe mod
 		}()
 	}
 
-	if err := dir.controller.WipeServer(ctx, serverID, wipe); err != nil {
+	var mapSize model.MapSizeKind
+	switch server := serverI.(type) {
+	case *model.LiveServer:
+		mapSize = server.Server.MapSize
+	case *model.DormantServer:
+		mapSize = server.Server.MapSize
+	}
+
+	seed := mapgen.GenerateSeed(mapSize)
+	salt := mapgen.GenerateSalt()
+	wipe := newWipe(seed, salt)
+
+	if err := dir.controller.WipeServer(ctx, serverID, *wipe); err != nil {
 		return fmt.Errorf("while wiping server: %w", err)
 	}
 	return nil
-}
-
-func (dir Director) fullWipeServer(ctx context.Context, serverID uuid.UUID) error {
-	seed := model.GenerateSeed()
-	salt := model.GenerateSalt()
-	wipe := model.NewMapWipe(seed, salt)
-	return dir.wipeServer(ctx, serverID, *wipe)
-}
-
-func (dir Director) mapWipeServer(ctx context.Context, serverID uuid.UUID) error {
-	seed := model.GenerateSeed()
-	salt := model.GenerateSalt()
-	wipe := model.NewFullWipe(seed, salt)
-	return dir.wipeServer(ctx, serverID, *wipe)
 }

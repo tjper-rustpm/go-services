@@ -8,6 +8,7 @@ import (
 	"time"
 
 	ierrors "github.com/tjper/rustcron/cmd/cronman/errors"
+	"github.com/tjper/rustcron/cmd/cronman/mapgen"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"go.uber.org/zap"
@@ -21,8 +22,8 @@ func (ep WipeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		ServerID uuid.UUID      `validate:"required"`
 		Kind     model.WipeKind `validate:"required"`
-		Seed     uint16
-		Salt     uint16
+		Seed     uint32
+		Salt     uint32
 	}
 
 	var b body
@@ -31,12 +32,26 @@ func (ep WipeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seed := model.GenerateSeed()
+	serverI, err := ep.ctrl.GetServer(r.Context(), b.ServerID)
+	if errors.Is(err, ierrors.ErrServerDNE) {
+		ihttp.ErrNotFound(w)
+		return
+	}
+
+	var mapSize model.MapSizeKind
+	switch server := serverI.(type) {
+	case *model.LiveServer:
+		mapSize = server.Server.MapSize
+	case *model.DormantServer:
+		mapSize = server.Server.MapSize
+	}
+
+	seed := mapgen.GenerateSeed(mapSize)
 	if b.Seed != 0 {
 		seed = b.Seed
 	}
 
-	salt := model.GenerateSalt()
+	salt := mapgen.GenerateSalt()
 	if b.Salt != 0 {
 		salt = b.Salt
 	}
@@ -47,13 +62,7 @@ func (ep WipeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		MapSalt: salt,
 	}
 
-	server, err := ep.ctrl.GetServer(r.Context(), b.ServerID)
-	if errors.Is(err, ierrors.ErrServerDNE) {
-		ihttp.ErrNotFound(w)
-		return
-	}
-
-	_, isDormant := server.(*model.DormantServer)
+	_, isDormant := serverI.(*model.DormantServer)
 
 	if isDormant {
 		if err := ep.ctrl.WipeServer(r.Context(), b.ServerID, wipe); err != nil {

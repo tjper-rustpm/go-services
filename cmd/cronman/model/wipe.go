@@ -2,7 +2,6 @@ package model
 
 import (
 	"database/sql"
-	"math/rand"
 	"sort"
 
 	"github.com/tjper/rustcron/internal/model"
@@ -39,7 +38,7 @@ func (ws Wipes) Scrub() {
 	}
 }
 
-func NewMapWipe(seed, salt uint16) *Wipe {
+func NewMapWipe(seed, salt uint32) *Wipe {
 	return &Wipe{
 		Kind:    WipeKindMap,
 		MapSeed: seed,
@@ -47,7 +46,7 @@ func NewMapWipe(seed, salt uint16) *Wipe {
 	}
 }
 
-func NewFullWipe(seed, salt uint16) *Wipe {
+func NewFullWipe(seed, salt uint32) *Wipe {
 	return &Wipe{
 		Kind:    WipeKindFull,
 		MapSeed: seed,
@@ -59,8 +58,8 @@ type Wipe struct {
 	model.Model
 
 	Kind     WipeKind
-	MapSeed  uint16
-	MapSalt  uint16
+	MapSeed  uint32
+	MapSalt  uint32
 	ServerID uuid.UUID
 
 	AppliedAt sql.NullTime
@@ -79,17 +78,3 @@ const (
 	WipeKindMap  WipeKind = "map"
 	WipeKindFull WipeKind = "full"
 )
-
-// GenerateSeed creates a new random seed that may be used as a wipe's map
-// seed.
-func GenerateSeed() uint16 {
-	const max = 1000000
-	return uint16(rand.Intn(max) + 1)
-}
-
-// GenerateSalt creates a new random salt that may be used as a wipe's map
-// salt.
-func GenerateSalt() uint16 {
-	const max = 1000000
-	return uint16(rand.Intn(max) + 1)
-}

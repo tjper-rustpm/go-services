@@ -15,9 +15,9 @@ type CreateServerBody struct {
 	Name         string                 `json:"name" validate:"required"`
 	InstanceKind model.InstanceKind     `json:"instanceKind" validate:"required"`
 	MaxPlayers   uint16                 `json:"maxPlayers" validate:"required"`
-	MapSize      uint16                 `json:"mapSize" validate:"required"`
-	MapSeed      uint16                 `json:"mapSeed" validate:"required"`
-	MapSalt      uint16                 `json:"mapSalt" validate:"required"`
+	MapSize      model.MapSizeKind      `json:"mapSize" validate:"required"`
+	MapSeed      uint32                 `json:"mapSeed" validate:"required"`
+	MapSalt      uint32                 `json:"mapSalt" validate:"required"`
 	TickRate     uint8                  `json:"tickRate" validate:"required"`
 	RconPassword string                 `json:"rconPassword" validate:"required"`
 	Description  string                 `json:"description" validate:"required"`
@@ -186,9 +186,9 @@ type Server struct {
 	InstanceKind model.InstanceKind   `json:"instanceKind"`
 	ElasticIP    string               `json:"elasticIP"`
 	MaxPlayers   uint16               `json:"maxPlayers"`
-	MapSize      uint16               `json:"mapSize"`
-	MapSeed      uint16               `json:"mapSeed"`
-	MapSalt      uint16               `json:"mapSalt"`
+	MapSize      model.MapSizeKind    `json:"mapSize"`
+	MapSeed      uint32               `json:"mapSeed"`
+	MapSalt      uint32               `json:"mapSalt"`
 	TickRate     uint8                `json:"tickRate"`
 	Description  string               `json:"description"`
 	Background   model.BackgroundKind `json:"background"`

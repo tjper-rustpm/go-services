@@ -32,7 +32,7 @@ type Server struct {
 	AllocationID string
 	ElasticIP    string
 	MaxPlayers   uint16
-	MapSize      uint16
+	MapSize      MapSizeKind
 	TickRate     uint8
 	RconPassword string
 	Description  string
@@ -278,6 +278,15 @@ const (
 	InstanceKindSmall    InstanceKind = "small"
 	InstanceKindStandard InstanceKind = "standard"
 	InstanceKindLarge    InstanceKind = "large"
+)
+
+type MapSizeKind int
+
+const (
+	MapSizeSmall  MapSizeKind = 3000
+	MapSizeMedium MapSizeKind = 3500
+	MapSizeLarge  MapSizeKind = 4250
+	MapSizeXLarge MapSizeKind = 4500
 )
 
 type BackgroundKind string

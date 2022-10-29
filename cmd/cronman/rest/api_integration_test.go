@@ -358,8 +358,8 @@ func TestWipeServer(t *testing.T) {
 		suite.waitUntilServer(ctx, t, sess, serverID, isDormant)
 	})
 
-	var seed uint16
-	var salt uint16
+	var seed uint32
+	var salt uint32
 	t.Run("require that server map seed and salt are set", func(t *testing.T) {
 		resp := suite.getServer(ctx, t, sess, serverID)
 		defer resp.Body.Close()
@@ -486,8 +486,8 @@ func TestWipeServer(t *testing.T) {
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 		hasUpdated := func(server map[string]interface{}) bool {
-			newSeed := uint16(server["mapSeed"].(float64))
-			newSalt := uint16(server["mapSalt"].(float64))
+			newSeed := uint32(server["mapSeed"].(float64))
+			newSalt := uint32(server["mapSalt"].(float64))
 
 			return newSeed != seed && newSalt != salt
 		}
