@@ -50,10 +50,9 @@ func (vs Vips) Clone() Vips {
 // special privileges such as queue skip.
 type Vip struct {
 	model.Model
-	ServerID       uuid.UUID
-	SubscriptionID uuid.UUID
-	SteamID        string
-	ExpiresAt      time.Time
+	ServerID  uuid.UUID
+	SteamID   string
+	ExpiresAt time.Time
 }
 
 func (vip Vip) Clone() Vip {

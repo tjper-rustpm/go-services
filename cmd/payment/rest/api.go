@@ -23,12 +23,14 @@ import (
 type IStore interface {
 	FirstServerByID(context.Context, uuid.UUID) (*model.Server, error)
 	FirstCustomerByUserID(context.Context, uuid.UUID) (*model.Customer, error)
+	FirstCustomerBySteamID(context.Context, string) (*model.Customer, error)
 	FirstSubscriptionByID(context.Context, uuid.UUID) (*model.Subscription, error)
 	FindSubscriptionsByUserID(context.Context, uuid.UUID) (model.Subscriptions, error)
 	FindServers(context.Context) (model.Servers, error)
 	CreateServer(context.Context, *model.Server) error
 	UpdateServer(context.Context, uuid.UUID, map[string]interface{}) (*model.Server, error)
 	IsCustomerSubscribed(context.Context, uuid.UUID, uuid.UUID) (bool, error)
+	IsServerVipBySteamID(context.Context, uuid.UUID, string) (bool, error)
 }
 
 // IStream encompasses all interactions with the event stream.

@@ -8,6 +8,7 @@ import (
 	"github.com/iancoleman/strcase"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	igorm "github.com/tjper/rustcron/internal/gorm"
+	"github.com/tjper/rustcron/internal/stripe"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -45,19 +46,30 @@ func (s Store) FirstCustomerByUserID(ctx context.Context, userID uuid.UUID) (*mo
 	return &customer, nil
 }
 
-// FirstSubscriptionByStripeEventID retrieves the subscription with the passed
-// stripe event ID. If no subscription is found, gorm.ErrNotFound is returned.
-func (s Store) FirstSubscriptionByStripeEventID(ctx context.Context, stripeEventID string) (*model.Subscription, error) {
-	var subscription model.Subscription
+// FirstCustomerBySteamID retrieves the customer with the specified steam ID.
+// If the customer is not found, gorm.ErrNotFound is returned.
+func (s Store) FirstCustomerBySteamID(ctx context.Context, steamID string) (*model.Customer, error) {
+	var customer model.Customer
+	err := s.db.WithContext(ctx).Where("steam_id = ?", steamID).First(&customer).Error
+	if err != nil {
+		return nil, fmt.Errorf("while retrieving first customer by steam id: %w", err)
+	}
+	return &customer, nil
+}
+
+// FirstVipByStripeEventID retrieves the vip with the passed Stripe event ID.
+// If no vip is found, gorm.ErrNotFound is returned.
+func (s Store) FirstVipByStripeEventID(ctx context.Context, stripeEventID string) (*model.Vip, error) {
+	var vip model.Vip
 	err := s.db.
 		WithContext(ctx).
 		Where("stripe_event_id = ?", stripeEventID).
-		First(&subscription).Error
+		First(&vip).Error
 	if err != nil {
-		return nil, fmt.Errorf("while retrieving subscription by stripe event ID: %w", err)
+		return nil, fmt.Errorf("while retrieving vip by stripe event ID: %w", err)
 	}
 
-	return &subscription, nil
+	return &vip, nil
 }
 
 // FirstInvoiceByStripeEventID retrieves the invoice with the passed stripe
@@ -171,11 +183,38 @@ func (s Store) CreateServer(ctx context.Context, server *model.Server) error {
 	})
 }
 
-// CreateSubscription creates the passed subscription and its dependencies if
-// necessary. If the customer does not exist within the store, it will be
-// created.
-func (s Store) CreateSubscription(
+// CreateVip creates the passed vip and the necessary dependencies.
+func (s Store) CreateVip(
 	ctx context.Context,
+	vip *model.Vip,
+	customer *model.Customer,
+) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Where("stripe_customer_id = ?", customer.StripeCustomerID).First(customer).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("while retrieving customer by stripe customer ID: %w", err)
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := tx.Create(customer).Error; err != nil {
+				return fmt.Errorf("while creating vip customer: %w", err)
+			}
+		}
+
+		vip.CustomerID = customer.UserID
+		if err := tx.Create(vip).Error; err != nil {
+			return fmt.Errorf("while creating subscription vip: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// CreateVipSubscription creates the a VIP subscription and the necessary
+// dependencies.
+func (s Store) CreateVipSubscription(
+	ctx context.Context,
+	vip *model.Vip,
 	subscription *model.Subscription,
 	customer *model.Customer,
 ) error {
@@ -187,18 +226,60 @@ func (s Store) CreateSubscription(
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if err := tx.Create(customer).Error; err != nil {
-				return fmt.Errorf("while create customer; error: %w", err)
+				return fmt.Errorf("while creating vip subscription customer: %w", err)
 			}
 		}
 
-		subscription.CustomerID = customer.UserID
+		vip.CustomerID = customer.UserID
+		if err := tx.Create(vip).Error; err != nil {
+			return fmt.Errorf("while creating subscription vip: %w", err)
+		}
 
+		subscription.VipID = vip.ID
 		if err := tx.Create(subscription).Error; err != nil {
-			return fmt.Errorf("create subscription; error: %w", err)
+			return fmt.Errorf("while creating vip subscription: %w", err)
 		}
 
 		return nil
 	})
+}
+
+// AddInvoiceToVipSubscription adds the passed invoice to the vip subscription
+// associated with the passed Stripe subscription ID. The vip expiration that
+// is updated and returned to the caller.
+func (s Store) AddInvoiceToVipSubscription(
+	ctx context.Context,
+	stripeSubscriptionID string,
+	invoice *model.Invoice,
+) (*model.Vip, error) {
+	var vip model.Vip
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var subscription model.Subscription
+		if err := tx.
+			Where("stripe_subscription_id = ?", stripeSubscriptionID).
+			First(&subscription).Error; err != nil {
+			return fmt.Errorf("while retrieving invoice subscription: %w", err)
+		}
+
+		invoice.SubscriptionID = subscription.ID
+		if err := tx.Create(invoice).Error; err != nil {
+			return fmt.Errorf("while creating vip subscription invoice: %w", err)
+		}
+
+		if err := tx.First(&vip, subscription.VipID); err != nil {
+			return fmt.Errorf("while retrieving subscription vip: %w", err)
+		}
+
+		expiresAt := model.ComputeVipExpiration(stripe.MonthlyVipSubscription)
+		vip.ExpiresAt = expiresAt
+
+		if err := tx.Model(&vip).Update("expires_at", expiresAt).Error; err != nil {
+			return fmt.Errorf("while updating subscription vip: %w", err)
+		}
+		return nil
+	})
+
+	return &vip, err
 }
 
 // CreateInvoice creates the invoice if a subscription with the specified
@@ -249,35 +330,32 @@ func (s Store) UpdateServer(ctx context.Context, serverID uuid.UUID, changes map
 	return &server, nil
 }
 
-// IsCustomerSubscribed checks if the customer has an active subscription to
-// the specified server. The return values, are true - nil if a subscription
+// IsServerVipBySteamID checks if the steam ID is an active vip on the the
+// specified server. The return values, are true - nil if a subscription
 // exists, and false - nil if a subscription does not exist. Any error
 // encountered is returned as the second return value.
-func (s Store) IsCustomerSubscribed(ctx context.Context, serverID, customerID uuid.UUID) (bool, error) {
+func (s Store) IsServerVipBySteamID(
+	ctx context.Context,
+	serverID uuid.UUID,
+	steamID string,
+) (bool, error) {
 	sql := `
 SELECT 1
-FROM payments.subscriptions
-WHERE subscriptions.customer_id = ?
-      AND subscriptions.server_id = ?
+FROM payments.vips
+WHERE vips.server_id = ?
+      AND vips.expires_at >= now()
       AND EXISTS (
         SELECT 1
-        FROM payments.invoices
-        JOIN (
-          SELECT sub_invoices.subscription_id,
-                 MAX(sub_invoices.created_at) as created_at
-          FROM payments.invoices AS sub_invoices
-          GROUP BY sub_invoices.subscription_id
-        ) AS most_recent_invoices
-          ON most_recent_invoices.subscription_id = invoices.subscription_id
-             AND most_recent_invoices.created_at = invoices.created_at
-        WHERE invoices.status = 'paid'
-              AND invoices.created_at > now() - interval '31 days'
+        FROM payments.customers
+        WHERE customers.user_id = vips.customer_id
+              AND customers.steam_id = ?
       )
 `
 
-	var exists bool
-	if err := s.db.WithContext(ctx).Raw(sql, customerID, serverID).Scan(&exists).Error; err != nil {
-		return false, fmt.Errorf("while checking customer is subscribed: %w", err)
+	var isVip bool
+	if err := s.db.WithContext(ctx).Raw(sql, serverID, steamID).Scan(&isVip).Error; err != nil {
+		return false, fmt.Errorf("while checking if steam ID has active subscription: %w", err)
 	}
-	return exists, nil
+
+	return isVip, nil
 }

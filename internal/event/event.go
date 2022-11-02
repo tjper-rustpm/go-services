@@ -31,8 +31,6 @@ func Parse(b []byte) (interface{}, error) {
 		event = &StripeWebhookEvent{}
 	case InvoicePaid:
 		event = &InvoicePaidEvent{}
-	case InvoicePaymentFailure:
-		event = &InvoicePaymentFailureEvent{}
 	default:
 		return nil, fmt.Errorf("unexpected event; kind: %s, error: %w", str, errKindInvalid)
 	}
@@ -47,9 +45,8 @@ func Parse(b []byte) (interface{}, error) {
 type Kind string
 
 const (
-	StripeWebhook         Kind = "stripe_webhook"
-	InvoicePaid           Kind = "invoice_paid"
-	InvoicePaymentFailure Kind = "invoice_payment_failure"
+	StripeWebhook Kind = "stripe_webhook"
+	InvoicePaid   Kind = "invoice_paid"
 )
 
 func New(kind Kind) Event {
@@ -78,34 +75,20 @@ func NewStripeWebhookEvent(stripeEvent stripe.Event) StripeWebhookEvent {
 	}
 }
 
+// TODO: Update InvoicePaidEvent to CheckoutCompleteEvent.
 type InvoicePaidEvent struct {
 	Event
-	SubscriptionID uuid.UUID
-	ServerID       uuid.UUID
-	SteamID        string
+	ServerID uuid.UUID
+	SteamID  string
 }
 
 func NewInvoicePaidEvent(
-	subscriptionID uuid.UUID,
 	serverID uuid.UUID,
 	steamID string,
 ) InvoicePaidEvent {
 	return InvoicePaidEvent{
-		Event:          New(InvoicePaid),
-		SubscriptionID: subscriptionID,
-		ServerID:       serverID,
-		SteamID:        steamID,
-	}
-}
-
-type InvoicePaymentFailureEvent struct {
-	Event
-	SubscriptionID uuid.UUID
-}
-
-func NewInvoicePaymentFailure(subscriptionID uuid.UUID) InvoicePaymentFailureEvent {
-	return InvoicePaymentFailureEvent{
-		Event:          New(InvoicePaymentFailure),
-		SubscriptionID: subscriptionID,
+		Event:    New(InvoicePaid),
+		ServerID: serverID,
+		SteamID:  steamID,
 	}
 }

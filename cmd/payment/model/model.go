@@ -4,16 +4,16 @@ import (
 	"time"
 
 	"github.com/tjper/rustcron/internal/model"
+	"github.com/tjper/rustcron/internal/stripe"
 
 	"github.com/google/uuid"
 )
 
-type Subscription struct {
+type Vip struct {
 	model.Model
 
-	StripeCheckoutID     string
-	StripeSubscriptionID string
-	StripeEventID        string
+	StripeCheckoutID string
+	StripeEventID    string
 
 	ServerID uuid.UUID
 	Server   Server
@@ -21,11 +21,38 @@ type Subscription struct {
 	CustomerID uuid.UUID
 	Customer   Customer `gorm:"foreignKey:UserID;references:CustomerID"`
 
+	ExpiresAt time.Time
+}
+
+// ComputeVipExpiration determines a VIP expiration based on a Stripe price.
+func ComputeVipExpiration(price stripe.Price) time.Time {
+	var expiresAt time.Time
+	switch price {
+	case stripe.MonthlyVipSubscription:
+		// Expires in 30 days.
+		expiresAt = time.Now().Add(30 * 24 * time.Hour).UTC()
+	case stripe.WeeklyVipOneTime:
+		// Expires in 5 days.
+		expiresAt = time.Now().Add(5 * 24 * time.Hour).UTC()
+	}
+	return expiresAt
+}
+
+type Vips []Vip
+
+type Subscription struct {
+	model.Model
+
+	StripeSubscriptionID string
+
+	VipID uuid.UUID
+	Vip   Vip
+
 	Invoices []Invoice
 }
 
-// Status retrieves the status of the subscription.
-func (sub Subscription) Status() InvoiceStatus {
+// LatestInvoiceStatus retrieves the latest invoice status of the subscription.
+func (sub Subscription) LatestInvoiceStatus() InvoiceStatus {
 	if len(sub.Invoices) == 0 {
 		return InvoiceStatusUnknown
 	}

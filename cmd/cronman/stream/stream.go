@@ -88,10 +88,9 @@ func (h Handler) Launch(ctx context.Context) error {
 func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.InvoicePaidEvent) error {
 	duration := time.Hour * 24 * 30 // 30 days
 	vip := &model.Vip{
-		SubscriptionID: event.SubscriptionID,
-		ServerID:       event.ServerID,
-		SteamID:        event.SteamID,
-		ExpiresAt:      time.Now().Add(duration),
+		ServerID:  event.ServerID,
+		SteamID:   event.SteamID,
+		ExpiresAt: time.Now().Add(duration),
 	}
 	if err := h.store.WithContext(ctx).Create(vip).Error; err != nil {
 		return fmt.Errorf("while creating vip: %w", err)
