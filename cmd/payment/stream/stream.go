@@ -198,6 +198,7 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 	}
 
 	price := checkout.LineItems.Data[0].Price.ID
+	expiresAt := model.ComputeVipExpiration(istripe.Price(price))
 
 	// NOTE: It is possible that two processes simultaneously execute the below
 	// CreateVip method. In the event this occurs, one will result an
@@ -211,7 +212,7 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 			StripeCheckoutID: checkout.ID,
 			StripeEventID:    eventID,
 			ServerID:         stagedCheckout.ServerID,
-			ExpiresAt:        model.ComputeVipExpiration(istripe.Price(price)),
+			ExpiresAt:        expiresAt,
 		},
 		&model.Customer{
 			UserID:           stagedCheckout.UserID,
@@ -222,7 +223,12 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 		return fmt.Errorf("while creating checkout: %w", err)
 	}
 
-	return h.invoicePaid(ctx, stagedCheckout.ServerID, stagedCheckout.SteamID)
+	return h.vipRefresh(
+		ctx,
+		stagedCheckout.ServerID,
+		stagedCheckout.SteamID,
+		expiresAt,
+	)
 }
 
 func (h Handler) processSubscriptionCheckoutSessionComplete(
@@ -344,21 +350,27 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		return fmt.Errorf("while updating vip subscription invoices: %w", err)
 	}
 
-	// If invoice is anything other than "paid" return and do not publish an
-	// invoice paid event.
+	// If invoice is anything other than "paid" return and do not publish a
+	// vip refresh event.
 	if invoice.Status != stripe.InvoiceStatusPaid {
 		return nil
 	}
 
-	return h.invoicePaid(ctx, vip.Server.ID, vip.Customer.SteamID)
+	return h.vipRefresh(
+		ctx,
+		vip.Server.ID,
+		vip.Customer.SteamID,
+		vip.ExpiresAt,
+	)
 }
 
-func (h Handler) invoicePaid(
+func (h Handler) vipRefresh(
 	ctx context.Context,
 	serverID uuid.UUID,
 	steamID string,
+	expiresAt time.Time,
 ) error {
-	paid := event.NewInvoicePaidEvent(serverID, steamID)
+	paid := event.NewVipRefreshEvent(serverID, steamID, expiresAt)
 
 	b, err := json.Marshal(&paid)
 	if err != nil {

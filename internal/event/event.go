@@ -14,6 +14,8 @@ import (
 
 var errKindInvalid = errors.New("kind is not string type")
 
+// Parse accepts a slice of bytes (b) and decodes these bytes into the
+// appropriate event type.
 func Parse(b []byte) (interface{}, error) {
 	m := make(map[string]interface{})
 	if err := json.Unmarshal(b, &m); err != nil {
@@ -29,8 +31,8 @@ func Parse(b []byte) (interface{}, error) {
 	switch Kind(str) {
 	case StripeWebhook:
 		event = &StripeWebhookEvent{}
-	case InvoicePaid:
-		event = &InvoicePaidEvent{}
+	case VipRefresh:
+		event = &VipRefreshEvent{}
 	default:
 		return nil, fmt.Errorf("unexpected event; kind: %s, error: %w", str, errKindInvalid)
 	}
@@ -46,9 +48,10 @@ type Kind string
 
 const (
 	StripeWebhook Kind = "stripe_webhook"
-	InvoicePaid   Kind = "invoice_paid"
+	VipRefresh    Kind = "vip_refresh"
 )
 
+// New creates a new Event instance.
 func New(kind Kind) Event {
 	return Event{
 		ID:        uuid.New(),
@@ -57,17 +60,21 @@ func New(kind Kind) Event {
 	}
 }
 
+// Event is a generic Rustpm system event.
 type Event struct {
 	ID        uuid.UUID
 	Kind      Kind
 	CreatedAt time.Time
 }
 
+// StripeWebhookEvent is fired when a Stripe webhook event is availabe to
+// processed.
 type StripeWebhookEvent struct {
 	Event
 	StripeEvent stripe.Event
 }
 
+// NewStripeWebhookEvent creates a new StripeWebhookEvent instance.
 func NewStripeWebhookEvent(stripeEvent stripe.Event) StripeWebhookEvent {
 	return StripeWebhookEvent{
 		Event:       New(StripeWebhook),
@@ -75,20 +82,25 @@ func NewStripeWebhookEvent(stripeEvent stripe.Event) StripeWebhookEvent {
 	}
 }
 
-// TODO: Update InvoicePaidEvent to CheckoutCompleteEvent.
-type InvoicePaidEvent struct {
+// VipRefreshEvent is fired when a VIP within the Rustpm system has had its
+// expiration refreshed.
+type VipRefreshEvent struct {
 	Event
-	ServerID uuid.UUID
-	SteamID  string
+	ServerID  uuid.UUID
+	SteamID   string
+	ExpiresAt time.Time
 }
 
-func NewInvoicePaidEvent(
+// NewVipRefreshEvent creates a new VipRefreshEvent instance.
+func NewVipRefreshEvent(
 	serverID uuid.UUID,
 	steamID string,
-) InvoicePaidEvent {
-	return InvoicePaidEvent{
-		Event:    New(InvoicePaid),
-		ServerID: serverID,
-		SteamID:  steamID,
+	expiresAt time.Time,
+) VipRefreshEvent {
+	return VipRefreshEvent{
+		Event:     New(VipRefresh),
+		ServerID:  serverID,
+		SteamID:   steamID,
+		ExpiresAt: expiresAt,
 	}
 }
