@@ -27,6 +27,8 @@ const (
 	maxlen = 20000
 )
 
+// Init intializes a stream Client associated with the specified with group.
+// Multiple Client instances with the same group will form a round-robin queue.
 func Init(ctx context.Context, logger *zap.Logger, rdb *redis.Client, group string) (*Client, error) {
 	err := rdb.XGroupCreateMkStream(ctx, stream, group, start).Err()
 	if err != nil && !(err.Error() == errBusyGroup.Error()) {
@@ -43,6 +45,7 @@ func Init(ctx context.Context, logger *zap.Logger, rdb *redis.Client, group stri
 	}, nil
 }
 
+// Client is a persistent streaming client.
 type Client struct {
 	logger *zap.Logger
 	rdb    *redis.Client
@@ -54,6 +57,7 @@ type Client struct {
 	claimStart string
 }
 
+// Write writes b to the Client's persistent stream.
 func (c Client) Write(ctx context.Context, b []byte) error {
 	c.logger.Debug("write stream", zap.ByteString("bytes", b))
 
@@ -70,6 +74,8 @@ func (c Client) Write(ctx context.Context, b []byte) error {
 	return nil
 }
 
+// Claim checks if any messages exist on the Client's persistent stream 
+// that have not been acknowledged for the idle duration.
 func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -96,6 +102,7 @@ func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error
 	return c.extractMessage(messages)
 }
 
+// Read reads a message from the persistent stream.
 func (c Client) Read(ctx context.Context) (*Message, error) {
 	args := &redis.XReadGroupArgs{
 		Group:    c.group,
@@ -138,6 +145,13 @@ read:
 	return m, nil
 }
 
+// Ack acknowledges the passed Message. A Message should be acknowledged when 
+// it has been processed , and it is acceptable for the persistent stream to 
+// discard the contents.
+func (c Client) Ack(ctx context.Context, m *Message) error {
+  return c.rdb.XAck(ctx, stream, c.group, m.ID).Err()
+}
+
 func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {
 	if len(messages) != 1 {
 		return nil, fmt.Errorf(
@@ -157,18 +171,10 @@ func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {
 	return &Message{
 		ID:      m.ID,
 		Payload: []byte(str),
-		ackFn: func(ctx context.Context) error {
-			return c.rdb.XAck(ctx, stream, c.group, m.ID).Err()
-		},
 	}, nil
 }
 
 type Message struct {
 	ID      string
 	Payload []byte
-	ackFn   func(context.Context) error
-}
-
-func (m Message) Ack(ctx context.Context) error {
-	return m.ackFn(ctx)
 }

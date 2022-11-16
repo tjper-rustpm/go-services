@@ -41,10 +41,17 @@ func WithRead(fn readFunc) ClientMockOption {
 	return func(mock *ClientMock) { mock.read = fn }
 }
 
+// WithAck returns a ClientMockOption that configures a ClientMock to call fn
+// when Ack is called.
+func WithAck(fn ackFunc) ClientMockOption {
+	return func(mock *ClientMock) { mock.ack = fn }
+}
+
 type (
 	writeFunc func(context.Context, []byte) error
 	claimFunc func(context.Context, time.Duration) (*Message, error)
 	readFunc  func(context.Context) (*Message, error)
+	ackFunc   func(context.Context, *Message) error
 )
 
 // ClientMock provides an implementation for mock stream.Client interactions.
@@ -53,6 +60,7 @@ type ClientMock struct {
 	write writeFunc
 	claim claimFunc
 	read  readFunc
+	ack   ackFunc
 }
 
 // Write calls the function configured with WithWrite.
@@ -77,4 +85,12 @@ func (mock ClientMock) Read(ctx context.Context) (*Message, error) {
 		return nil, errUnconfigured
 	}
 	return mock.read(ctx)
+}
+
+// Ack calls the function configured with WithAck.
+func (mock ClientMock) Ack(ctx context.Context, m *Message) error {
+	if mock.ack == nil {
+		return errUnconfigured
+	}
+	return mock.ack(ctx, m)
 }

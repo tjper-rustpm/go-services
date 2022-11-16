@@ -39,7 +39,7 @@ func TestRead(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, []byte("message"), m.Payload)
 
-		err = m.Ack(ctx)
+		err = suite.Client.Ack(ctx, m)
 		require.Nil(t, err)
 	})
 }
@@ -88,7 +88,7 @@ func TestMultipleReadersAndWriters(t *testing.T) {
 						require.Nil(t, err)
 						receivec <- m.Payload
 
-						err = m.Ack(ctx)
+						err = suite.Client.Ack(ctx, m)
 						require.Nil(t, err)
 					}
 				}()
@@ -147,7 +147,7 @@ func TestFatalRecovery(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, []byte("message"), m.Payload)
 
-		err = m.Ack(ctx)
+		err = bravo.Client.Ack(ctx, m)
 		require.Nil(t, err)
 	})
 

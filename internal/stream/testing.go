@@ -49,7 +49,7 @@ func (s Suite) ReadEvent(
 	eventI, err := event.Parse(m.Payload)
 	require.Nil(t, err)
 
-	err = m.Ack(ctx)
+  err = s.Client.Ack(ctx, m)
 	require.Nil(t, err)
 
 	return eventI
