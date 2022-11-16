@@ -24,7 +24,7 @@ func NewMock(now time.Time) *Mock {
 	return &Mock{now: now}
 }
 
-// Mock may be used to mock the the functionality provided by Time.
+// Mock may be used to mock the functionality provided by Time.
 type Mock struct {
 	now   time.Time
 	until time.Duration

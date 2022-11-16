@@ -67,7 +67,7 @@ type Event struct {
 	CreatedAt time.Time
 }
 
-// StripeWebhookEvent is fired when a Stripe webhook event is availabe to
+// StripeWebhookEvent is fired when a Stripe webhook event is available to
 // processed.
 type StripeWebhookEvent struct {
 	Event

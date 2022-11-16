@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tjper/rustcron/cmd/payment/model"
-	"github.com/tjper/rustcron/cmd/payment/staging"
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/validator"
@@ -23,13 +22,10 @@ import (
 type IStore interface {
 	FirstServerByID(context.Context, uuid.UUID) (*model.Server, error)
 	FirstCustomerByUserID(context.Context, uuid.UUID) (*model.Customer, error)
-	FirstCustomerBySteamID(context.Context, string) (*model.Customer, error)
-	FirstSubscriptionByID(context.Context, uuid.UUID) (*model.Subscription, error)
-	FindSubscriptionsByUserID(context.Context, uuid.UUID) (model.Subscriptions, error)
+	FindVipsByUserID(context.Context, uuid.UUID) (model.Vips, error)
 	FindServers(context.Context) (model.Servers, error)
 	CreateServer(context.Context, *model.Server) error
 	UpdateServer(context.Context, uuid.UUID, map[string]interface{}) (*model.Server, error)
-	IsCustomerSubscribed(context.Context, uuid.UUID, uuid.UUID) (bool, error)
 	IsServerVipBySteamID(context.Context, uuid.UUID, string) (bool, error)
 }
 
@@ -47,8 +43,8 @@ type IStripe interface {
 
 // IStaging encompasses all interactions with checkout staging.
 type IStaging interface {
-	StageCheckout(context.Context, staging.Checkout, time.Time) (string, error)
-	FetchCheckout(context.Context, string) (*staging.Checkout, error)
+	StageCheckout(context.Context, interface{}, time.Time) (string, error)
+	FetchCheckout(context.Context, string) (interface{}, error)
 }
 
 // ISessionMiddleware encompasses all interactions with session related
@@ -97,12 +93,13 @@ func NewAPI(
 
 		router.Method(http.MethodPost, "/stripe", Stripe{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
+    router.Method(http.MethodPost, "/checkout", Checkout{API: api})
 
 		router.Group(func(router chi.Router) {
 			router.Use(sessionMiddleware.IsAuthenticated())
 
-			router.Method(http.MethodPost, "/checkout", Checkout{API: api})
 			router.Method(http.MethodPost, "/billing", Billing{API: api})
+			router.Method(http.MethodPost, "/subscription/checkout", SubscriptionCheckout{API: api})
 			router.Method(http.MethodGet, "/subscriptions", SubscriptionsEndpoint{API: api})
 
 			router.Group(func(router chi.Router) {

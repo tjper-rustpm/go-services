@@ -22,6 +22,7 @@ import (
 type IStream interface {
 	Claim(context.Context, time.Duration) (*stream.Message, error)
 	Read(context.Context) (*stream.Message, error)
+	Ack(context.Context, *stream.Message) error
 }
 
 // IRconHub encompasses all interactions with the rcon Hub.
@@ -69,7 +70,8 @@ func (h Handler) Launch(ctx context.Context) error {
 		}
 
 		switch e := eventI.(type) {
-		case *event.InvoicePaidEvent:
+		case *event.VipRefreshEvent:
+			// TODO: Update handing to handle VIPRefreshEvent not InvoicePaidEvent.
 			err = h.handleInvoicePaidEvent(ctx, e)
 		default:
 			h.logger.Sugar().Debugf("unrecognized event; type: %T", e)
@@ -79,13 +81,13 @@ func (h Handler) Launch(ctx context.Context) error {
 			continue
 		}
 
-		if err := m.Ack(ctx); err != nil {
+		if err := h.stream.Ack(ctx, m); err != nil {
 			h.logger.Error("acknowledge stream event", zap.Error(err))
 		}
 	}
 }
 
-func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.InvoicePaidEvent) error {
+func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.VipRefreshEvent) error {
 	duration := time.Hour * 24 * 30 // 30 days
 	vip := &model.Vip{
 		ServerID:  event.ServerID,

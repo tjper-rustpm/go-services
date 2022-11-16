@@ -13,7 +13,7 @@ func New(redis *redis.Client) *Redis {
 	}
 }
 
-// Redis wraps the redis.Client. This is done to make the the redis.Client
+// Redis wraps the redis.Client. This is done to make the redis.Client
 // simpler to test against.
 type Redis struct {
 	redis *redis.Client

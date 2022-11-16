@@ -36,8 +36,8 @@ func WithFetchCheckout(fn fetchCheckoutFunc) ClientMockOption {
 }
 
 type (
-	stageCheckoutFunc func(context.Context, Checkout, time.Time) (string, error)
-	fetchCheckoutFunc func(context.Context, string) (*Checkout, error)
+	stageCheckoutFunc func(context.Context, interface{}, time.Time) (string, error)
+	fetchCheckoutFunc func(context.Context, string) (interface{}, error)
 )
 
 // ClientMock provides an implementation for mocking staging.Client
@@ -48,15 +48,15 @@ type ClientMock struct {
 }
 
 // StageCheckout calls the function configured with WithStageCheckout.
-func (mock ClientMock) StageCheckout(ctx context.Context, input Checkout, expiresAt time.Time) (string, error) {
+func (mock ClientMock) StageCheckout(ctx context.Context, checkout interface{}, expiresAt time.Time) (string, error) {
 	if mock.stageCheckout == nil {
 		return "", errUnconfigured
 	}
-	return mock.stageCheckout(ctx, input, expiresAt)
+	return mock.stageCheckout(ctx, checkout, expiresAt)
 }
 
 // FetchCheckout calls the function configured with WithFetchCheckout.
-func (mock ClientMock) FetchCheckout(ctx context.Context, id string) (*Checkout, error) {
+func (mock ClientMock) FetchCheckout(ctx context.Context, id string) (interface{}, error) {
 	if mock.fetchCheckout == nil {
 		return nil, errUnconfigured
 	}

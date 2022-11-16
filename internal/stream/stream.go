@@ -74,7 +74,7 @@ func (c Client) Write(ctx context.Context, b []byte) error {
 	return nil
 }
 
-// Claim checks if any messages exist on the Client's persistent stream 
+// Claim checks if any messages exist on the Client's persistent stream
 // that have not been acknowledged for the idle duration.
 func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error) {
 	c.mutex.Lock()
@@ -145,11 +145,11 @@ read:
 	return m, nil
 }
 
-// Ack acknowledges the passed Message. A Message should be acknowledged when 
-// it has been processed , and it is acceptable for the persistent stream to 
+// Ack acknowledges the passed Message. A Message should be acknowledged when
+// it has been processed , and it is acceptable for the persistent stream to
 // discard the contents.
 func (c Client) Ack(ctx context.Context, m *Message) error {
-  return c.rdb.XAck(ctx, stream, c.group, m.ID).Err()
+	return c.rdb.XAck(ctx, stream, c.group, m.ID).Err()
 }
 
 func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {

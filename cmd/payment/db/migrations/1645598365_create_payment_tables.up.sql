@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS payments.servers (
 );
 
 CREATE TABLE IF NOT EXISTS payments.customers (
-  user_id            UUID         NOT NULL,
+  id                 UUID         NOT NULL DEFAULT gen_random_uuid(),
   steam_id           VARCHAR(128) NOT NULL,
   stripe_customer_id VARCHAR(128) NOT NULL,
 
@@ -18,16 +18,30 @@ CREATE TABLE IF NOT EXISTS payments.customers (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
   deleted_at TIMESTAMP WITH TIME ZONE,
 
-  PRIMARY KEY (user_id)
+  PRIMARY KEY (id)
 );
 
 CREATE UNIQUE INDEX IdxCustomersSteamID ON payments.customers (steam_id);
 CREATE UNIQUE INDEX IdxCustomersStripeCustomerID ON payments.customers (stripe_customer_id);
 
+CREATE TABLE IF NOT EXISTS payments.users (
+  id          UUID NOT NULL,
+  customer_id UUID NOT NULL,
+
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+
+  PRIMARY KEY (id),
+  FOREIGN KEY (customer_id) references payments.customers (id)
+);
+
+CREATE UNIQUE INDEX IdxUsersCustomerID ON payments.users (customer_id);
+
 CREATE TABLE IF NOT EXISTS payments.vips (
-  id UUID NOT NULL DEFAULT gen_random_uuid(),
-  stripe_checkout_id     VARCHAR(128) NOT NULL,
-  stripe_event_id        VARCHAR(128) NOT NULL,
+  id                 UUID         NOT NULL DEFAULT gen_random_uuid(),
+  stripe_checkout_id VARCHAR(128) NOT NULL,
+  stripe_event_id    VARCHAR(128) NOT NULL,
 
   server_id   UUID NOT NULL,
   customer_id UUID NOT NULL,
@@ -39,8 +53,8 @@ CREATE TABLE IF NOT EXISTS payments.vips (
 
   PRIMARY KEY (id),
   FOREIGN KEY (server_id) REFERENCES payments.servers (id),
-  FOREIGN KEY (customer_id) REFERENCES payments.customers(user_id)
-)
+  FOREIGN KEY (customer_id) REFERENCES payments.customers(id)
+);
 
 CREATE INDEX IdxVipsCustomerID ON payments.vips (customer_id);
 CREATE UNIQUE INDEX IdxVipsStripeEventID ON payments.vips (stripe_event_id);

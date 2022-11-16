@@ -21,13 +21,20 @@ import (
 	"go.uber.org/zap"
 )
 
+// errNoRetry indicates an error occurred, and a reattempt to process the
+// stream message should not occur.
+var errNoRetry = errors.New("not retryable")
+
+// errInvalidStagedCheckout indicates a staged checkout type is not as expected
+// for the event being processed.
+var errInvalidStagedCheckout = errors.New("invalid staged checkout")
+
 // IStore encompasses all interactions with the payment store.
 type IStore interface {
-	FirstSubscriptionByID(context.Context, uuid.UUID) (*model.Subscription, error)
-	FirstVipByStripeEventID(context.Context, string) (*model.Subscription, error)
+	FirstVipByStripeEventID(context.Context, string) (*model.Vip, error)
 	FirstInvoiceByStripeEventID(context.Context, string) (*model.Invoice, error)
 	CreateVip(context.Context, *model.Vip, *model.Customer) error
-	CreateVipSubscription(context.Context, *model.Vip, *model.Subscription, *model.Customer) error
+	CreateVipSubscription(context.Context, *model.Vip, *model.Subscription, *model.Customer, *model.User) error
 	AddInvoiceToVipSubscription(context.Context, string, *model.Invoice) (*model.Vip, error)
 }
 
@@ -36,12 +43,18 @@ type IStream interface {
 	Claim(context.Context, time.Duration) (*stream.Message, error)
 	Read(context.Context) (*stream.Message, error)
 	Write(context.Context, []byte) error
+	Ack(context.Context, *stream.Message) error
+}
+
+// IStaging encompasses all interactions with the payment staging API.
+type IStaging interface {
+	FetchCheckout(context.Context, string) (interface{}, error)
 }
 
 // NewHandler creates a Handler instance.
 func NewHandler(
 	logger *zap.Logger,
-	staging *staging.Client,
+	staging IStaging,
 	store IStore,
 	stream IStream,
 ) *Handler {
@@ -57,7 +70,7 @@ func NewHandler(
 // from the underlying IStream passed into NewHandler.
 type Handler struct {
 	logger  *zap.Logger
-	staging *staging.Client
+	staging IStaging
 	store   IStore
 	stream  IStream
 }
@@ -83,12 +96,15 @@ func (h Handler) Launch(ctx context.Context) error {
 		default:
 			h.logger.Sugar().Debugf("unrecognized event; type: %T", e)
 		}
-		if err != nil {
-			h.logger.Error("handle stream event", zap.Error(err))
+		if err != nil && errors.Is(err, errNoRetry) {
+			h.logger.Error("while handle stream event", zap.Error(err))
 			continue
 		}
+		if errors.Is(err, errNoRetry) {
+			h.logger.Warn("while handle stream event", zap.Error(err))
+		}
 
-		if err := m.Ack(ctx); err != nil {
+		if err := h.stream.Ack(ctx, m); err != nil {
 			h.logger.Error("acknowledge stream event", zap.Error(err))
 		}
 	}
@@ -100,8 +116,7 @@ func (h Handler) Launch(ctx context.Context) error {
 func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebhookEvent) error {
 	stripeEvent := event.StripeEvent
 	if stripeEvent.ID == "" {
-		h.logger.Warn("while handling stripe event: stripe event ID empty; discarding event")
-		return nil
+		return fmt.Errorf("stripe event ID empty: %w", errNoRetry)
 	}
 
 	var err error
@@ -113,11 +128,9 @@ func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebho
 	case "invoice.payment_failed":
 		err = h.processInvoice(ctx, stripeEvent)
 	default:
-		h.logger.Warn("unknown stripe webhook event", zap.String("type", stripeEvent.Type))
-		return nil
+		return fmt.Errorf("unknown stripe webhook event (%s): %w", stripeEvent.Type, errNoRetry)
 	}
 	if err != nil {
-		h.logger.Error("while handling stripe event", zap.Error(err))
 		return err
 	}
 
@@ -167,22 +180,29 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 		errstr = "checkout Customer ID empty"
 	case checkout.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid:
 		errstr = "checkout payment status is not \"paid\""
+	case checkout.LineItems == nil:
+		errstr = "checkout LineItems nil"
 	case len(checkout.LineItems.Data) != 1:
 		errstr = "checkout not for a single item"
 	}
 	if errstr != "" {
-		// Log the error as a warning and return nil so that Stripe event is
-		// discarded and not processed again.
-		h.logger.Warn(errstr)
-		return nil
+		return fmt.Errorf("%s: %w", errstr, errNoRetry)
 	}
 
-	stagedCheckout, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
+	stagedCheckoutI, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
 	if err != nil {
 		return fmt.Errorf(
 			"fetch staged checkout; id: %s, error: %w",
 			checkout.ClientReferenceID,
 			err,
+		)
+	}
+	stagedCheckout, ok := stagedCheckoutI.(*staging.Checkout)
+	if !ok {
+		return fmt.Errorf(
+			"while processing payment checkout: %w (%T)",
+			errInvalidStagedCheckout,
+			stagedCheckoutI,
 		)
 	}
 
@@ -215,7 +235,6 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 			ExpiresAt:        expiresAt,
 		},
 		&model.Customer{
-			UserID:           stagedCheckout.UserID,
 			StripeCustomerID: checkout.Customer.ID,
 			SteamID:          stagedCheckout.SteamID,
 		},
@@ -250,22 +269,29 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 		errstr = "checkout Customer nil"
 	case checkout.Customer.ID == "":
 		errstr = "checkout Customer ID empty"
+	case checkout.LineItems == nil:
+		errstr = "checkout LineItems nil"
 	case len(checkout.LineItems.Data) != 1:
 		errstr = "checkout not for a single item"
 	}
 	if errstr != "" {
-		// Log the error as a warning and return nil so that Stripe event is
-		// discarded and not processed again.
-		h.logger.Warn(errstr)
-		return nil
+		return fmt.Errorf("%s: %w", errstr, errNoRetry)
 	}
 
-	stagedCheckout, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
+	stagedCheckoutI, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
 	if err != nil {
 		return fmt.Errorf(
 			"fetch staged checkout; id: %s, error: %w",
 			checkout.ClientReferenceID,
 			err,
+		)
+	}
+	stagedCheckout, ok := stagedCheckoutI.(*staging.UserCheckout)
+	if !ok {
+		return fmt.Errorf(
+			"while processing subscription checkout: %w (%T)",
+			errInvalidStagedCheckout,
+			stagedCheckoutI,
 		)
 	}
 
@@ -298,9 +324,11 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 			StripeSubscriptionID: checkout.Subscription.ID,
 		},
 		&model.Customer{
-			UserID:           stagedCheckout.UserID,
 			StripeCustomerID: checkout.Customer.ID,
 			SteamID:          stagedCheckout.SteamID,
+		},
+		&model.User{
+			ID: stagedCheckout.UserID,
 		},
 	); err != nil {
 		return fmt.Errorf("while creating vip subscription: %w", err)
@@ -325,8 +353,7 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		errstr = "invoice Subscription ID empty"
 	}
 	if errstr != "" {
-		h.logger.Warn(errstr)
-		return nil
+		return fmt.Errorf("%s: %w", errstr, errNoRetry)
 	}
 
 	_, err := h.store.FirstInvoiceByStripeEventID(ctx, event.ID)

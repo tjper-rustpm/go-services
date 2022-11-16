@@ -37,7 +37,7 @@ func (e MailgunEmailer) SendPasswordReset(ctx context.Context, to, hash string) 
 	return e.send(ctx, msg)
 }
 
-// SendVerifyEmail sends a verify_email email to the the "to" email specified.
+// SendVerifyEmail sends a verify_email email to the "to" email specified.
 // Mailgun templates are used, acquire access to the Mailgun UI to learn more.
 func (e MailgunEmailer) SendVerifyEmail(ctx context.Context, to, hash string) error {
 	msg := e.mg.NewMessage("verify-email@mg.rustpm.com", "Verify your email.", "", to)

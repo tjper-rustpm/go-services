@@ -17,17 +17,17 @@ func (ep SubscriptionsEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	modelSubscriptions, err := ep.store.FindSubscriptionsByUserID(r.Context(), sess.User.ID)
+	modelVips, err := ep.store.FindVipsByUserID(r.Context(), sess.User.ID)
 	if err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	var subscriptions Subscriptions
-	subscriptions.FromModelSubscriptions(modelSubscriptions)
+	var vips Vips
+	vips.FromModelVips(modelVips)
 
-	if err := json.NewEncoder(w).Encode(subscriptions); err != nil {
+	if err := json.NewEncoder(w).Encode(vips); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)
 	}
 }

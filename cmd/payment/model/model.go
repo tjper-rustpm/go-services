@@ -19,7 +19,7 @@ type Vip struct {
 	Server   Server
 
 	CustomerID uuid.UUID
-	Customer   Customer `gorm:"foreignKey:UserID;references:CustomerID"`
+	Customer   Customer
 
 	ExpiresAt time.Time
 }
@@ -95,21 +95,43 @@ const (
 )
 
 type Server struct {
-	ID                  uuid.UUID      `json:"id"`
-	ActiveSubscriptions uint16         `gorm:"->" json:"activeSubscriptions"`
-	SubscriptionLimit   uint16         `json:"subscriptionLimit"`
-	Subscriptions       []Subscription `json:"-"`
+	ID                  uuid.UUID `json:"id"`
+	ActiveSubscriptions uint16    `gorm:"->" json:"activeSubscriptions"`
+	SubscriptionLimit   uint16    `json:"subscriptionLimit"`
 
 	model.At
+}
+
+func (s Server) Clone() *Server {
+	clone := s
+	return &clone
+}
+
+func (s *Server) Scrub() {
+	s.At.Scrub()
 }
 
 type Servers []Server
 
+func (s Servers) Scrub() {
+	for i := range s {
+		s[i].Scrub()
+	}
+}
+
 type Customer struct {
-	UserID           uuid.UUID
-	StripeCustomerID string
+	model.Model
 	SteamID          string
-	Subscriptions    []Subscription `gorm:"foreignKey:CustomerID;references:UserID"`
+	StripeCustomerID string
+}
+
+type Customers []Customer
+
+type User struct {
+	ID         uuid.UUID `json:"id"`
+	CustomerID uuid.UUID
 
 	model.At
 }
+
+type Users []User

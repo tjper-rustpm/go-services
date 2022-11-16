@@ -11,14 +11,15 @@ import (
 	"github.com/tjper/rustcron/cmd/payment/staging"
 	"github.com/tjper/rustcron/internal/gorm"
 	ihttp "github.com/tjper/rustcron/internal/http"
+	"github.com/tjper/rustcron/internal/session"
 	istripe "github.com/tjper/rustcron/internal/stripe"
 
 	"github.com/google/uuid"
 )
 
-type Checkout struct{ API }
+type SubscriptionCheckout struct{ API }
 
-func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ep SubscriptionCheckout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		ServerID   uuid.UUID `json:"serverId" validate:"required"`
 		SteamID    string    `json:"steamId" validate:"required"`
@@ -40,6 +41,12 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !ep.checkoutEnabled {
 		ihttp.ErrNotFound(w)
+		return
+	}
+
+	sess, ok := session.FromContext(r.Context())
+	if !ok {
+		ihttp.ErrUnauthorized(w)
 		return
 	}
 
@@ -65,10 +72,20 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// getStripeCustomerID will be empty "", if user has not made a purchase before. The
+	// ep.checkout method should be able to handle an empty customerID.
+	stripeCustomerID, err := ep.getStripeCustomerIDByUserID(r.Context(), sess.User.ID)
+	if err != nil {
+		ihttp.ErrInternal(ep.logger, w, err)
+		return
+	}
+
 	url, err := ep.checkout(
 		r.Context(),
 		b.ServerID,
+		sess.User.ID,
 		b.SteamID,
+		stripeCustomerID,
 		b.PriceID,
 		b.CancelURL,
 		b.SuccessURL,
@@ -88,10 +105,24 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ep Checkout) checkout(
+func (ep SubscriptionCheckout) getStripeCustomerIDByUserID(ctx context.Context, userID uuid.UUID) (string, error) {
+	customer, err := ep.store.FirstCustomerByUserID(ctx, userID)
+	if errors.Is(err, gorm.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("while retrieving customer ID; error: %w", err)
+	}
+
+	return customer.StripeCustomerID, nil
+}
+
+func (ep SubscriptionCheckout) checkout(
 	ctx context.Context,
 	serverID uuid.UUID,
+	userID uuid.UUID,
 	steamID string,
+	stripeCustomerID string,
 	priceID string,
 	cancelURL string,
 	successURL string,
@@ -100,9 +131,12 @@ func (ep Checkout) checkout(
 
 	clientReferenceID, err := ep.staging.StageCheckout(
 		ctx,
-		&staging.Checkout{
-			ServerID: serverID,
-			SteamID:  steamID,
+		staging.UserCheckout{
+			Checkout: staging.Checkout{
+				ServerID: serverID,
+				SteamID:  steamID,
+			},
+			UserID: userID,
 		},
 		expiresAt,
 	)
@@ -110,13 +144,11 @@ func (ep Checkout) checkout(
 		return "", fmt.Errorf("stage checkout session; error: %w", err)
 	}
 
-  emptyStripeCustomerID := ""
-
 	checkout, err := istripe.NewCheckout(
 		priceID,
 		cancelURL,
 		successURL,
-		emptyStripeCustomerID,
+		stripeCustomerID,
 		clientReferenceID,
 		expiresAt,
 	)

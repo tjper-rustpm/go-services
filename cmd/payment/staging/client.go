@@ -2,6 +2,7 @@ package staging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,27 +11,52 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+// NewClient creates a new Client instance.
 func NewClient(redis *redis.Client) *Client {
 	return &Client{redis: redis}
 }
 
+// Client manages the cache client and provides an API for interacting with
+// staged checkouts.
 type Client struct {
-	redis    *redis.Client
-	attempts int
+	redis *redis.Client
 }
 
+// errUnrecognizedCheckout indicates that a type other than UserCheckout or
+// Checkout was passed where it is not handled.
+var errUnrecognizedCheckout = errors.New("unrecognized checkout type")
+
+// StageCheckout stores the checkout in staging store. The checkout will expire
+// at the time passed via expiresAt. An identifier unique to staged checkout is
+// returned as the first return value. If the checkout passed in not of type
+// UserCheckout or Checkout, an error is returned.
 func (c Client) StageCheckout(
 	ctx context.Context,
-	input Checkout,
+	checkout interface{},
 	expiresAt time.Time,
 ) (string, error) {
-	b, err := encode(input)
+	switch checkout.(type) {
+	case *Checkout:
+		break
+	case *UserCheckout:
+		break
+	default:
+		return "", errUnrecognizedCheckout
+	}
+
+	b, err := encode(checkout)
 	if err != nil {
 		return "", fmt.Errorf("encode checkout; error: %w", err)
 	}
 
+	// NOTE: In the event there is a collision in Redis because the same UUID is
+	// generated twice, retry. Retry upto ten times. The number of retries is
+	// arbitrary and if collisions are still occurring something funny is going
+	// on.
+	const attempts = 10
+
 	var id uuid.UUID
-	for i := 0; i <= c.attempts; i++ {
+	for i := 0; i <= attempts; i++ {
 		id, err = uuid.NewRandom()
 		if err != nil {
 			return "", fmt.Errorf("random id; error: %w", err)
@@ -48,10 +74,12 @@ func (c Client) StageCheckout(
 	return id.String(), nil
 }
 
+// FetchCheckout retrieves a checkout specific to the passed id from the
+// staging store.
 func (c Client) FetchCheckout(
 	ctx context.Context,
 	id string,
-) (*Checkout, error) {
+) (interface{}, error) {
 	res, err := c.redis.Get(ctx, keygen(id)).Result()
 	if err != nil {
 		return nil, fmt.Errorf("fetch checkout; id: %s, error: %w", id, err)
@@ -65,10 +93,17 @@ func (c Client) FetchCheckout(
 	return &checkout, nil
 }
 
+// Checkout is a Rustpm checkout associating a server with a Steam ID.
 type Checkout struct {
 	ServerID uuid.UUID
-	UserID   uuid.UUID
 	SteamID  string
+}
+
+// UserCheckout is a Rustpm checkout associating a server, user, and a
+// Steam ID.
+type UserCheckout struct {
+	Checkout
+	UserID uuid.UUID
 }
 
 // --- helpers ---

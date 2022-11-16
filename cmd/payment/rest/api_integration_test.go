@@ -1,6 +1,3 @@
-//go:build integration
-// +build integration
-
 package rest
 
 import (
@@ -8,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -20,18 +18,22 @@ import (
 	ihttp "github.com/tjper/rustcron/internal/http"
 	"github.com/tjper/rustcron/internal/integration"
 	"github.com/tjper/rustcron/internal/rand"
-	"github.com/tjper/rustcron/internal/redis"
 	"github.com/tjper/rustcron/internal/session"
 	istream "github.com/tjper/rustcron/internal/stream"
 	"github.com/tjper/rustcron/internal/stripe"
-	"go.uber.org/zap"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	stripev72 "github.com/stripe/stripe-go/v72"
+	"go.uber.org/zap"
 )
 
 func TestIntegration(t *testing.T) {
+	dsn := skipIfMissingEnvVar(t, "PAYMENT_DSN")
+	migrations := skipIfMissingEnvVar(t, "PAYMENT_MIGRATIONS")
+	redisAddr := skipIfMissingEnvVar(t, "PAYMENT_REDIS_ADDR")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -45,6 +47,9 @@ func TestIntegration(t *testing.T) {
 	suite := setup(
 		ctx,
 		t,
+		dsn,
+		migrations,
+		redisAddr,
 		map[uuid.UUID]*server{
 			alpha:   &server{id: alpha, subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0},
 			bravo:   &server{id: bravo, subscriptionLimit: 10, createSubscriptionsCnt: 10, removeSubscriptionsCnt: 1},
@@ -164,6 +169,10 @@ func TestIntegration(t *testing.T) {
 }
 
 func TestDisabledCheckoutIntegration(t *testing.T) {
+	dsn := skipIfMissingEnvVar(t, "PAYMENT_DSN")
+	migrations := skipIfMissingEnvVar(t, "PAYMENT_MIGRATIONS")
+	redisAddr := skipIfMissingEnvVar(t, "PAYMENT_REDIS_ADDR")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -172,6 +181,9 @@ func TestDisabledCheckoutIntegration(t *testing.T) {
 	suite := setup(
 		ctx,
 		t,
+		dsn,
+		migrations,
+		redisAddr,
 		map[uuid.UUID]*server{
 			alpha: &server{id: alpha, subscriptionLimit: 10, createSubscriptionsCnt: 0, removeSubscriptionsCnt: 0},
 		},
@@ -229,11 +241,13 @@ func (s suite) testCreatePaidSubscription(ctx context.Context, t *testing.T, ser
 	s.validateStripeWebhookEvent(ctx, t)
 
 	eventI := s.stream.ReadEvent(ctx, t)
-	event, ok := eventI.(*event.InvoicePaidEvent)
+	event, ok := eventI.(*event.VipRefreshEvent)
 	require.True(t, ok)
 	require.Equal(t, serverID, event.ServerID)
 	require.Equal(t, steamID, event.SteamID)
-	subscriptionID := event.SubscriptionID
+
+	thirtyDays := 30 * 24 * time.Hour
+	require.WithinDuration(t, time.Now().Add(thirtyDays), event.ExpiresAt, time.Second)
 
 	s.servers[serverID].subscriptions = append(
 		s.servers[serverID].subscriptions,
@@ -262,11 +276,6 @@ func (s suite) testRemovePaidSubscription(ctx context.Context, t *testing.T, ser
 
 	s.postInvoice(ctx, t, uuid.New(), "invoice.payment_failed", uuid.New(), "payment_failed", subscription.stripeID)
 	s.validateStripeWebhookEvent(ctx, t)
-
-	eventI := s.stream.ReadEvent(ctx, t)
-	event, ok := eventI.(*event.InvoicePaymentFailureEvent)
-	require.True(t, ok)
-	require.Equal(t, subscription.id, event.SubscriptionID)
 
 	subs := s.getSubscriptions(ctx, t, subscription.sess)
 	require.Len(t, subs, 1)
@@ -312,11 +321,11 @@ func (s suite) testCheckoutSubscribePaidInvoice(ctx context.Context, t *testing.
 		s.validateStripeWebhookEvent(ctx, t)
 
 		eventI := s.stream.ReadEvent(ctx, t)
-		event, ok := eventI.(*event.InvoicePaidEvent)
+		event, ok := eventI.(*event.VipRefreshEvent)
 		require.True(t, ok)
 		require.Equal(t, serverID, event.ServerID)
 		require.Equal(t, steamID, event.SteamID)
-		subscriptionID = event.SubscriptionID
+		require.WithinDuration(t, time.Now().Add(30*24*time.Hour), event.ExpiresAt, time.Second)
 
 		s.servers[serverID].subscriptions = append(
 			s.servers[serverID].subscriptions,
@@ -390,11 +399,6 @@ func (s suite) testBillingPaymentFailureInvoice(ctx context.Context, t *testing.
 	t.Run("invoice payment failed", func(t *testing.T) {
 		s.postInvoice(ctx, t, uuid.New(), "invoice.payment_failed", uuid.New(), "payment_failed", subscription.stripeID)
 		s.validateStripeWebhookEvent(ctx, t)
-
-		eventI := s.stream.ReadEvent(ctx, t)
-		event, ok := eventI.(*event.InvoicePaymentFailureEvent)
-		require.True(t, ok)
-		require.Equal(t, subscription.id, event.SubscriptionID)
 	})
 
 	t.Run("check session has no subscription", func(t *testing.T) {
@@ -556,22 +560,29 @@ func (s suite) validateStripeWebhookEvent(ctx context.Context, t *testing.T) {
 	require.True(t, ok)
 }
 
-func setup(ctx context.Context, t *testing.T, servers map[uuid.UUID]*server, options ...Option) *suite {
+func setup(
+	ctx context.Context,
+	t *testing.T,
+	dsn string,
+	migrations string,
+	redisAddr string,
+	servers map[uuid.UUID]*server,
+	options ...Option,
+) *suite {
 	t.Helper()
 	logger := zap.NewNop()
 
-	redis := redis.InitSuite(ctx, t)
-	err := redis.Redis.FlushAll(ctx).Err()
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+	})
+	err := rdb.Ping(ctx).Err()
+	require.Nil(t, err)
+	err = rdb.FlushAll(ctx).Err()
 	require.Nil(t, err)
 
 	s := integration.InitSuite(ctx, t)
 	sessions := session.InitSuite(ctx, t)
 	streamSuite := istream.InitSuite(ctx, t)
-
-	const (
-		dsn        = "host=db user=postgres password=password dbname=postgres port=5432 sslmode=disable TimeZone=UTC"
-		migrations = "file://../db/migrations"
-	)
 
 	dbconn, err := db.Open(dsn)
 	require.Nil(t, err)
@@ -583,7 +594,7 @@ func setup(ctx context.Context, t *testing.T, servers map[uuid.UUID]*server, opt
 	staging := staging.NewClient(s.Redis)
 	stripe := stripe.NewMock()
 
-	streamClient, err := istream.Init(ctx, logger, redis.Redis, "payment")
+	streamClient, err := istream.Init(ctx, logger, rdb, "payment")
 	require.Nil(t, err)
 
 	streamHandler := stream.NewHandler(
@@ -695,4 +706,21 @@ func invoiceBody(
 			},
 		},
 	}
+}
+
+func skipIfMissingDatabaseEnvVars(t *testing.T) {
+	switch {
+	case dsn == "":
+		t.Skip("PAYMENT_DSN must be set to execute this test.")
+	case migrations == "":
+		t.Skip("PAYMENT_MIGRATIONS must be set to execute this test.")
+	}
+}
+
+func skipIfMissingEnvVar(t *testing.T, name string) string {
+	value := os.Getenv(name)
+	if value == "" {
+		t.Skipf("%s must be set to execute this test.", name)
+	}
+	return value
 }
