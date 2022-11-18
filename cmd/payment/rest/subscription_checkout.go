@@ -131,7 +131,7 @@ func (ep SubscriptionCheckout) checkout(
 
 	clientReferenceID, err := ep.staging.StageCheckout(
 		ctx,
-		staging.UserCheckout{
+		&staging.UserCheckout{
 			Checkout: staging.Checkout{
 				ServerID: serverID,
 				SteamID:  steamID,
