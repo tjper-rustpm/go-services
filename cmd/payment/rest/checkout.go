@@ -24,7 +24,7 @@ func (ep Checkout) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		SteamID    string    `json:"steamId" validate:"required"`
 		CancelURL  string    `json:"cancelUrl" validate:"required,url"`
 		SuccessURL string    `json:"successUrl" validate:"required,url"`
-		PriceID    string    `json:"priceId" validate:"required,oneof=price_1KLJWjCEcXRU8XL2TVKcLGUO"`
+		PriceID    string    `json:"priceId" validate:"required,oneof=price_1LyigBCEcXRU8XL2L6eMGz6Y"`
 	}
 
 	var b body
@@ -110,7 +110,7 @@ func (ep Checkout) checkout(
 		return "", fmt.Errorf("stage checkout session; error: %w", err)
 	}
 
-  emptyStripeCustomerID := ""
+	emptyStripeCustomerID := ""
 
 	checkout, err := istripe.NewCheckout(
 		priceID,

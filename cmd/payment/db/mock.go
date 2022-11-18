@@ -221,7 +221,7 @@ func (s StoreMock) UpdateServer(ctx context.Context, serverID uuid.UUID, changes
 // IsServerVipBySteamID calls the function configured via
 // WithIsServerVipBySteamID.
 func (s StoreMock) IsServerVipBySteamID(ctx context.Context, serverID uuid.UUID, steamID string) (bool, error) {
-	if s.updateServer == nil {
+	if s.isServerVipBySteamID == nil {
 		return false, errUnconfigured
 	}
 	return s.isServerVipBySteamID(ctx, serverID, steamID)
