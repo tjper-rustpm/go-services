@@ -386,6 +386,31 @@ func TestCheckout(t *testing.T) {
 		redirect Redirect
 	}
 
+	firstServerByIDFailNow := func(t *testing.T, _ *shared) func(context.Context, uuid.UUID) (*model.Server, error) {
+		return func(_ context.Context, _ uuid.UUID) (*model.Server, error) {
+			require.FailNow(t, "store.FirstServerByID should not be called.")
+			return nil, nil
+		}
+	}
+	isServerVipBySteamIDFailNow := func(t *testing.T, _ *shared) func(context.Context, uuid.UUID, string) (bool, error) {
+		return func(_ context.Context, _ uuid.UUID, _ string) (bool, error) {
+			require.FailNow(t, "store.IsServerVipBySteamID should not be called.")
+			return false, nil
+		}
+	}
+	stageCheckoutFailNow := func(t *testing.T, _ *shared) func(context.Context, interface{}, time.Time) (string, error) {
+		return func(_ context.Context, _ interface{}, _ time.Time) (string, error) {
+			require.FailNow(t, "staging.StageCheckout should not be called.")
+			return "", nil
+		}
+	}
+	checkoutSessionFailNow := func(t *testing.T, shared *shared) func(*stripe.CheckoutSessionParams) (string, error) {
+		return func(params *stripe.CheckoutSessionParams) (string, error) {
+			require.FailNow(t, "stripe.CheckoutSession should not be called.")
+			return "", nil
+		}
+	}
+
 	tests := map[string]struct {
 		checkoutEnabled      bool
 		body                 func(*shared) map[string]interface{}
@@ -405,31 +430,11 @@ func TestCheckout(t *testing.T) {
 					"priceId":    "price_1LyigBCEcXRU8XL2L6eMGz6Y",
 				}
 			},
-			checkoutEnabled: false,
-			firstServerByID: func(t *testing.T, _ *shared) func(context.Context, uuid.UUID) (*model.Server, error) {
-				return func(_ context.Context, _ uuid.UUID) (*model.Server, error) {
-					require.FailNow(t, "store.FirstServerByID should not be called.")
-					return nil, nil
-				}
-			},
-			isServerVipBySteamID: func(t *testing.T, _ *shared) func(context.Context, uuid.UUID, string) (bool, error) {
-				return func(_ context.Context, _ uuid.UUID, _ string) (bool, error) {
-					require.FailNow(t, "store.IsServerVipBySteamID should not be called.")
-					return false, nil
-				}
-			},
-			stageCheckout: func(t *testing.T, _ *shared) func(context.Context, interface{}, time.Time) (string, error) {
-				return func(_ context.Context, _ interface{}, _ time.Time) (string, error) {
-					require.FailNow(t, "staging.StageCheckout should not be called.")
-					return "", nil
-				}
-			},
-			checkoutSession: func(t *testing.T, shared *shared) func(*stripe.CheckoutSessionParams) (string, error) {
-				return func(params *stripe.CheckoutSessionParams) (string, error) {
-					require.FailNow(t, "stripe.CheckoutSession should not be called.")
-					return "", nil
-				}
-			},
+			checkoutEnabled:      false,
+			firstServerByID:      firstServerByIDFailNow,
+			isServerVipBySteamID: isServerVipBySteamIDFailNow,
+			stageCheckout:        stageCheckoutFailNow,
+			checkoutSession:      checkoutSessionFailNow,
 			exp: expected{
 				status: http.StatusNotFound,
 			},
@@ -497,6 +502,66 @@ func TestCheckout(t *testing.T) {
 				redirect: Redirect{
 					URL: "https://stripe.com/checkout",
 				},
+			},
+		},
+		"server not found": {
+			body: func(shared *shared) map[string]interface{} {
+				shared.serverID = uuid.New()
+				shared.steamID = uuid.NewString()
+				return map[string]interface{}{
+					"serverId":   shared.serverID.String(),
+					"steamId":    shared.steamID,
+					"cancelUrl":  "https://rustpm.com/checkout/cancel",
+					"successUrl": "https://rustpm.com/checkout/success",
+					"priceId":    "price_1LyigBCEcXRU8XL2L6eMGz6Y",
+				}
+			},
+			checkoutEnabled: true,
+			firstServerByID: func(t *testing.T, shared *shared) func(context.Context, uuid.UUID) (*model.Server, error) {
+				return func(_ context.Context, id uuid.UUID) (*model.Server, error) {
+					require.Equal(t, shared.serverID, id)
+					return nil, gorm.ErrNotFound
+				}
+			},
+			isServerVipBySteamID: isServerVipBySteamIDFailNow,
+			stageCheckout: stageCheckoutFailNow,
+			checkoutSession: checkoutSessionFailNow,
+			exp: expected{
+				status: http.StatusBadRequest,
+			},
+		},
+		"vip already exists": {
+			body: func(shared *shared) map[string]interface{} {
+				shared.serverID = uuid.New()
+				shared.steamID = uuid.NewString()
+				return map[string]interface{}{
+					"serverId":   shared.serverID.String(),
+					"steamId":    shared.steamID,
+					"cancelUrl":  "https://rustpm.com/checkout/cancel",
+					"successUrl": "https://rustpm.com/checkout/success",
+					"priceId":    "price_1LyigBCEcXRU8XL2L6eMGz6Y",
+				}
+			},
+			checkoutEnabled: true,
+			firstServerByID: func(t *testing.T, shared *shared) func(context.Context, uuid.UUID) (*model.Server, error) {
+				return func(_ context.Context, id uuid.UUID) (*model.Server, error) {
+					require.Equal(t, shared.serverID, id)
+					// Server instance is unused, so its attributes do not need to mocked.
+					return &model.Server{}, nil
+				}
+			},
+			isServerVipBySteamID: func(t *testing.T, shared *shared) func(context.Context, uuid.UUID, string) (bool, error) {
+				return func(_ context.Context, serverID uuid.UUID, steamID string) (bool, error) {
+					require.Equal(t, shared.serverID, serverID)
+					require.Equal(t, shared.steamID, steamID)
+
+					return true, nil
+				}
+			},
+			stageCheckout: stageCheckoutFailNow,
+			checkoutSession: checkoutSessionFailNow,
+			exp: expected{
+				status: http.StatusConflict,
 			},
 		},
 	}
