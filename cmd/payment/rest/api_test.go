@@ -4,24 +4,30 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stripe/stripe-go/v72"
 	"github.com/tjper/rustcron/cmd/payment/db"
 	"github.com/tjper/rustcron/cmd/payment/model"
 	"github.com/tjper/rustcron/cmd/payment/staging"
+	"github.com/tjper/rustcron/internal/event"
 	"github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/healthz"
 	ihttp "github.com/tjper/rustcron/internal/http"
+	imodel "github.com/tjper/rustcron/internal/model"
 	"github.com/tjper/rustcron/internal/session"
 	"github.com/tjper/rustcron/internal/stream"
 	istripe "github.com/tjper/rustcron/internal/stripe"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 )
 
@@ -996,3 +1002,442 @@ func TestSubscriptionCheckout(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateServer(t *testing.T) {
+	type shared struct {
+		serverID          uuid.UUID
+		subscriptionLimit uint16
+		createdAt         time.Time
+	}
+	type expected struct {
+		status int
+		server func(*shared) model.Server
+	}
+	tests := map[string]struct {
+		body         func(*shared) map[string]interface{}
+		createServer func(*testing.T, *shared) func(context.Context, *model.Server) error
+		exp          expected
+	}{
+		"happy path": {
+			body: func(shared *shared) map[string]interface{} {
+				shared.serverID = uuid.New()
+				shared.subscriptionLimit = uint16(rand.Intn(300))
+
+				return map[string]interface{}{
+					"id":                shared.serverID,
+					"subscriptionLimit": shared.subscriptionLimit,
+				}
+			},
+			createServer: func(t *testing.T, shared *shared) func(context.Context, *model.Server) error {
+				return func(_ context.Context, server *model.Server) error {
+					require.Equal(t, shared.serverID, server.ID)
+					require.Equal(t, shared.subscriptionLimit, server.SubscriptionLimit)
+
+					shared.createdAt = time.Now().UTC()
+					server.At = imodel.At{CreatedAt: shared.createdAt}
+					return nil
+				}
+			},
+			exp: expected{
+				status: http.StatusCreated,
+				server: func(shared *shared) model.Server {
+					return model.Server{
+						ID:                  shared.serverID,
+						ActiveSubscriptions: 0,
+						SubscriptionLimit:   shared.subscriptionLimit,
+						At:                  imodel.At{CreatedAt: shared.createdAt},
+					}
+				},
+			},
+		},
+		"server already exists": {
+			body: func(shared *shared) map[string]interface{} {
+				shared.serverID = uuid.New()
+				shared.subscriptionLimit = uint16(rand.Intn(300))
+
+				return map[string]interface{}{
+					"id":                shared.serverID,
+					"subscriptionLimit": shared.subscriptionLimit,
+				}
+			},
+			createServer: func(t *testing.T, shared *shared) func(context.Context, *model.Server) error {
+				return func(_ context.Context, server *model.Server) error {
+					require.Equal(t, shared.serverID, server.ID)
+					require.Equal(t, shared.subscriptionLimit, server.SubscriptionLimit)
+
+					return gorm.ErrAlreadyExists
+				}
+			},
+			exp: expected{
+				status: http.StatusConflict,
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			shared := &shared{}
+
+			store := db.NewStoreMock(
+				db.WithCreateServer(test.createServer(t, shared)),
+			)
+
+			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
+				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
+				ihttp.WithTouch(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+			)
+			api := NewAPI(
+				zap.NewNop(),
+				store,
+				staging.NewClientMock(),
+				stream.NewClientMock(),
+				istripe.NewMock(),
+				sessionMiddleware,
+				healthz.NewHTTP(),
+			)
+
+			buf := new(bytes.Buffer)
+			err := json.NewEncoder(buf).Encode(test.body(shared))
+			require.Nil(t, err)
+
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/v1/server", buf)
+
+			api.Mux.ServeHTTP(rr, req)
+
+			resp := rr.Result()
+			defer resp.Body.Close()
+
+			require.Equal(t, test.exp.status, resp.StatusCode)
+
+			if resp.StatusCode != http.StatusCreated {
+				return
+			}
+
+			var server model.Server
+			err = json.NewDecoder(resp.Body).Decode(&server)
+			require.Nil(t, err)
+
+			require.Equal(t, test.exp.server(shared), server)
+		})
+	}
+}
+
+func TestStripe(t *testing.T) {
+	type shared struct {
+		body            []byte
+		stripeSignature string
+		stripeEventID   string
+	}
+	type expected struct {
+		status int
+	}
+	tests := map[string]struct {
+		constructEvent func(*testing.T, *shared) func([]byte, string) (stripe.Event, error)
+		streamWrite    func(*testing.T, *shared) func(context.Context, []byte) error
+		exp            expected
+	}{
+		"happy path": {
+			constructEvent: func(t *testing.T, shared *shared) func([]byte, string) (stripe.Event, error) {
+				return func(b []byte, stripeSignature string) (stripe.Event, error) {
+					require.Equal(t, shared.body, b)
+					require.Equal(t, shared.stripeSignature, stripeSignature)
+
+					shared.stripeEventID = uuid.NewString()
+					return stripe.Event{ID: shared.stripeEventID}, nil
+				}
+			},
+			streamWrite: func(t *testing.T, shared *shared) func(context.Context, []byte) error {
+				return func(_ context.Context, b []byte) error {
+					var event event.StripeWebhookEvent
+					err := json.Unmarshal(b, &event)
+					require.Nil(t, err)
+
+					require.Equal(t, shared.stripeEventID, event.StripeEvent.ID)
+					return nil
+				}
+			},
+			exp: expected{
+				status: http.StatusOK,
+			},
+		},
+		"invalid stripe signature": {
+			constructEvent: func(t *testing.T, shared *shared) func([]byte, string) (stripe.Event, error) {
+				return func(b []byte, stripeSignature string) (stripe.Event, error) {
+					require.Equal(t, shared.body, b)
+					require.Equal(t, shared.stripeSignature, stripeSignature)
+
+					shared.stripeEventID = uuid.NewString()
+					return stripe.Event{}, errMock
+				}
+			},
+			streamWrite: func(t *testing.T, _ *shared) func(context.Context, []byte) error {
+				return func(_ context.Context, _ []byte) error {
+					require.FailNow(t, "stream.Write should not be called")
+					return nil
+				}
+			},
+			exp: expected{
+				status: http.StatusBadRequest,
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			shared := &shared{
+				body:            []byte(`"some": "json"`),
+				stripeSignature: uuid.NewString(),
+			}
+
+			stripe := istripe.NewMock(istripe.WithConstructEvent(test.constructEvent(t, shared)))
+			stream := stream.NewClientMock(stream.WithWrite(test.streamWrite(t, shared)))
+
+			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
+				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
+				ihttp.WithTouch(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+			)
+			api := NewAPI(
+				zap.NewNop(),
+				db.NewStoreMock(),
+				staging.NewClientMock(),
+				stream,
+				stripe,
+				sessionMiddleware,
+				healthz.NewHTTP(),
+			)
+
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/v1/stripe", bytes.NewReader(shared.body))
+			req.Header.Set("Stripe-Signature", shared.stripeSignature)
+
+			api.Mux.ServeHTTP(rr, req)
+
+			resp := rr.Result()
+			defer resp.Body.Close()
+
+			require.Equal(t, test.exp.status, resp.StatusCode)
+		})
+	}
+}
+
+func TestSubscriptions(t *testing.T) {
+	type generated struct {
+		userID uuid.UUID
+		vips   map[uuid.UUID]model.Vip
+	}
+	type expected struct {
+		status int
+		vips   func(*generated) Vips
+	}
+	tests := map[string]struct {
+		injectSession func(*generated) func(http.Handler) http.Handler
+		vips          func(*generated) model.Vips
+		exp           expected
+	}{
+		"non-admin role": {
+			injectSession: func(g *generated) func(next http.Handler) http.Handler {
+				return func(next http.Handler) http.Handler {
+					return http.HandlerFunc(
+						func(w http.ResponseWriter, r *http.Request) {
+							g.userID = uuid.New()
+
+							sess := &session.Session{
+								ID: uuid.NewString(),
+								User: session.User{
+									ID:   g.userID,
+									Role: session.RoleStandard,
+								},
+								AbsoluteExpiration: time.Now().Add(time.Minute).UTC(),
+								LastActivityAt:     time.Now().UTC(),
+								RefreshedAt:        time.Now().UTC(),
+								CreatedAt:          time.Now().UTC(),
+							}
+							ctx := session.WithSession(r.Context(), sess)
+							r = r.WithContext(ctx)
+
+							next.ServeHTTP(w, r)
+						},
+					)
+				}
+			},
+		},
+		"not authenticated": {
+			injectSession: func(*generated) func(http.Handler) http.Handler {
+				return ihttp.SkipMiddleware
+			},
+			exp: expected{
+				status: http.StatusUnauthorized,
+			},
+		},
+		"no vips": {
+			injectSession: func(g *generated) func(next http.Handler) http.Handler {
+				return func(next http.Handler) http.Handler {
+					return http.HandlerFunc(
+						func(w http.ResponseWriter, r *http.Request) {
+							g.userID = uuid.New()
+
+							sess := &session.Session{
+								ID: uuid.NewString(),
+								User: session.User{
+									ID: g.userID,
+								},
+								AbsoluteExpiration: time.Now().Add(time.Minute).UTC(),
+								LastActivityAt:     time.Now().UTC(),
+								RefreshedAt:        time.Now().UTC(),
+								CreatedAt:          time.Now().UTC(),
+							}
+							ctx := session.WithSession(r.Context(), sess)
+							r = r.WithContext(ctx)
+
+							next.ServeHTTP(w, r)
+						},
+					)
+				}
+			},
+			vips: func(*generated) model.Vips { return make(model.Vips, 0) },
+			exp: expected{
+				status: http.StatusOK,
+				vips:   func(*generated) Vips { return make(Vips, 0) },
+			},
+		},
+		"three vips": {
+			injectSession: func(g *generated) func(next http.Handler) http.Handler {
+				return func(next http.Handler) http.Handler {
+					return http.HandlerFunc(
+						func(w http.ResponseWriter, r *http.Request) {
+							g.userID = uuid.New()
+
+							sess := &session.Session{
+								ID: uuid.NewString(),
+								User: session.User{
+									ID: g.userID,
+								},
+								AbsoluteExpiration: time.Now().Add(time.Minute).UTC(),
+								LastActivityAt:     time.Now().UTC(),
+								RefreshedAt:        time.Now().UTC(),
+								CreatedAt:          time.Now().UTC(),
+							}
+							ctx := session.WithSession(r.Context(), sess)
+							r = r.WithContext(ctx)
+
+							next.ServeHTTP(w, r)
+						},
+					)
+				}
+			},
+			vips: func(g *generated) model.Vips {
+				for i := 0; i < 3; i++ {
+					id := uuid.New()
+					serverID := uuid.New()
+					createdAt := time.Now().Add(-time.Minute).UTC()
+					expiresAt := time.Now().Add(time.Minute).UTC()
+
+					g.vips[id] = model.Vip{
+						Model: imodel.Model{
+							ID: id,
+							At: imodel.At{CreatedAt: createdAt},
+						},
+						ServerID:  serverID,
+						ExpiresAt: expiresAt,
+					}
+				}
+
+				vips := make(model.Vips, 0, len(g.vips))
+				for _, vip := range g.vips {
+					vips = append(vips, vip)
+				}
+
+				return vips
+			},
+			exp: expected{
+				status: http.StatusOK,
+				vips: func(g *generated) Vips {
+					vips := make(Vips, 0, len(g.vips))
+					for _, vip := range g.vips {
+						vips = append(vips, Vip{
+							ID:        vip.ID,
+							ServerID:  vip.ServerID,
+							Status:    Active,
+							CreatedAt: vip.CreatedAt,
+						})
+					}
+
+					return vips
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := &generated{
+				vips: make(map[uuid.UUID]model.Vip),
+			}
+
+			store := db.NewStoreMock(
+				db.WithFindVipsByUserID(
+					func(_ context.Context, userID uuid.UUID) (model.Vips, error) {
+						require.Equal(t, g.userID, userID)
+						return test.vips(g), nil
+					}),
+			)
+
+      hasRole := func(role session.Role) func(http.Handler) http.Handler {
+require.Equal(t, session.AdminRole, role)
+      }
+
+			sessionMiddlewareMock := ihttp.NewSessionMiddlewareMock(
+				ihttp.WithTouch(ihttp.SkipMiddleware),
+				ihttp.WithInjectSessionIntoCtx(test.injectSession(g)),
+				ihttp.WithHasRole(hasRole),
+				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+			)
+			api := NewAPI(
+				zap.NewNop(),
+				store,
+				staging.NewClientMock(),
+				stream.NewClientMock(),
+				istripe.NewMock(),
+				sessionMiddleware,
+				healthz.NewHTTP(),
+			)
+
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/v1/subscriptions", nil)
+
+			api.Mux.ServeHTTP(rr, req)
+
+			resp := rr.Result()
+			defer resp.Body.Close()
+
+			require.Equal(t, test.exp.status, resp.StatusCode)
+
+			if resp.StatusCode != http.StatusOK {
+				return
+			}
+
+			b, err := io.ReadAll(resp.Body)
+			require.Nil(t, err)
+
+			var vips Vips
+			err = json.Unmarshal(b, &vips)
+			require.Nil(t, err)
+
+			expected := test.exp.vips(g)
+
+			sort.Slice(vips, func(i, j int) bool { return vips[i].ID.String() < vips[j].ID.String() })
+			sort.Slice(expected, func(i, j int) bool { return expected[i].ID.String() < expected[j].ID.String() })
+
+			require.Equal(t, expected, vips)
+		})
+	}
+}
+
+// errMock is used to signal an error occurred where details of said error are
+// not critical.
+var errMock = errors.New("mock error")

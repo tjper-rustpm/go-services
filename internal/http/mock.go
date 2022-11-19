@@ -44,7 +44,7 @@ func WithTouch(middleware func(http.Handler) http.Handler) SessionMiddlewareMock
 
 // WithHasRole provides a SessionMiddlewareMockOption that configures a
 // SessionMiddlewareMockOption to utilize the passed middleware.
-func WithHasRole(middleware func(http.Handler) http.Handler) SessionMiddlewareMockOption {
+func WithHasRole(middleware func(session.Role) func(http.Handler) http.Handler) SessionMiddlewareMockOption {
 	return func(mock *SessionMiddlewareMock) {
 		mock.hasRole = middleware
 	}
@@ -63,7 +63,7 @@ func WithIsAuthenticated(middleware func(http.Handler) http.Handler) SessionMidd
 type SessionMiddlewareMock struct {
 	injectSessionIntoCtx func(http.Handler) http.Handler
 	touch                func(http.Handler) http.Handler
-	hasRole              func(http.Handler) http.Handler
+	hasRole              func(session.Role) func(http.Handler) http.Handler
 	isAuthenticated      func(http.Handler) http.Handler
 }
 
@@ -80,7 +80,7 @@ func (mock SessionMiddlewareMock) Touch() func(http.Handler) http.Handler {
 
 // HasRole returns the http middleware set with WithHasRole.
 func (mock SessionMiddlewareMock) HasRole(role session.Role) func(http.Handler) http.Handler {
-	return mock.hasRole
+	return mock.hasRole(role)
 }
 
 // IsAuthenticated returns the http middleware set with WithIsAuthenticated.

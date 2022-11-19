@@ -25,24 +25,28 @@ type Vips []Vip
 
 // FromModelVips converts model.Vips into Vips.
 func (vips *Vips) FromModelVips(froms model.Vips) {
-	if vips == nil {
-		*vips = make(Vips, 0, len(froms))
+	if *vips == nil {
+		*vips = make(Vips, len(froms))
 	}
-	for _, from := range froms {
-    status := Active
-    if time.Now().After(from.ExpiresAt) {
-      status = Expired
-    }
 
-		*vips = append(
-			*vips,
-			Vip{
-				ID:        from.ID,
-				ServerID:  from.ServerID,
-				Status:    status,
-				CreatedAt: from.CreatedAt,
-			},
-		)
+	// The froms slice has zero elements, return a slice with zero elements.
+	if len(froms) == 0 {
+		*vips = make(Vips, 0)
+	}
+
+	// The froms slice contains vips, process and return to caller.
+	for i, from := range froms {
+		status := Active
+		if time.Now().After(from.ExpiresAt) {
+			status = Expired
+		}
+
+		(*vips)[i] = Vip{
+			ID:        from.ID,
+			ServerID:  from.ServerID,
+			Status:    status,
+			CreatedAt: from.CreatedAt,
+		}
 	}
 }
 
@@ -50,10 +54,10 @@ func (vips *Vips) FromModelVips(froms model.Vips) {
 type VipStatus string
 
 const (
-  // Active is a VIP that is current receiving the benefits of being a VIP.
-  Active VipStatus = "active"
-  // Expired is a VIP that is no longer active.
-  Expired VipStatus = "expired"
+	// Active is a VIP that is current receiving the benefits of being a VIP.
+	Active VipStatus = "active"
+	// Expired is a VIP that is no longer active.
+	Expired VipStatus = "expired"
 )
 
 // Redirect contains a URL that should be redirected to by the client. This is
