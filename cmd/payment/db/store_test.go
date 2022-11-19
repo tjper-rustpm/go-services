@@ -314,6 +314,8 @@ func TestAddInvoiceToVipSubscription(t *testing.T) {
 }
 
 func TestFindServers(t *testing.T) {
+	skipIfMissingDatabaseEnvVars(t)
+
 	future := time.Now().Add(time.Minute).UTC()
 	past := time.Now().Add(-time.Minute).UTC()
 

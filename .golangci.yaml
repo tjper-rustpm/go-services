@@ -114,6 +114,7 @@ linters:
     - ireturn
     - interfacebloat
     - nonamedreturns
+    - unparam
 
   # presets:
   #   - bugs

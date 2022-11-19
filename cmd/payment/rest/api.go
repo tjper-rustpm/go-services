@@ -93,7 +93,7 @@ func NewAPI(
 
 		router.Method(http.MethodPost, "/stripe", Stripe{API: api})
 		router.Method(http.MethodGet, "/servers", Servers{API: api})
-    router.Method(http.MethodPost, "/checkout", Checkout{API: api})
+		router.Method(http.MethodPost, "/checkout", Checkout{API: api})
 
 		router.Group(func(router chi.Router) {
 			router.Use(sessionMiddleware.IsAuthenticated())

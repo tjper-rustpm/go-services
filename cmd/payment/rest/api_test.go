@@ -635,7 +635,6 @@ func TestCheckout(t *testing.T) {
 			require.Nil(t, err)
 
 			require.Equal(t, test.exp.redirect, redirect)
-
 		})
 	}
 }

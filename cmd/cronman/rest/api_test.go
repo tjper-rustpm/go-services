@@ -241,7 +241,7 @@ func TestCreateServerInputValidation(t *testing.T) {
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
 			)
 
 			api := NewAPI(
