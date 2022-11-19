@@ -196,11 +196,12 @@ func TestUpdateServer(t *testing.T) {
 			)
 
 			hasRole, hasRoleCalled := ihttp.ExpectRoleMiddleware(t, session.RoleAdmin)
+			isAuthenticated, isAuthenticatedCalled := ihttp.ExpectMiddlewareCalled()
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
 				ihttp.WithHasRole(hasRole),
-				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(isAuthenticated),
 			)
 
 			api := NewAPI(
@@ -223,6 +224,7 @@ func TestUpdateServer(t *testing.T) {
 			api.Mux.ServeHTTP(rr, req)
 
 			expectReceiveWithin(t, hasRoleCalled, time.Second)
+			expectReceiveWithin(t, isAuthenticatedCalled, time.Second)
 
 			resp := rr.Result()
 			defer resp.Body.Close()
@@ -339,11 +341,12 @@ func TestBilling(t *testing.T) {
 				)
 			}
 
+			isAuthenticated, isAuthenticatedCalled := ihttp.ExpectMiddlewareCalled()
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(injectSession),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
 				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
-				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(isAuthenticated),
 			)
 			api := NewAPI(
 				zap.NewNop(),
@@ -364,6 +367,8 @@ func TestBilling(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/v1/billing", buf)
 
 			api.Mux.ServeHTTP(rr, req)
+
+			expectReceiveWithin(t, isAuthenticatedCalled, time.Second)
 
 			resp := rr.Result()
 			defer resp.Body.Close()
@@ -962,11 +967,12 @@ func TestSubscriptionCheckout(t *testing.T) {
 				)
 			}
 
+			isAuthenticated, isAuthenticatedCalled := ihttp.ExpectMiddlewareCalled()
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(injectSession),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
 				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
-				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(isAuthenticated),
 			)
 			api := NewAPI(
 				zap.NewNop(),
@@ -987,6 +993,8 @@ func TestSubscriptionCheckout(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/v1/subscription/checkout", buf)
 
 			api.Mux.ServeHTTP(rr, req)
+
+			expectReceiveWithin(t, isAuthenticatedCalled, time.Second)
 
 			resp := rr.Result()
 			defer resp.Body.Close()
@@ -1086,11 +1094,12 @@ func TestCreateServer(t *testing.T) {
 			)
 
 			hasRole, hasRoleCalled := ihttp.ExpectRoleMiddleware(t, session.RoleAdmin)
+			isAuthenticated, isAuthenticatedCalled := ihttp.ExpectMiddlewareCalled()
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
 				ihttp.WithHasRole(hasRole),
-				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(isAuthenticated),
 			)
 
 			api := NewAPI(
@@ -1112,6 +1121,7 @@ func TestCreateServer(t *testing.T) {
 
 			api.Mux.ServeHTTP(rr, req)
 
+			expectReceiveWithin(t, isAuthenticatedCalled, time.Second)
 			expectReceiveWithin(t, hasRoleCalled, time.Second)
 
 			resp := rr.Result()
@@ -1367,11 +1377,12 @@ func TestSubscriptions(t *testing.T) {
 					}),
 			)
 
+			isAuthenticated, isAuthenticatedCalled := ihttp.ExpectMiddlewareCalled()
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithTouch(ihttp.SkipMiddleware),
 				ihttp.WithInjectSessionIntoCtx(test.injectSession(g)),
 				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
-				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
+				ihttp.WithIsAuthenticated(isAuthenticated),
 			)
 			api := NewAPI(
 				zap.NewNop(),
@@ -1387,6 +1398,8 @@ func TestSubscriptions(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/v1/subscriptions", nil)
 
 			api.Mux.ServeHTTP(rr, req)
+
+			expectReceiveWithin(t, isAuthenticatedCalled, time.Second)
 
 			resp := rr.Result()
 			defer resp.Body.Close()

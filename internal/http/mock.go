@@ -106,10 +106,23 @@ func SkipMiddleware(next http.Handler) http.Handler {
 		})
 }
 
-// ExpectRoleMiddleware is used to check if a the expected role is passed the
-// HasRole middleware. The returned called channel will be closed to when the
-// middleware has executed; this may be used to ensure the HasRole middleware
-// is being used as expected.
+// ExpectMiddlewareCalled is used to check if the middleware is called. The
+// called channel will be closed when the middleware has executed.
+func ExpectMiddlewareCalled() (middleware func(http.Handler) http.Handler, called chan struct{}) {
+	called = make(chan struct{})
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				close(called)
+				next.ServeHTTP(w, r)
+			})
+	}, called
+}
+
+// ExpectRoleMiddleware is used to check if the expected role is passed the
+// HasRole middleware. The returned called channel will be closed when the
+// middleware has executed.
 func ExpectRoleMiddleware(
 	t *testing.T,
 	expected session.Role,
