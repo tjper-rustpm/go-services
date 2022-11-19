@@ -77,7 +77,7 @@ func TestFindServers(t *testing.T) {
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
 
@@ -195,10 +195,11 @@ func TestUpdateServer(t *testing.T) {
 				}),
 			)
 
+			hasRole, hasRoleCalled := ihttp.ExpectRoleMiddleware(t, session.RoleAdmin)
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(hasRole),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
 
@@ -220,6 +221,8 @@ func TestUpdateServer(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPatch, "/v1/server", buf)
 
 			api.Mux.ServeHTTP(rr, req)
+
+			expectReceiveWithin(t, hasRoleCalled, time.Second)
 
 			resp := rr.Result()
 			defer resp.Body.Close()
@@ -339,7 +342,7 @@ func TestBilling(t *testing.T) {
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(injectSession),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
 			api := NewAPI(
@@ -590,7 +593,7 @@ func TestCheckout(t *testing.T) {
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
 			api := NewAPI(
@@ -962,7 +965,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(injectSession),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
 			api := NewAPI(
@@ -1082,12 +1085,14 @@ func TestCreateServer(t *testing.T) {
 				db.WithCreateServer(test.createServer(t, shared)),
 			)
 
+			hasRole, hasRoleCalled := ihttp.ExpectRoleMiddleware(t, session.RoleAdmin)
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(hasRole),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
+
 			api := NewAPI(
 				zap.NewNop(),
 				store,
@@ -1106,6 +1111,8 @@ func TestCreateServer(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/v1/server", buf)
 
 			api.Mux.ServeHTTP(rr, req)
+
+			expectReceiveWithin(t, hasRoleCalled, time.Second)
 
 			resp := rr.Result()
 			defer resp.Body.Close()
@@ -1198,7 +1205,7 @@ func TestStripe(t *testing.T) {
 			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithInjectSessionIntoCtx(ihttp.SkipMiddleware),
 				ihttp.WithTouch(ihttp.SkipMiddleware),
-				ihttp.WithHasRole(ihttp.SkipMiddleware),
+				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
 			api := NewAPI(
@@ -1239,33 +1246,6 @@ func TestSubscriptions(t *testing.T) {
 		vips          func(*generated) model.Vips
 		exp           expected
 	}{
-		"non-admin role": {
-			injectSession: func(g *generated) func(next http.Handler) http.Handler {
-				return func(next http.Handler) http.Handler {
-					return http.HandlerFunc(
-						func(w http.ResponseWriter, r *http.Request) {
-							g.userID = uuid.New()
-
-							sess := &session.Session{
-								ID: uuid.NewString(),
-								User: session.User{
-									ID:   g.userID,
-									Role: session.RoleStandard,
-								},
-								AbsoluteExpiration: time.Now().Add(time.Minute).UTC(),
-								LastActivityAt:     time.Now().UTC(),
-								RefreshedAt:        time.Now().UTC(),
-								CreatedAt:          time.Now().UTC(),
-							}
-							ctx := session.WithSession(r.Context(), sess)
-							r = r.WithContext(ctx)
-
-							next.ServeHTTP(w, r)
-						},
-					)
-				}
-			},
-		},
 		"not authenticated": {
 			injectSession: func(*generated) func(http.Handler) http.Handler {
 				return ihttp.SkipMiddleware
@@ -1387,14 +1367,10 @@ func TestSubscriptions(t *testing.T) {
 					}),
 			)
 
-      hasRole := func(role session.Role) func(http.Handler) http.Handler {
-require.Equal(t, session.AdminRole, role)
-      }
-
-			sessionMiddlewareMock := ihttp.NewSessionMiddlewareMock(
+			sessionMiddleware := ihttp.NewSessionMiddlewareMock(
 				ihttp.WithTouch(ihttp.SkipMiddleware),
 				ihttp.WithInjectSessionIntoCtx(test.injectSession(g)),
-				ihttp.WithHasRole(hasRole),
+				ihttp.WithHasRole(ihttp.SkipHasRoleMiddleware),
 				ihttp.WithIsAuthenticated(ihttp.SkipMiddleware),
 			)
 			api := NewAPI(
@@ -1435,6 +1411,20 @@ require.Equal(t, session.AdminRole, role)
 
 			require.Equal(t, expected, vips)
 		})
+	}
+}
+
+func expectReceiveWithin(t *testing.T, c chan struct{}, within time.Duration) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), within)
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+		require.FailNowf(t, "Channel should have received", "within %s", within.String())
+	case <-c:
+		break
 	}
 }
 
