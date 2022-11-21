@@ -1207,7 +1207,7 @@ func TestLaunch(t *testing.T) {
 	}
 
 	ackc := make(chan struct{})
-	ack := func(_ context.Context, m *stream.Message) error {
+	ack := func(_ context.Context, _ *stream.Message) error {
 		ackc <- struct{}{}
 		return nil
 	}

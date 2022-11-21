@@ -8,15 +8,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/internal/event"
+	igorm "github.com/tjper/rustcron/internal/gorm"
 	imodel "github.com/tjper/rustcron/internal/model"
 	"github.com/tjper/rustcron/internal/stream"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+// errNoRetry indicates an error occurred, and a reattempt to process the
+// stream message should not occur.
+var errNoRetry = errors.New("not retryable")
 
 // IStream encompasses all interactions with the event stream.
 type IStream interface {
@@ -71,31 +78,65 @@ func (h Handler) Launch(ctx context.Context) error {
 
 		switch e := eventI.(type) {
 		case *event.VipRefreshEvent:
-			// TODO: Update handing to handle VIPRefreshEvent not InvoicePaidEvent.
-			err = h.handleInvoicePaidEvent(ctx, e)
+			err = h.handleVipRefreshEvent(ctx, e)
 		default:
 			h.logger.Sugar().Debugf("unrecognized event; type: %T", e)
+			// Continue to acknowledge event so it is not processed again by this
+			// group queue.
 		}
-		if err != nil {
-			h.logger.Error("handle stream event", zap.Error(err))
+		if err != nil && !errors.Is(err, errNoRetry) {
+			h.logger.Error("while handle stream event", zap.Error(err))
 			continue
+		}
+		if errors.Is(err, errNoRetry) {
+			h.logger.Warn("while handle stream event", zap.Error(err))
 		}
 
 		if err := h.stream.Ack(ctx, m); err != nil {
-			h.logger.Error("acknowledge stream event", zap.Error(err))
+			h.logger.Error("while acknowledge stream event", zap.Error(err))
 		}
 	}
 }
 
-func (h Handler) handleInvoicePaidEvent(ctx context.Context, event *event.VipRefreshEvent) error {
-	duration := time.Hour * 24 * 30 // 30 days
-	vip := &model.Vip{
-		ServerID:  event.ServerID,
-		SteamID:   event.SteamID,
-		ExpiresAt: time.Now().Add(duration),
+func (h Handler) handleVipRefreshEvent(ctx context.Context, event *event.VipRefreshEvent) error {
+	var errstr string
+	switch {
+	case event.SteamID == "":
+		errstr = "refresh SteamID empty"
+	case event.ServerID == uuid.Nil:
+		errstr = "refresh ServerID empty"
+	case event.ExpiresAt.Equal(time.Time{}):
+		errstr = "refresh ExpiresAt empty"
 	}
-	if err := h.store.WithContext(ctx).Create(vip).Error; err != nil {
-		return fmt.Errorf("while creating vip: %w", err)
+	if errstr != "" {
+		return fmt.Errorf("%s: %w", errstr, errNoRetry)
+	}
+
+	vip, err := db.GetVipByServerIDAndSteamID(ctx, h.store, event.ServerID, event.SteamID)
+	if err != nil && !errors.Is(err, igorm.ErrNotFound) {
+		return fmt.Errorf("while retrieving vip to process refresh: %w", err)
+	}
+
+	if errors.Is(err, igorm.ErrNotFound) {
+		vip = &model.Vip{
+			ServerID:  event.ServerID,
+			SteamID:   event.SteamID,
+			ExpiresAt: event.ExpiresAt,
+		}
+		if err := h.store.WithContext(ctx).Create(vip).Error; err != nil {
+			return fmt.Errorf("while creating vip: %w", err)
+		}
+	}
+
+	// Vip with the specified server ID and steam was found. Just update its
+	// ExpiresAt field.
+	if err == nil {
+		if err := h.store.
+			WithContext(ctx).
+			Model(vip).
+			Update("expires_at", event.ExpiresAt).Error; err != nil {
+			return fmt.Errorf("while updating vip: %w", err)
+		}
 	}
 
 	server := &model.Server{

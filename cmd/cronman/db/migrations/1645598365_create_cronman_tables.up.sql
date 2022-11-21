@@ -140,7 +140,6 @@ CREATE TABLE IF NOT EXISTS servers.events (
 CREATE TABLE IF NOT EXISTS servers.vips (
   id              UUID         NOT NULL DEFAULT gen_random_uuid(),
   server_id       UUID         NOT NULL,
-  subscription_id UUID         NOT NULL,
   steam_ID        VARCHAR(128) NOT NULL,
 
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,

@@ -95,8 +95,10 @@ func (h Handler) Launch(ctx context.Context) error {
 			err = h.handleStripeEvent(ctx, e)
 		default:
 			h.logger.Sugar().Debugf("unrecognized event; type: %T", e)
+			// Continue to acknowledge event so it is not processed again by this
+			// group queue.
 		}
-		if err != nil && errors.Is(err, errNoRetry) {
+		if err != nil && !errors.Is(err, errNoRetry) {
 			h.logger.Error("while handle stream event", zap.Error(err))
 			continue
 		}

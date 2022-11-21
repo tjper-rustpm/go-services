@@ -97,6 +97,17 @@ func ListVipsByServerID(ctx context.Context, db *gorm.DB, serverID uuid.UUID) (m
 	return vips, nil
 }
 
+func GetVipByServerIDAndSteamID(ctx context.Context, db *gorm.DB, serverID uuid.UUID, steamID string) (*model.Vip, error) {
+	var vip model.Vip
+	if err := db.
+		WithContext(ctx).
+		Where("server_id = ? AND steam_id = ?", serverID, steamID).
+		First(&vip).Error; err != nil {
+		return nil, fmt.Errorf("while retrieving vip by server ID and steam ID: %w", err)
+	}
+	return &vip, nil
+}
+
 func GetLiveServer(ctx context.Context, db *gorm.DB, id uuid.UUID) (*model.LiveServer, error) {
 	server, err := GetServer(ctx, db, id)
 	if err != nil {
