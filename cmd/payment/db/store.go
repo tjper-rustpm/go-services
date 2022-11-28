@@ -98,8 +98,8 @@ SELECT servers.id,
 FROM payments.servers 
 LEFT JOIN payments.vips
   ON vips.server_id = servers.id
-WHERE vips.expires_at > now()
-      AND servers.deleted_at IS NULL
+     AND vips.expires_at > now()
+WHERE servers.deleted_at IS NULL
 GROUP BY servers.id
 `
 
@@ -253,7 +253,7 @@ func (s Store) UpdateServer(ctx context.Context, serverID uuid.UUID, changes map
 	return &server, nil
 }
 
-// IsServerVipBySteamID checks if the steam ID is an active vip on the
+// IsServerVipBySteamID checks if the steam ID is an active vip on the the
 // specified server. The return values, are true - nil if a subscription
 // exists, and false - nil if a subscription does not exist. Any error
 // encountered is returned as the second return value.

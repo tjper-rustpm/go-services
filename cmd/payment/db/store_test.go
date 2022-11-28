@@ -337,6 +337,24 @@ func TestFindServers(t *testing.T) {
 		vips    map[model.Customer]model.Vips
 		exp     expected
 	}{
+		"one server, zero vips": {
+			servers: model.Servers{
+				{
+					ID:                alphaServerID,
+					SubscriptionLimit: 200,
+				},
+			},
+			vips: map[model.Customer]model.Vips{},
+			exp: expected{
+				servers: model.Servers{
+					{
+						ID:                  alphaServerID,
+						ActiveSubscriptions: 0,
+						SubscriptionLimit:   200,
+					},
+				},
+			},
+		},
 		"one server, one vip": {
 			servers: model.Servers{
 				{
