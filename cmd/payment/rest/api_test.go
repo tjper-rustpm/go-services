@@ -772,7 +772,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					require.Equal(t, stripe.CheckoutSessionModeSubscription, stripe.CheckoutSessionMode(*params.Mode))
 					require.Equal(t, shared.clientReferenceID, *params.ClientReferenceID)
 					require.Equal(t, shared.expiresAt.Unix(), *params.ExpiresAt)
-					require.Equal(t, shared.stripeCustomerID, *params.Customer)
+					require.Nil(t, params.Customer)
 
 					require.Len(t, params.LineItems, 1, "expected a single line-item")
 					require.Equal(t, istripe.MonthlyVipSubscription, istripe.Price(*params.LineItems[0].Price))
