@@ -503,7 +503,7 @@ func TestCheckout(t *testing.T) {
 					require.Equal(t, stripe.CheckoutSessionModePayment, stripe.CheckoutSessionMode(*params.Mode))
 					require.Equal(t, shared.clientReferenceID, *params.ClientReferenceID)
 					require.Equal(t, shared.expiresAt.Unix(), *params.ExpiresAt)
-					require.Empty(t, *params.Customer)
+					require.Nil(t, params.Customer)
 
 					require.Len(t, params.LineItems, 1, "expected a single line-item")
 					require.Equal(t, istripe.WeeklyVipOneTime, istripe.Price(*params.LineItems[0].Price))
