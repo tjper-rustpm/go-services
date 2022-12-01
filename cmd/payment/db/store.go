@@ -38,8 +38,26 @@ func (s Store) FirstServerByID(ctx context.Context, id uuid.UUID) (*model.Server
 // FirstCustomerByUserID retrieves the customer with the specified user id. If
 // the customer is not found, gorm.ErrNotFound is returned.
 func (s Store) FirstCustomerByUserID(ctx context.Context, userID uuid.UUID) (*model.Customer, error) {
+	sql := `
+SELECT
+  id,
+  steam_id,
+  stripe_customer_id,
+  updated_at,
+  created_at,
+  deleted_at
+FROM
+  payments.customers
+WHERE EXISTS (
+        SELECT 1 
+        FROM payments.users
+        WHERE customers.id = users.customer_id
+              AND users.id = ?
+      )
+      AND deleted_at IS NULL
+  `
 	var customer model.Customer
-	err := s.db.WithContext(ctx).Where("user_id = ?", userID).First(&customer).Error
+	err := s.db.WithContext(ctx).Raw(sql, userID).Scan(&customer).Error
 	if err != nil {
 		return nil, fmt.Errorf("while retrieving first customer by user id: %w", err)
 	}
@@ -270,7 +288,7 @@ WHERE vips.server_id = ?
       AND EXISTS (
         SELECT 1
         FROM payments.customers
-        WHERE customers.user_id = vips.customer_id
+        WHERE customers.id = vips.customer_id
               AND customers.steam_id = ?
       )
 `
