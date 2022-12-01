@@ -41,7 +41,7 @@ func NewCheckout(
 		return nil, fmt.Errorf("while building new checkout: %w", errUnrecognizedPriceID)
 	}
 
-	return &stripe.CheckoutSessionParams{
+	params := &stripe.CheckoutSessionParams{
 		CancelURL:  stripe.String(cancelURL),
 		SuccessURL: stripe.String(successURL),
 		Mode:       stripe.String(string(mode)),
@@ -53,6 +53,11 @@ func NewCheckout(
 		},
 		ClientReferenceID: stripe.String(clientReferenceID),
 		ExpiresAt:         stripe.Int64(expiresAt.Unix()),
-		Customer:          stripe.String(customerID),
-	}, nil
+	}
+
+	if customerID != "" {
+		params.Customer = stripe.String(customerID)
+	}
+
+	return params, nil
 }
