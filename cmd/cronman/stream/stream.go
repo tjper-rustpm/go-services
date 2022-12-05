@@ -21,10 +21,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// errNoRetry indicates an error occurred, and a reattempt to process the
-// stream message should not occur.
-var errNoRetry = errors.New("not retryable")
-
 // IStream encompasses all interactions with the event stream.
 type IStream interface {
 	Claim(context.Context, time.Duration) (*stream.Message, error)
@@ -84,19 +80,18 @@ func (h Handler) Launch(ctx context.Context) error {
 			// Continue to acknowledge event so it is not processed again by this
 			// group queue.
 		}
-		if err != nil && !errors.Is(err, errNoRetry) {
+		if err != nil {
 			h.logger.Error("while handle stream event", zap.Error(err))
-			continue
 		}
-		if errors.Is(err, errNoRetry) {
-			h.logger.Warn("while handle stream event", zap.Error(err))
-		}
-
 		if err := h.stream.Ack(ctx, m); err != nil {
 			h.logger.Error("while acknowledge stream event", zap.Error(err))
 		}
 	}
 }
+
+// errInvalidVipRefresh indicates a received vip refresh event is in an invalid
+// state.
+var errInvalidVipRefresh = errors.New("invalid vip refresh")
 
 func (h Handler) handleVipRefreshEvent(ctx context.Context, event *event.VipRefreshEvent) error {
 	var errstr string
@@ -109,7 +104,7 @@ func (h Handler) handleVipRefreshEvent(ctx context.Context, event *event.VipRefr
 		errstr = "refresh ExpiresAt empty"
 	}
 	if errstr != "" {
-		return fmt.Errorf("%s: %w", errstr, errNoRetry)
+		return fmt.Errorf("%w: %s", errInvalidVipRefresh, errstr)
 	}
 
 	vip, err := db.GetVipByServerIDAndSteamID(ctx, h.store, event.ServerID, event.SteamID)

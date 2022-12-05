@@ -59,7 +59,7 @@ func TestHandleVipRefreshEvent(t *testing.T) {
 			},
 			exp: func(g *generated) expected {
 				return expected{
-					err: fmt.Errorf("refresh SteamID empty: %w", errNoRetry),
+					err: fmt.Errorf("%w: refresh SteamID empty", errInvalidVipRefresh),
 				}
 			},
 		},
@@ -75,7 +75,7 @@ func TestHandleVipRefreshEvent(t *testing.T) {
 			},
 			exp: func(g *generated) expected {
 				return expected{
-					err: fmt.Errorf("refresh ServerID empty: %w", errNoRetry),
+					err: fmt.Errorf("%w: refresh ServerID empty", errInvalidVipRefresh),
 				}
 			},
 		},
@@ -91,7 +91,7 @@ func TestHandleVipRefreshEvent(t *testing.T) {
 			},
 			exp: func(g *generated) expected {
 				return expected{
-					err: fmt.Errorf("refresh ExpiresAt empty: %w", errNoRetry),
+					err: fmt.Errorf("%w: refresh ExpiresAt empty", errInvalidVipRefresh),
 				}
 			},
 		},
