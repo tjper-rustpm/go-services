@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/tjper/rustcron/cmd/payment/model"
@@ -118,6 +119,8 @@ func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebho
 	if stripeEvent.ID == "" {
 		return errMissingStripeEventID
 	}
+
+	log.Printf("handling stripe event -- ID: %s\n", stripeEvent.ID)
 
 	var err error
 	switch stripeEvent.Type {
@@ -436,5 +439,6 @@ func (h Handler) read(ctx context.Context) (*stream.Message, error) {
 	if err != nil {
 		return nil, fmt.Errorf("stream.Read: %w", err)
 	}
+
 	return m, nil
 }
