@@ -21,10 +21,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// errNoRetry indicates an error occurred, and a reattempt to process the
-// stream message should not occur.
-var errNoRetry = errors.New("not retryable")
-
 // errInvalidStagedCheckout indicates a staged checkout type is not as expected
 // for the event being processed.
 var errInvalidStagedCheckout = errors.New("invalid staged checkout")
@@ -98,27 +94,29 @@ func (h Handler) Launch(ctx context.Context) error {
 			// Continue to acknowledge event so it is not processed again by this
 			// group queue.
 		}
-		if err != nil && !errors.Is(err, errNoRetry) {
+		if err != nil {
 			h.logger.Error("while handle stream event", zap.Error(err))
-			continue
 		}
-		if errors.Is(err, errNoRetry) {
-			h.logger.Warn("while handle stream event", zap.Error(err))
-		}
-
 		if err := h.stream.Ack(ctx, m); err != nil {
 			h.logger.Error("acknowledge stream event", zap.Error(err))
 		}
 	}
 }
 
+var (
+	// errUnrecognizedStripeEvent indicates that a Stripe event is being processed
+	// that is not recognized.
+	errUnrecognizedStripeEvent = errors.New("unrecognized stripe event")
+
+	// errMissingStripeEventID indicates that a Stripe event is missing its ID.
+	errMissingStripeEventID = errors.New("missing stripe event ID")
+)
+
 // handleStripeEvent passes the handling of an event to sub-handler.
-// CAUTION: If an error is returned, the event will not be acknowledged and
-// will be reprocessed at a later time.
 func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebhookEvent) error {
 	stripeEvent := event.StripeEvent
 	if stripeEvent.ID == "" {
-		return fmt.Errorf("stripe event ID empty: %w", errNoRetry)
+		return errMissingStripeEventID
 	}
 
 	var err error
@@ -130,7 +128,7 @@ func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebho
 	case "invoice.payment_failed":
 		err = h.processInvoice(ctx, stripeEvent)
 	default:
-		return fmt.Errorf("unknown stripe webhook event (%s): %w", stripeEvent.Type, errNoRetry)
+		return fmt.Errorf("%w (%s)", errUnrecognizedStripeEvent, stripeEvent.Type)
 	}
 	if err != nil {
 		return err
@@ -144,12 +142,11 @@ func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebho
 var errUnrecognizedMode = errors.New("unrecognized checkout mode")
 
 // processCheckoutSessionComplete handles a stripe "checkout.session.completed"
-// event. CAUTION: If an error is returned, the event will not be acknowledged
-// and will be reprocessed at a later time.
+// event.
 func (h Handler) processCheckoutSessionComplete(ctx context.Context, event stripe.Event) error {
 	var checkout stripe.CheckoutSession
 	if err := json.Unmarshal(event.Data.Raw, &checkout); err != nil {
-		return fmt.Errorf("unmarshal checkout; error: %w", err)
+		return fmt.Errorf("while unmarshaling checkout: %w", err)
 	}
 
 	var err error
@@ -164,6 +161,10 @@ func (h Handler) processCheckoutSessionComplete(ctx context.Context, event strip
 
 	return err
 }
+
+// errInvalidPaymentCheckout indicates that a checkout event received was not
+// populated with data in the expected fields.
+var errInvalidPaymentCheckout = errors.New("invalid payment checkout")
 
 func (h Handler) processPaymentCheckoutSessionComplete(
 	ctx context.Context,
@@ -188,7 +189,7 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 		errstr = "checkout not for a single item"
 	}
 	if errstr != "" {
-		return fmt.Errorf("%s: %w", errstr, errNoRetry)
+		return fmt.Errorf("%w: %s", errInvalidPaymentCheckout, errstr)
 	}
 
 	stagedCheckoutI, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
@@ -252,6 +253,10 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 	)
 }
 
+// errInvalidSubscriptionPaymentCheckout indicates that a subscription checkout
+// event received was not populated with data in the expected fields.
+var errInvalidSubscriptionPaymentCheckout = errors.New("invalid subscription payment checkout")
+
 func (h Handler) processSubscriptionCheckoutSessionComplete(
 	ctx context.Context,
 	eventID string,
@@ -277,7 +282,7 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 		errstr = "checkout not for a single item"
 	}
 	if errstr != "" {
-		return fmt.Errorf("%s: %w", errstr, errNoRetry)
+		return fmt.Errorf("%w: %s", errInvalidSubscriptionPaymentCheckout, errstr)
 	}
 
 	stagedCheckoutI, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
@@ -339,6 +344,10 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 	return nil
 }
 
+// errInvalidInvoice indicates that an invoice event received was not populated
+// with data in the expected fields.
+var errInvalidInvoice = errors.New("invalid invoice")
+
 func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 	var invoice stripe.Invoice
 	if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
@@ -355,7 +364,7 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 		errstr = "invoice Subscription ID empty"
 	}
 	if errstr != "" {
-		return fmt.Errorf("%s: %w", errstr, errNoRetry)
+		return fmt.Errorf("%w: %s", errInvalidInvoice, errstr)
 	}
 
 	_, err := h.store.FirstInvoiceByStripeEventID(ctx, event.ID)
@@ -365,6 +374,12 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 	}
 	if err != nil && !errors.Is(err, gorm.ErrNotFound) {
 		return fmt.Errorf("store.FindByStripeEventID: %w", err)
+	}
+
+	// If invoice is anything other than "paid" return and do not add an invoice
+	// to the subscription or send a vip refresh event.
+	if invoice.Status != stripe.InvoiceStatusPaid {
+		return nil
 	}
 
 	vip, err := h.store.AddInvoiceToVipSubscription(
@@ -377,12 +392,6 @@ func (h Handler) processInvoice(ctx context.Context, event stripe.Event) error {
 	)
 	if err != nil {
 		return fmt.Errorf("while updating vip subscription invoices: %w", err)
-	}
-
-	// If invoice is anything other than "paid" return and do not publish a
-	// vip refresh event.
-	if invoice.Status != stripe.InvoiceStatusPaid {
-		return nil
 	}
 
 	return h.vipRefresh(

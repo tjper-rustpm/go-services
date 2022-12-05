@@ -40,7 +40,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("stripe event ID empty: %w", errNoRetry),
+				err: errMissingStripeEventID,
 			},
 		},
 		"payment checkout ClientReferenceID": {
@@ -57,7 +57,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout ClientReferenceID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout ClientReferenceID empty", errInvalidPaymentCheckout),
 			},
 		},
 		"payment checkout ID": {
@@ -75,7 +75,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout ID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout ID empty", errInvalidPaymentCheckout),
 			},
 		},
 		"payment checkout Customer": {
@@ -93,7 +93,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout Customer nil: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout Customer nil", errInvalidPaymentCheckout),
 			},
 		},
 		"payment checkout Customer ID": {
@@ -112,7 +112,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout Customer ID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout Customer ID empty", errInvalidPaymentCheckout),
 			},
 		},
 		"payment checkout PaymentStatus": {
@@ -132,7 +132,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout payment status is not \"paid\": %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout payment status is not \"paid\"", errInvalidPaymentCheckout),
 			},
 		},
 		"payment checkout LineItems nil": {
@@ -152,7 +152,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout LineItems nil: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout LineItems nil", errInvalidPaymentCheckout),
 			},
 		},
 		"payment checkout LineItems Data": {
@@ -173,7 +173,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout not for a single item: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout not for a single item", errInvalidPaymentCheckout),
 			},
 		},
 		"subscription checkout ClientReferenceID": {
@@ -190,7 +190,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout ClientReferenceID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout ClientReferenceID empty", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"subscription checkout ID": {
@@ -208,7 +208,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout ID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout ID empty", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"subscription checkout Subscription": {
@@ -226,7 +226,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout Subscription nil: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout Subscription nil", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"subscription checkout Subscription ID": {
@@ -245,7 +245,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout Subscription ID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout Subscription ID empty", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"subscription checkout Customer": {
@@ -264,7 +264,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout Customer nil: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout Customer nil", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"subscription checkout Customer ID": {
@@ -284,7 +284,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout Customer ID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout Customer ID empty", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"subscription checkout LineItems nil": {
@@ -304,7 +304,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout LineItems nil: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout LineItems nil", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"subscription checkout LineItems Data": {
@@ -325,7 +325,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("checkout not for a single item: %w", errNoRetry),
+				err: fmt.Errorf("%w: checkout not for a single item", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"invoice Status": {
@@ -343,7 +343,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("invoice Status empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: invoice Status empty", errInvalidInvoice),
 			},
 		},
 		"invoice Subscription": {
@@ -361,7 +361,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("invoice Subscription nil: %w", errNoRetry),
+				err: fmt.Errorf("%w: invoice Subscription nil", errInvalidInvoice),
 			},
 		},
 		"invoice Subscription ID": {
@@ -380,7 +380,7 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				},
 			},
 			exp: expected{
-				err: fmt.Errorf("invoice Subscription ID empty: %w", errNoRetry),
+				err: fmt.Errorf("%w: invoice Subscription ID empty", errInvalidInvoice),
 			},
 		},
 	}
