@@ -88,6 +88,7 @@ func (h Handler) Launch(ctx context.Context) error {
 
 		switch e := eventI.(type) {
 		case *event.StripeWebhookEvent:
+			h.logger.Debug("Stripe event being handled ...")
 			err = h.handleStripeEvent(ctx, e)
 		default:
 			h.logger.Sugar().Debugf("unrecognized event; type: %T", e)
@@ -411,6 +412,11 @@ func (h Handler) vipRefresh(
 }
 
 func (h Handler) read(ctx context.Context) (*stream.Message, error) {
+	h.logger.Debug("attempting to read payment stream event")
+	defer func() {
+		h.logger.Debug("event read")
+	}()
+
 	m, err := h.stream.Claim(ctx, time.Minute)
 	if err == nil {
 		return m, nil
