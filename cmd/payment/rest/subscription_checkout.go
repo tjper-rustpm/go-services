@@ -135,6 +135,7 @@ func (ep SubscriptionCheckout) checkout(
 			Checkout: staging.Checkout{
 				ServerID: serverID,
 				SteamID:  steamID,
+				PriceID:  priceID,
 			},
 			UserID: userID,
 		},

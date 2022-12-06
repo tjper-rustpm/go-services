@@ -3,7 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"github.com/tjper/rustcron/internal/event"
@@ -37,8 +36,6 @@ func (ep Stripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
-
-	log.Printf("writing stripe event -- ID: %s\n", stripeEvent.ID)
 
 	if err := ep.stream.Write(r.Context(), b); err != nil {
 		ihttp.ErrInternal(ep.logger, w, err)

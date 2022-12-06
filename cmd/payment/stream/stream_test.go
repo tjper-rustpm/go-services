@@ -135,47 +135,6 @@ func TestEventHandlerInputValidation(t *testing.T) {
 				err: fmt.Errorf("%w: checkout payment status is not \"paid\"", errInvalidPaymentCheckout),
 			},
 		},
-		"payment checkout LineItems nil": {
-			event: &event.StripeWebhookEvent{
-				StripeEvent: stripe.Event{
-					ID:   uuid.NewString(),
-					Type: "checkout.session.completed",
-					Data: &stripe.EventData{
-						Raw: json.RawMessage(`{
-              "payment_status": "paid",
-              "customer": {"id": "non-empty"},
-              "id": "non-empty",
-              "client_reference_id": "non-empty",
-              "mode": "payment"
-            }`),
-					},
-				},
-			},
-			exp: expected{
-				err: fmt.Errorf("%w: checkout LineItems nil", errInvalidPaymentCheckout),
-			},
-		},
-		"payment checkout LineItems Data": {
-			event: &event.StripeWebhookEvent{
-				StripeEvent: stripe.Event{
-					ID:   uuid.NewString(),
-					Type: "checkout.session.completed",
-					Data: &stripe.EventData{
-						Raw: json.RawMessage(`{
-              "line_items": {"data": []},
-              "payment_status": "paid",
-              "customer": {"id": "non-empty"},
-              "id": "non-empty",
-              "client_reference_id": "non-empty",
-              "mode": "payment"
-            }`),
-					},
-				},
-			},
-			exp: expected{
-				err: fmt.Errorf("%w: checkout not for a single item", errInvalidPaymentCheckout),
-			},
-		},
 		"subscription checkout ClientReferenceID": {
 			event: &event.StripeWebhookEvent{
 				StripeEvent: stripe.Event{
@@ -285,47 +244,6 @@ func TestEventHandlerInputValidation(t *testing.T) {
 			},
 			exp: expected{
 				err: fmt.Errorf("%w: checkout Customer ID empty", errInvalidSubscriptionPaymentCheckout),
-			},
-		},
-		"subscription checkout LineItems nil": {
-			event: &event.StripeWebhookEvent{
-				StripeEvent: stripe.Event{
-					ID:   uuid.NewString(),
-					Type: "checkout.session.completed",
-					Data: &stripe.EventData{
-						Raw: json.RawMessage(`{
-              "customer": {"id": "non-empty"},
-              "subscription": {"id": "non-empty"},
-              "id": "non-empty",
-              "client_reference_id": "non-empty",
-              "mode": "subscription"
-            }`),
-					},
-				},
-			},
-			exp: expected{
-				err: fmt.Errorf("%w: checkout LineItems nil", errInvalidSubscriptionPaymentCheckout),
-			},
-		},
-		"subscription checkout LineItems Data": {
-			event: &event.StripeWebhookEvent{
-				StripeEvent: stripe.Event{
-					ID:   uuid.NewString(),
-					Type: "checkout.session.completed",
-					Data: &stripe.EventData{
-						Raw: json.RawMessage(`{
-              "line_items": {"data": []},
-              "customer": {"id": "non-empty"},
-              "subscription": {"id": "non-empty"},
-              "id": "non-empty",
-              "client_reference_id": "non-empty",
-              "mode": "subscription"
-            }`),
-					},
-				},
-			},
-			exp: expected{
-				err: fmt.Errorf("%w: checkout not for a single item", errInvalidSubscriptionPaymentCheckout),
 			},
 		},
 		"invoice Status": {
@@ -445,11 +363,6 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 						"id": shared.stripeCustomerID,
 					},
 					"payment_status": "paid",
-					"line_items": map[string]interface{}{
-						"data": []map[string]interface{}{
-							{"price": istripe.WeeklyVipOneTime},
-						},
-					},
 				}
 				raw, err := json.Marshal(&checkout)
 				require.Nil(t, err)
@@ -480,6 +393,7 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 					return &staging.Checkout{
 						ServerID: shared.serverID,
 						SteamID:  steamID,
+						PriceID:  string(istripe.WeeklyVipOneTime),
 					}, nil
 				}
 			},
@@ -696,11 +610,6 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 						"id": shared.stripeSubscriptionID,
 					},
 					"payment_status": "paid",
-					"line_items": map[string]interface{}{
-						"data": []map[string]interface{}{
-							{"price": istripe.MonthlyVipSubscription},
-						},
-					},
 				}
 				raw, err := json.Marshal(&checkout)
 				require.Nil(t, err)
@@ -733,6 +642,7 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 						Checkout: staging.Checkout{
 							ServerID: shared.serverID,
 							SteamID:  steamID,
+							PriceID:  string(istripe.MonthlyVipSubscription),
 						},
 						UserID: shared.userID,
 					}, nil

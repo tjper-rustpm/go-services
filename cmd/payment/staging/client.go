@@ -97,6 +97,7 @@ func (c Client) FetchCheckout(
 type Checkout struct {
 	ServerID uuid.UUID
 	SteamID  string
+	PriceID  string
 }
 
 // UserCheckout is a Rustpm checkout associating a server, user, and a

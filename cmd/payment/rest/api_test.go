@@ -488,6 +488,7 @@ func TestCheckout(t *testing.T) {
 
 					require.Equal(t, shared.serverID, checkout.ServerID)
 					require.Equal(t, shared.steamID, checkout.SteamID)
+					require.Equal(t, istripe.WeeklyVipOneTime, istripe.Price(checkout.PriceID))
 
 					shared.expiresAt = time.Now().Add(time.Hour)
 					require.WithinDuration(t, shared.expiresAt, expiresAt, time.Second)
@@ -723,7 +724,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/subscription/checkout/cancel",
 					"successUrl": "https://rustpm.com/subscription/checkout/success",
-					"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
+					"priceId":    istripe.MonthlyVipSubscription,
 				}
 			},
 			checkoutEnabled: true,
@@ -757,6 +758,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					require.Equal(t, shared.serverID, checkout.ServerID)
 					require.Equal(t, shared.steamID, checkout.SteamID)
 					require.Equal(t, shared.userID, checkout.UserID)
+					require.Equal(t, istripe.MonthlyVipSubscription, istripe.Price(checkout.PriceID))
 
 					shared.expiresAt = time.Now().Add(time.Hour)
 					require.WithinDuration(t, shared.expiresAt, expiresAt, time.Second)

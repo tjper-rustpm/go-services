@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/tjper/rustcron/cmd/payment/model"
@@ -120,8 +119,6 @@ func (h Handler) handleStripeEvent(ctx context.Context, event *event.StripeWebho
 		return errMissingStripeEventID
 	}
 
-	log.Printf("handling stripe event -- ID: %s\n", stripeEvent.ID)
-
 	var err error
 	switch stripeEvent.Type {
 	case "checkout.session.completed":
@@ -186,10 +183,6 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 		errstr = "checkout Customer ID empty"
 	case checkout.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid:
 		errstr = "checkout payment status is not \"paid\""
-	case checkout.LineItems == nil:
-		errstr = "checkout LineItems nil"
-	case len(checkout.LineItems.Data) != 1:
-		errstr = "checkout not for a single item"
 	}
 	if errstr != "" {
 		return fmt.Errorf("%w: %s", errInvalidPaymentCheckout, errstr)
@@ -223,8 +216,7 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 		return fmt.Errorf("while finding checkout by stripe event ID: %w", err)
 	}
 
-	price := checkout.LineItems.Data[0].Price.ID
-	expiresAt := model.ComputeVipExpiration(istripe.Price(price))
+	expiresAt := model.ComputeVipExpiration(istripe.Price(stagedCheckout.PriceID))
 
 	// NOTE: It is possible that two processes simultaneously execute the below
 	// CreateVip method. In the event this occurs, one will result an
@@ -279,10 +271,6 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 		errstr = "checkout Customer nil"
 	case checkout.Customer.ID == "":
 		errstr = "checkout Customer ID empty"
-	case checkout.LineItems == nil:
-		errstr = "checkout LineItems nil"
-	case len(checkout.LineItems.Data) != 1:
-		errstr = "checkout not for a single item"
 	}
 	if errstr != "" {
 		return fmt.Errorf("%w: %s", errInvalidSubscriptionPaymentCheckout, errstr)
@@ -314,8 +302,6 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 		return fmt.Errorf("while finding vip by stripe event ID: %w", err)
 	}
 
-	price := checkout.LineItems.Data[0].Price.ID
-
 	// NOTE: It is possible that two processes simultaneously execute the below
 	// CreateSubscription method. In the event this occurs, one will result an
 	// error as two unique indexes will be violated:
@@ -328,7 +314,7 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 			StripeCheckoutID: checkout.ID,
 			StripeEventID:    eventID,
 			ServerID:         stagedCheckout.ServerID,
-			ExpiresAt:        model.ComputeVipExpiration(istripe.Price(price)),
+			ExpiresAt:        model.ComputeVipExpiration(istripe.Price(stagedCheckout.PriceID)),
 		},
 		&model.Subscription{
 			StripeSubscriptionID: checkout.Subscription.ID,

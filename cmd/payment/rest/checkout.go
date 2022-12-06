@@ -103,6 +103,7 @@ func (ep Checkout) checkout(
 		&staging.Checkout{
 			ServerID: serverID,
 			SteamID:  steamID,
+			PriceID:  priceID,
 		},
 		expiresAt,
 	)
