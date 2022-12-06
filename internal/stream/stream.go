@@ -99,7 +99,20 @@ func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error
 		return nil, ErrNoPending
 	}
 
-	return c.extractMessage(messages)
+	m, err := c.extractMessage(messages)
+	if err != nil {
+		return nil, err
+	}
+
+	c.logger.Debug(
+		"claim stream",
+		zap.String("message-id", m.ID),
+		zap.String("group", c.group),
+		zap.String("consumer", c.consumer),
+		zap.ByteString("payload", m.Payload),
+	)
+
+	return m, nil
 }
 
 // Read reads a message from the persistent stream.
