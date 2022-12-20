@@ -35,11 +35,18 @@ func Init(ctx context.Context, logger *zap.Logger, rdb *redis.Client, group stri
 		return nil, fmt.Errorf("initializing stream; error: %w", err)
 	}
 
+	consumer := uuid.New().String()
+	logger = logger.With(
+		zap.String("stream", stream),
+		zap.String("group", group),
+		zap.String("consumer", consumer),
+	)
+
 	return &Client{
 		logger:     logger,
 		rdb:        rdb,
 		group:      group,
-		consumer:   uuid.New().String(),
+		consumer:   consumer,
 		mutex:      new(sync.RWMutex),
 		claimStart: "0-0",
 	}, nil
@@ -107,12 +114,10 @@ func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error
 	c.logger.Debug(
 		"claim stream",
 		zap.String("message-id", m.ID),
-		zap.String("group", c.group),
-		zap.String("consumer", c.consumer),
 		zap.ByteString("payload", m.Payload),
 	)
 
-	return m, nil
+	return c.extractMessage(messages)
 }
 
 // Read reads a message from the persistent stream.
@@ -151,8 +156,6 @@ read:
 	c.logger.Debug(
 		"read stream",
 		zap.String("message-id", m.ID),
-		zap.String("group", c.group),
-		zap.String("consumer", c.consumer),
 		zap.ByteString("payload", m.Payload),
 	)
 	return m, nil
