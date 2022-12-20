@@ -197,7 +197,7 @@ func newRedisClient(ctx context.Context, logger *zap.Logger) *redisv8.Client {
 }
 
 func newStreamClient(ctx context.Context, logger *zap.Logger, redisClient *redisv8.Client) *istream.Client {
-	streamClient, err := istream.Init(ctx, logger, redisClient, "payment")
+	streamClient, err := istream.Init(ctx, logger, redisClient, "cronman")
 	if err != nil {
 		logger.Panic("[Startup] Failed to initialze stream client.", zap.Error(err))
 	}
