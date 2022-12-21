@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS payments.customers (
   PRIMARY KEY (id)
 );
 
-CREATE UNIQUE INDEX IdxCustomersSteamID ON payments.customers (steam_id);
+CREATE INDEX IdxCustomersSteamID ON payments.customers (steam_id);
 CREATE UNIQUE INDEX IdxCustomersStripeCustomerID ON payments.customers (stripe_customer_id);
 
 CREATE TABLE IF NOT EXISTS payments.users (
