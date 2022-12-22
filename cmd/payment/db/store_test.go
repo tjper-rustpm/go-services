@@ -311,6 +311,9 @@ func TestAddInvoiceToVipSubscription(t *testing.T) {
 		time.Second,
 	)
 	require.NotEqual(t, initialExpiredAt, vip.ExpiresAt)
+
+	require.Equal(t, alphaServerID, vip.Server.ID)
+	require.Equal(t, "steam-id", vip.Customer.SteamID)
 }
 
 func TestFindServers(t *testing.T) {

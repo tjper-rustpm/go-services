@@ -227,7 +227,10 @@ func (s Store) AddInvoiceToVipSubscription(
 			return fmt.Errorf("while creating vip subscription invoice: %w", err)
 		}
 
-		if err := tx.First(&vip, subscription.VipID).Error; err != nil {
+		if err := tx.
+			Preload("Server").
+			Preload("Customer").
+			First(&vip, subscription.VipID).Error; err != nil {
 			return fmt.Errorf("while retrieving subscription vip: %w", err)
 		}
 
