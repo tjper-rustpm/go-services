@@ -9,17 +9,22 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/vmihailenco/msgpack/v5"
+	"go.uber.org/zap"
 )
 
 // NewClient creates a new Client instance.
-func NewClient(redis *redis.Client) *Client {
-	return &Client{redis: redis}
+func NewClient(logger *zap.Logger, redis *redis.Client) *Client {
+	return &Client{
+		logger: logger,
+		redis:  redis,
+	}
 }
 
 // Client manages the cache client and provides an API for interacting with
 // staged checkouts.
 type Client struct {
-	redis *redis.Client
+	logger *zap.Logger
+	redis  *redis.Client
 }
 
 // errUnrecognizedCheckout indicates that a type other than UserCheckout or
@@ -71,6 +76,12 @@ func (c Client) StageCheckout(
 		}
 	}
 
+	c.logger.Debug(
+		"staged checkout",
+		zap.String("id", id.String()),
+		zap.String("type", fmt.Sprintf("%T", checkout)),
+	)
+
 	return id.String(), nil
 }
 
@@ -79,18 +90,27 @@ func (c Client) StageCheckout(
 func (c Client) FetchCheckout(
 	ctx context.Context,
 	id string,
-) (interface{}, error) {
+	checkout interface{},
+) error {
+	switch checkout.(type) {
+	case *Checkout:
+		break
+	case *UserCheckout:
+		break
+	default:
+		return errUnrecognizedCheckout
+	}
+
 	res, err := c.redis.Get(ctx, keygen(id)).Result()
 	if err != nil {
-		return nil, fmt.Errorf("fetch checkout; id: %s, error: %w", id, err)
+		return fmt.Errorf("fetch checkout; id: %s, error: %w", id, err)
 	}
 
-	var checkout Checkout
-	if err := decode([]byte(res), &checkout); err != nil {
-		return nil, fmt.Errorf("decode checkout; id: %s, error: %w", id, err)
+	if err := decode([]byte(res), checkout); err != nil {
+		return fmt.Errorf("decode checkout; id: %s, error: %w", id, err)
 	}
 
-	return &checkout, nil
+	return nil
 }
 
 // Checkout is a Rustpm checkout associating a server with a Steam ID.

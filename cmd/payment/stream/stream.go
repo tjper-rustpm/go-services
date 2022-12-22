@@ -21,10 +21,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// errInvalidStagedCheckout indicates a staged checkout type is not as expected
-// for the event being processed.
-var errInvalidStagedCheckout = errors.New("invalid staged checkout")
-
 // IStore encompasses all interactions with the payment store.
 type IStore interface {
 	FirstVipByStripeEventID(context.Context, string) (*model.Vip, error)
@@ -44,7 +40,7 @@ type IStream interface {
 
 // IStaging encompasses all interactions with the payment staging API.
 type IStaging interface {
-	FetchCheckout(context.Context, string) (interface{}, error)
+	FetchCheckout(context.Context, string, interface{}) error
 }
 
 // NewHandler creates a Handler instance.
@@ -189,26 +185,18 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 		return fmt.Errorf("%w: %s", errInvalidPaymentCheckout, errstr)
 	}
 
-	stagedCheckoutI, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
-	if err != nil {
+	var stagedCheckout staging.Checkout
+	if err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID, &stagedCheckout); err != nil {
 		return fmt.Errorf(
 			"fetch staged checkout; id: %s, error: %w",
 			checkout.ClientReferenceID,
 			err,
 		)
 	}
-	stagedCheckout, ok := stagedCheckoutI.(*staging.Checkout)
-	if !ok {
-		return fmt.Errorf(
-			"while processing payment checkout: %w (%T)",
-			errInvalidStagedCheckout,
-			stagedCheckoutI,
-		)
-	}
 
 	// Check to see if Stripe event ID exists in DB. If it does, this indicates
 	// that event has already been processed.
-	_, err = h.store.FirstVipByStripeEventID(ctx, eventID)
+	_, err := h.store.FirstVipByStripeEventID(ctx, eventID)
 	if err == nil {
 		// Checkout has already been processed, return early.
 		return nil
@@ -277,24 +265,16 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 		return fmt.Errorf("%w: %s", errInvalidSubscriptionPaymentCheckout, errstr)
 	}
 
-	stagedCheckoutI, err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID)
-	if err != nil {
+	var stagedCheckout staging.UserCheckout
+	if err := h.staging.FetchCheckout(ctx, checkout.ClientReferenceID, &stagedCheckout); err != nil {
 		return fmt.Errorf(
 			"fetch staged checkout; id: %s, error: %w",
 			checkout.ClientReferenceID,
 			err,
 		)
 	}
-	stagedCheckout, ok := stagedCheckoutI.(*staging.UserCheckout)
-	if !ok {
-		return fmt.Errorf(
-			"while processing subscription checkout: %w (%T)",
-			errInvalidStagedCheckout,
-			stagedCheckoutI,
-		)
-	}
 
-	_, err = h.store.FirstVipByStripeEventID(ctx, eventID)
+	_, err := h.store.FirstVipByStripeEventID(ctx, eventID)
 	if err == nil {
 		// Checkout has already been processed, return early.
 		return nil

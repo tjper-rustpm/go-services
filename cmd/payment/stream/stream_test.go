@@ -342,7 +342,7 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 
 	tests := map[string]struct {
 		event                        func(*testing.T, *shared) *event.StripeWebhookEvent
-		stagingFetchCheckout         func(*testing.T, *shared) func(context.Context, string) (interface{}, error)
+		stagingFetchCheckout         func(*testing.T, *shared) func(context.Context, string, interface{}) error
 		storeFirstVipByStripeEventID func(*testing.T, *shared) func(context.Context, string) (*model.Vip, error)
 		storeCreateVip               func(*testing.T, *shared) func(context.Context, *model.Vip, *model.Customer) error
 		streamWrite                  func(*testing.T, *shared) func(context.Context, []byte) error
@@ -380,9 +380,12 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 				)
 				return &event
 			},
-			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string) (interface{}, error) {
-				return func(_ context.Context, id string) (interface{}, error) {
+			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string, interface{}) error {
+				return func(_ context.Context, id string, checkoutI interface{}) error {
 					require.Equal(t, shared.clientReferenceID, id)
+
+					checkout, ok := checkoutI.(*staging.Checkout)
+					require.True(t, ok, "checkout is not type *staging.Checkout")
 
 					steamID, err := rand.GenerateString(11)
 					require.Nil(t, err)
@@ -390,11 +393,11 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 					shared.serverID = uuid.New()
 					shared.steamID = steamID
 
-					return &staging.Checkout{
-						ServerID: shared.serverID,
-						SteamID:  steamID,
-						PriceID:  string(istripe.WeeklyVipOneTime),
-					}, nil
+					checkout.ServerID = shared.serverID
+					checkout.SteamID = steamID
+					checkout.PriceID = string(istripe.WeeklyVipOneTime)
+
+					return nil
 				}
 			},
 			storeFirstVipByStripeEventID: func(t *testing.T, _ *shared) func(context.Context, string) (*model.Vip, error) {
@@ -475,9 +478,12 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 				)
 				return &event
 			},
-			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string) (interface{}, error) {
-				return func(_ context.Context, id string) (interface{}, error) {
+			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string, interface{}) error {
+				return func(_ context.Context, id string, checkoutI interface{}) error {
 					require.Equal(t, shared.clientReferenceID, id)
+
+					checkout, ok := checkoutI.(*staging.Checkout)
+					require.True(t, ok, "checkout is not type *staging.Checkout")
 
 					steamID, err := rand.GenerateString(11)
 					require.Nil(t, err)
@@ -485,10 +491,11 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 					shared.serverID = uuid.New()
 					shared.steamID = steamID
 
-					return &staging.Checkout{
-						ServerID: shared.serverID,
-						SteamID:  steamID,
-					}, nil
+					checkout.ServerID = shared.serverID
+					checkout.SteamID = steamID
+					checkout.PriceID = string(istripe.WeeklyVipOneTime)
+
+					return nil
 				}
 			},
 			storeFirstVipByStripeEventID: func(t *testing.T, shared *shared) func(context.Context, string) (*model.Vip, error) {
@@ -586,7 +593,7 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 
 	tests := map[string]struct {
 		event                        func(*testing.T, *shared) *event.StripeWebhookEvent
-		stagingFetchCheckout         func(*testing.T, *shared) func(context.Context, string) (interface{}, error)
+		stagingFetchCheckout         func(*testing.T, *shared) func(context.Context, string, interface{}) error
 		storeFirstVipByStripeEventID func(*testing.T, *shared) func(context.Context, string) (*model.Vip, error)
 		storeCreateVipSubscription   func(*testing.T, *shared) func(context.Context, *model.Vip, *model.Subscription, *model.Customer, *model.User) error
 		exp                          expected
@@ -627,9 +634,12 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 				)
 				return &event
 			},
-			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string) (interface{}, error) {
-				return func(_ context.Context, id string) (interface{}, error) {
+			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string, interface{}) error {
+				return func(_ context.Context, id string, checkoutI interface{}) error {
 					require.Equal(t, shared.clientReferenceID, id)
+
+					checkout, ok := checkoutI.(*staging.UserCheckout)
+					require.True(t, ok, "checkout is not type *staging.UserCheckout")
 
 					steamID, err := rand.GenerateString(11)
 					require.Nil(t, err)
@@ -638,14 +648,12 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 					shared.steamID = steamID
 					shared.userID = uuid.New()
 
-					return &staging.UserCheckout{
-						Checkout: staging.Checkout{
-							ServerID: shared.serverID,
-							SteamID:  steamID,
-							PriceID:  string(istripe.MonthlyVipSubscription),
-						},
-						UserID: shared.userID,
-					}, nil
+					checkout.ServerID = shared.serverID
+					checkout.SteamID = steamID
+					checkout.PriceID = string(istripe.MonthlyVipSubscription)
+					checkout.UserID = shared.userID
+
+					return nil
 				}
 			},
 			storeFirstVipByStripeEventID: func(t *testing.T, _ *shared) func(context.Context, string) (*model.Vip, error) {
@@ -726,9 +734,12 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 				)
 				return &event
 			},
-			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string) (interface{}, error) {
-				return func(_ context.Context, id string) (interface{}, error) {
+			stagingFetchCheckout: func(t *testing.T, shared *shared) func(context.Context, string, interface{}) error {
+				return func(_ context.Context, id string, checkoutI interface{}) error {
 					require.Equal(t, shared.clientReferenceID, id)
+
+					checkout, ok := checkoutI.(*staging.UserCheckout)
+					require.True(t, ok, "checkout is not type *staging.UserCheckout")
 
 					steamID, err := rand.GenerateString(11)
 					require.Nil(t, err)
@@ -737,13 +748,12 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 					shared.steamID = steamID
 					shared.userID = uuid.New()
 
-					return &staging.UserCheckout{
-						Checkout: staging.Checkout{
-							ServerID: shared.serverID,
-							SteamID:  steamID,
-						},
-						UserID: shared.userID,
-					}, nil
+					checkout.ServerID = shared.serverID
+					checkout.SteamID = steamID
+					checkout.PriceID = string(istripe.MonthlyVipSubscription)
+					checkout.UserID = shared.userID
+
+					return nil
 				}
 			},
 			storeFirstVipByStripeEventID: func(t *testing.T, shared *shared) func(context.Context, string) (*model.Vip, error) {

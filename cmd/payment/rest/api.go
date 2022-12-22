@@ -44,7 +44,7 @@ type IStripe interface {
 // IStaging encompasses all interactions with checkout staging.
 type IStaging interface {
 	StageCheckout(context.Context, interface{}, time.Time) (string, error)
-	FetchCheckout(context.Context, string) (interface{}, error)
+	FetchCheckout(context.Context, string, interface{}) error
 }
 
 // ISessionMiddleware encompasses all interactions with session related

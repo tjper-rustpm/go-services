@@ -12,6 +12,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 var (
@@ -35,25 +36,28 @@ func TestIntegration(t *testing.T) {
 
 	expected := Checkout{
 		ServerID: uuid.New(),
-		UserID:   uuid.New(),
+		SteamID:  uuid.NewString(),
+		PriceID:  uuid.NewString(),
 	}
 
 	var id string
 	t.Run("stage checkout", func(t *testing.T) {
-		res, err := suite.client.StageCheckout(ctx, expected, time.Now().Add(time.Second))
+		res, err := suite.client.StageCheckout(ctx, &expected, time.Now().Add(time.Second))
 		require.Nil(t, err)
 		id = res
 	})
 
 	t.Run("fetch checkout", func(t *testing.T) {
-		actual, err := suite.client.FetchCheckout(ctx, id)
+		var actual Checkout
+		err := suite.client.FetchCheckout(ctx, id, &actual)
 		require.Nil(t, err)
-		require.Equal(t, expected, *actual)
+		require.Equal(t, expected, actual)
 	})
 
 	time.Sleep(1500 * time.Millisecond)
 	t.Run("fetch expired checkout", func(t *testing.T) {
-		_, err := suite.client.FetchCheckout(ctx, id)
+		var actual Checkout
+		err := suite.client.FetchCheckout(ctx, id, &actual)
 		require.Error(t, err)
 	})
 }
@@ -69,7 +73,7 @@ func setup(ctx context.Context, t *testing.T) *suite {
 	require.Nil(t, err)
 
 	return &suite{
-		client: NewClient(redis),
+		client: NewClient(zap.NewNop(), redis),
 	}
 }
 

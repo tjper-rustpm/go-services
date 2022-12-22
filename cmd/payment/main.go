@@ -42,7 +42,7 @@ func main() {
 	redisClient := newRedisClient(context.Background(), cfg, logger)
 	streamClient := newStreamClient(context.Background(), logger, redisClient)
 	sessionManager := session.NewManager(logger, redisClient, 48*time.Hour)
-	stagingClient := staging.NewClient(redisClient)
+	stagingClient := staging.NewClient(logger, redisClient)
 	streamHandler := stream.NewHandler(logger, stagingClient, store, streamClient)
 
 	stripeClient := &client.API{}
@@ -57,7 +57,7 @@ func main() {
 	api := rest.NewAPI(
 		logger,
 		store,
-		staging.NewClient(redisClient),
+		stagingClient,
 		streamClient,
 		stripeWrapper,
 		ihttp.NewSessionMiddleware(
