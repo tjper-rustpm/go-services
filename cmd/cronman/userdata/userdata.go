@@ -161,15 +161,16 @@ fn_dl_steamcmd(){
 }
 
 dpkg --add-architecture i386
-apt-get update && apt-get upgrade -y
-apt-get install -y \
+apt-get -o DPkg::Lock::Timeout=300 update && \
+apt-get -o DPkg::Lock::Timeout=300 upgrade -y && \
+apt-get -o DPkg::Lock::Timeout=300 install -y \
   ca-certificates \
   lib32gcc1 \
   libsdl2-2.0-0:i386 \
   libsdl2-2.0-0 \
   sqlite3 \
-        docker.io \
-        unzip
+  docker.io \
+  unzip
 
 echo steamcmd steam/license note '' | debconf-set-selections
 echo steamcmd steam/question select "I AGREE" | debconf-set-selections
