@@ -234,7 +234,7 @@ func (s Store) AddInvoiceToVipSubscription(
 			return fmt.Errorf("while retrieving subscription vip: %w", err)
 		}
 
-		expiresAt := model.ComputeVipExpiration(stripe.MonthlyVipSubscription)
+		expiresAt := model.ComputeVipExpiration(stripe.MonthlyVipPriceID())
 		vip.ExpiresAt = expiresAt
 
 		if err := tx.Model(&vip).Update("expires_at", expiresAt).Error; err != nil {

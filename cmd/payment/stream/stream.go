@@ -14,7 +14,6 @@ import (
 	"github.com/tjper/rustcron/internal/event"
 	"github.com/tjper/rustcron/internal/gorm"
 	"github.com/tjper/rustcron/internal/stream"
-	istripe "github.com/tjper/rustcron/internal/stripe"
 
 	"github.com/google/uuid"
 	"github.com/stripe/stripe-go/v72"
@@ -205,7 +204,7 @@ func (h Handler) processPaymentCheckoutSessionComplete(
 		return fmt.Errorf("while finding checkout by stripe event ID: %w", err)
 	}
 
-	expiresAt := model.ComputeVipExpiration(istripe.Price(stagedCheckout.PriceID))
+	expiresAt := model.ComputeVipExpiration(stagedCheckout.PriceID)
 
 	// NOTE: It is possible that two processes simultaneously execute the below
 	// CreateVip method. In the event this occurs, one will result an
@@ -295,7 +294,7 @@ func (h Handler) processSubscriptionCheckoutSessionComplete(
 			StripeCheckoutID: checkout.ID,
 			StripeEventID:    eventID,
 			ServerID:         stagedCheckout.ServerID,
-			ExpiresAt:        model.ComputeVipExpiration(istripe.Price(stagedCheckout.PriceID)),
+			ExpiresAt:        model.ComputeVipExpiration(stagedCheckout.PriceID),
 		},
 		&model.Subscription{
 			StripeSubscriptionID: checkout.Subscription.ID,

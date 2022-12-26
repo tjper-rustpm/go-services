@@ -6,20 +6,40 @@ import (
 	"time"
 
 	"github.com/stripe/stripe-go/v72"
+	"github.com/tjper/rustcron/cmd/payment/config"
 )
 
-// Price is a Stripe priced item. This a unique set of characters provided by
-// Stripe that is used to identify and utilize Stripe pricing.
-type Price string
+var (
+	// monthlyVipSubscriptionPriceID holds the monthly VIP price ID and should
+	// be accessed via the MonthlyVipPriceID function.
+	monthlyVipPriceID string
 
-const (
-	// MonthlyVipSubscription uniquely identifies the price of a monthy VIP
-	// subscription item.
-	MonthlyVipSubscription Price = "price_1KLJWjCEcXRU8XL2TVKcLGUO"
-	// WeeklyVipOneTime uniquely identifies the price of a one-time weekly VIP
-	// item.
-	WeeklyVipOneTime Price = "price_1LyigBCEcXRU8XL2L6eMGz6Y"
+	// fiveDayVipPriceID holds the five day VIP price ID and should be accessed
+	// via the FiveDayVipPriceID function.
+	fiveDayVipPriceID string
 )
+
+// MonthlyVipPriceID uniquely identifies the price of a monthy VIP item.
+// CAUTION: This function pulls the monthly VIP price ID from the config
+// package an may result in an env-var read.
+func MonthlyVipPriceID() string {
+	if monthlyVipPriceID == "" {
+		cfg := config.Load()
+		monthlyVipPriceID = cfg.StripeMonthlyVIPPriceID()
+	}
+	return monthlyVipPriceID
+}
+
+// FiveDayVipPriceID uniquely identifies the price of a five day VIP item.
+// CAUTION: This function pulls the five day VIP price ID from the config
+// package an may result in an env-var read.
+func FiveDayVipPriceID() string {
+	if fiveDayVipPriceID == "" {
+		cfg := config.Load()
+		fiveDayVipPriceID = cfg.StripeFiveDayVIPPriceID()
+	}
+	return fiveDayVipPriceID
+}
 
 var errUnrecognizedPriceID = errors.New("unrecognized price ID")
 
@@ -33,9 +53,9 @@ func NewCheckout(
 ) (*stripe.CheckoutSessionParams, error) {
 	var mode stripe.CheckoutSessionMode
 	switch priceID {
-	case string(MonthlyVipSubscription):
+	case MonthlyVipPriceID():
 		mode = stripe.CheckoutSessionModeSubscription
-	case string(WeeklyVipOneTime):
+	case FiveDayVipPriceID():
 		mode = stripe.CheckoutSessionModePayment
 	default:
 		return nil, fmt.Errorf("while building new checkout: %w", errUnrecognizedPriceID)

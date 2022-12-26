@@ -395,7 +395,7 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 
 					checkout.ServerID = shared.serverID
 					checkout.SteamID = steamID
-					checkout.PriceID = string(istripe.WeeklyVipOneTime)
+					checkout.PriceID = istripe.FiveDayVipPriceID()
 
 					return nil
 				}
@@ -458,7 +458,7 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 					"payment_status": "paid",
 					"line_items": map[string]interface{}{
 						"data": []map[string]interface{}{
-							{"price": istripe.WeeklyVipOneTime},
+							{"price": istripe.FiveDayVipPriceID()},
 						},
 					},
 				}
@@ -493,7 +493,7 @@ func TestHandlePaymentCheckoutSessionComplete(t *testing.T) {
 
 					checkout.ServerID = shared.serverID
 					checkout.SteamID = steamID
-					checkout.PriceID = string(istripe.WeeklyVipOneTime)
+					checkout.PriceID = istripe.FiveDayVipPriceID()
 
 					return nil
 				}
@@ -650,7 +650,7 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 
 					checkout.ServerID = shared.serverID
 					checkout.SteamID = steamID
-					checkout.PriceID = string(istripe.MonthlyVipSubscription)
+					checkout.PriceID = istripe.MonthlyVipPriceID()
 					checkout.UserID = shared.userID
 
 					return nil
@@ -714,7 +714,7 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 					"payment_status": "paid",
 					"line_items": map[string]interface{}{
 						"data": []map[string]interface{}{
-							{"price": istripe.MonthlyVipSubscription},
+							{"price": istripe.MonthlyVipPriceID()},
 						},
 					},
 				}
@@ -750,7 +750,7 @@ func TestHandleSubscriptionCheckoutSessionComplete(t *testing.T) {
 
 					checkout.ServerID = shared.serverID
 					checkout.SteamID = steamID
-					checkout.PriceID = string(istripe.MonthlyVipSubscription)
+					checkout.PriceID = istripe.MonthlyVipPriceID()
 					checkout.UserID = shared.userID
 
 					return nil

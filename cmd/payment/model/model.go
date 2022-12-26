@@ -25,13 +25,13 @@ type Vip struct {
 }
 
 // ComputeVipExpiration determines a VIP expiration based on a Stripe price.
-func ComputeVipExpiration(price stripe.Price) time.Time {
+func ComputeVipExpiration(price string) time.Time {
 	var expiresAt time.Time
 	switch price {
-	case stripe.MonthlyVipSubscription:
+	case stripe.MonthlyVipPriceID():
 		// Expires in 30 days.
 		expiresAt = time.Now().Add(30 * 24 * time.Hour).UTC()
-	case stripe.WeeklyVipOneTime:
+	case stripe.FiveDayVipPriceID():
 		// Expires in 5 days.
 		expiresAt = time.Now().Add(5 * 24 * time.Hour).UTC()
 	}

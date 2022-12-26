@@ -441,7 +441,7 @@ func TestCheckout(t *testing.T) {
 					"steamId":    uuid.NewString(),
 					"cancelUrl":  "https://rustpm.com/checkout/cancel",
 					"successUrl": "https://rustpm.com/checkout/success",
-					"priceId":    "price_1LyigBCEcXRU8XL2L6eMGz6Y",
+					"priceId":    istripe.FiveDayVipPriceID(),
 				}
 			},
 			checkoutEnabled:      false,
@@ -462,7 +462,7 @@ func TestCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/checkout/cancel",
 					"successUrl": "https://rustpm.com/checkout/success",
-					"priceId":    "price_1LyigBCEcXRU8XL2L6eMGz6Y",
+					"priceId":    istripe.FiveDayVipPriceID(),
 				}
 			},
 			checkoutEnabled: true,
@@ -488,7 +488,7 @@ func TestCheckout(t *testing.T) {
 
 					require.Equal(t, shared.serverID, checkout.ServerID)
 					require.Equal(t, shared.steamID, checkout.SteamID)
-					require.Equal(t, istripe.WeeklyVipOneTime, istripe.Price(checkout.PriceID))
+					require.Equal(t, istripe.FiveDayVipPriceID(), checkout.PriceID)
 
 					shared.expiresAt = time.Now().Add(time.Hour)
 					require.WithinDuration(t, shared.expiresAt, expiresAt, time.Second)
@@ -507,7 +507,7 @@ func TestCheckout(t *testing.T) {
 					require.Nil(t, params.Customer)
 
 					require.Len(t, params.LineItems, 1, "expected a single line-item")
-					require.Equal(t, istripe.WeeklyVipOneTime, istripe.Price(*params.LineItems[0].Price))
+					require.Equal(t, istripe.FiveDayVipPriceID(), *params.LineItems[0].Price)
 					require.Equal(t, 1, int(*params.LineItems[0].Quantity), "expected a line-item with quantity of 1")
 					return "https://stripe.com/checkout", nil
 				}
@@ -528,7 +528,7 @@ func TestCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/checkout/cancel",
 					"successUrl": "https://rustpm.com/checkout/success",
-					"priceId":    "price_1LyigBCEcXRU8XL2L6eMGz6Y",
+					"priceId":    istripe.FiveDayVipPriceID(),
 				}
 			},
 			checkoutEnabled: true,
@@ -554,7 +554,7 @@ func TestCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/checkout/cancel",
 					"successUrl": "https://rustpm.com/checkout/success",
-					"priceId":    "price_1LyigBCEcXRU8XL2L6eMGz6Y",
+					"priceId":    istripe.FiveDayVipPriceID(),
 				}
 			},
 			checkoutEnabled: true,
@@ -702,7 +702,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					"steamId":    uuid.NewString(),
 					"cancelUrl":  "https://rustpm.com/subscription/checkout/cancel",
 					"successUrl": "https://rustpm.com/subscription/checkout/success",
-					"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
+					"priceId":    istripe.MonthlyVipPriceID(),
 				}
 			},
 			checkoutEnabled:       false,
@@ -724,7 +724,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/subscription/checkout/cancel",
 					"successUrl": "https://rustpm.com/subscription/checkout/success",
-					"priceId":    istripe.MonthlyVipSubscription,
+					"priceId":    istripe.MonthlyVipPriceID(),
 				}
 			},
 			checkoutEnabled: true,
@@ -758,7 +758,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					require.Equal(t, shared.serverID, checkout.ServerID)
 					require.Equal(t, shared.steamID, checkout.SteamID)
 					require.Equal(t, shared.userID, checkout.UserID)
-					require.Equal(t, istripe.MonthlyVipSubscription, istripe.Price(checkout.PriceID))
+					require.Equal(t, istripe.MonthlyVipPriceID(), checkout.PriceID)
 
 					shared.expiresAt = time.Now().Add(time.Hour)
 					require.WithinDuration(t, shared.expiresAt, expiresAt, time.Second)
@@ -777,7 +777,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					require.Nil(t, params.Customer)
 
 					require.Len(t, params.LineItems, 1, "expected a single line-item")
-					require.Equal(t, istripe.MonthlyVipSubscription, istripe.Price(*params.LineItems[0].Price))
+					require.Equal(t, istripe.MonthlyVipPriceID(), *params.LineItems[0].Price)
 					require.Equal(t, 1, int(*params.LineItems[0].Quantity), "expected a line-item with quantity of 1")
 					return "https://stripe.com/subscription/checkout", nil
 				}
@@ -798,7 +798,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/subscription/checkout/cancel",
 					"successUrl": "https://rustpm.com/subscription/checkout/success",
-					"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
+					"priceId":    istripe.MonthlyVipPriceID(),
 				}
 			},
 			checkoutEnabled: true,
@@ -825,7 +825,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/subscription/checkout/cancel",
 					"successUrl": "https://rustpm.com/subscription/checkout/success",
-					"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
+					"priceId":    istripe.MonthlyVipPriceID(),
 				}
 			},
 			checkoutEnabled: true,
@@ -860,7 +860,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					"steamId":    shared.steamID,
 					"cancelUrl":  "https://rustpm.com/subscription/checkout/cancel",
 					"successUrl": "https://rustpm.com/subscription/checkout/success",
-					"priceId":    "price_1KLJWjCEcXRU8XL2TVKcLGUO",
+					"priceId":    istripe.MonthlyVipPriceID(),
 				}
 			},
 			checkoutEnabled: true,
@@ -915,7 +915,7 @@ func TestSubscriptionCheckout(t *testing.T) {
 					require.Equal(t, shared.stripeCustomerID, *params.Customer)
 
 					require.Len(t, params.LineItems, 1, "expected a single line-item")
-					require.Equal(t, istripe.MonthlyVipSubscription, istripe.Price(*params.LineItems[0].Price))
+					require.Equal(t, istripe.MonthlyVipPriceID(), *params.LineItems[0].Price)
 					require.Equal(t, 1, int(*params.LineItems[0].Quantity), "expected a line-item with quantity of 1")
 					return "https://stripe.com/subscription/checkout", nil
 				}

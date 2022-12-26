@@ -25,7 +25,7 @@ func (ep SubscriptionCheckout) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		SteamID    string    `json:"steamId" validate:"required"`
 		CancelURL  string    `json:"cancelUrl" validate:"required,url"`
 		SuccessURL string    `json:"successUrl" validate:"required,url"`
-		PriceID    string    `json:"priceId" validate:"required,oneof=price_1KLJWjCEcXRU8XL2TVKcLGUO"`
+		PriceID    string    `json:"priceId" validate:"required"`
 	}
 
 	var b body
@@ -35,6 +35,12 @@ func (ep SubscriptionCheckout) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := ep.valid.Struct(b); err != nil {
+		ihttp.ErrBadRequest(ep.logger, w, err)
+		return
+	}
+
+	tag := fmt.Sprintf("required,oneof=%s", istripe.MonthlyVipPriceID())
+	if err := ep.valid.Var(b.PriceID, tag); err != nil {
 		ihttp.ErrBadRequest(ep.logger, w, err)
 		return
 	}
