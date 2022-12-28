@@ -139,6 +139,7 @@ func (ctrl Controller) StartServer(
 
 	server := dormant.Server
 	options := []userdata.Option{
+		userdata.WithCloudWatchAgent(),
 		userdata.WithQueueBypassPlugin(),
 		userdata.WithUserCfg(
 			server.ID.String(),

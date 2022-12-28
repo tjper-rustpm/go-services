@@ -156,6 +156,20 @@ func TestGenerate(t *testing.T) {
 			optionsFlags: map[string]interface{}{},
 			opts:         []Option{WithServerCfg("Rustpm East Main", []string{"user1", "user2", "user3"})},
 		},
+		"cloudwatch agent": {
+			ip:           "east-main.rustpm.com",
+			identity:     "Rustpm East Main",
+			hostName:     "rustpm-east-1",
+			rconPassword: "rustpm-rconpassword",
+			maxPlayers:   100,
+			worldSize:    2000,
+			seed:         123,
+			salt:         321,
+			tickRate:     30,
+			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
+			description:  "Rustpm US East Main | Test Description",
+			opts:         []Option{WithCloudWatchAgent()},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

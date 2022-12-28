@@ -1,42 +1,4 @@
-package userdata
-
-import (
-	"fmt"
-	"sort"
-	"strings"
-)
-
-const (
-	launchTemplate = `
-export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRARY_PATH};
-
-echo "--- Starting Dedicated Server\n"
-while true; do
-  su -c "/home/rustserver/RustDedicated -batchmode -nographics %s -logfile" - rustserver
-  echo "\n--- Restarting Dedicated Server\n"
-done
---//
-`
-
-	userCfgTemplate = `
-su -c "cat <<EOT > /home/rustserver/server/%s/cfg/users.cfg
-%s
-EOT" -  rustserver
-`
-	serverCfgTemplate = `
-su -c "cat <<EOT > /home/rustserver/server/%s/cfg/server.cfg
-oxide.group remove vip
-oxide.group add vip
-oxide.grant group vip bypassqueue.allow
-%s
-EOT" -  rustserver
-`
-
-	cfgDirectoryScript = `
-su -c "mkdir -p /home/rustserver/server/%s/cfg" - rustserver
-`
-
-	installScript = `Content-Type: multipart/mixed; boundary="//"
+Content-Type: multipart/mixed; boundary="//"
 MIME-Version: 1.0
 
 --//
@@ -179,9 +141,12 @@ ln -s /usr/games/steamcmd /usr/bin/steamcmd
 
 id -u rustserver &>/dev/null || adduser --disabled-password --gecos "" rustserver
 fn_dl_steamcmd
-`
 
-	cloudWatchAgentScript = `
+su -c "curl --output Oxide.Rust-linux.zip -L https://github.com/OxideMod/Oxide.Rust/releases/latest/download/Oxide.Rust-linux.zip" - rustserver
+su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
+
+su -c "mkdir -p /home/rustserver/server/Rustpm East Main/cfg" - rustserver
+
 if ! type amazon-cloudwatch-agent-ctl >/dev/null 2>&1
 then
   wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb
@@ -191,150 +156,12 @@ fi
 echo '{"agent":{"metrics_collection_interval":60,"run_as_user":"root"},"metrics":{"aggregation_dimensions":[["InstanceId"]],"append_dimensions":{"AutoScalingGroupName":"${aws:AutoScalingGroupName}","ImageId":"${aws:ImageId}","InstanceId":"${aws:InstanceId}","InstanceType":"${aws:InstanceType}"},"metrics_collected":{"cpu":{"measurement":["cpu_usage_idle","cpu_usage_iowait","cpu_usage_user","cpu_usage_system"],"metrics_collection_interval":60,"resources":["*"],"totalcpu":false},"disk":{"measurement":["used_percent","inodes_free"],"metrics_collection_interval":60,"resources":["*"]},"diskio":{"measurement":["io_time","write_bytes","read_bytes","writes","reads"],"metrics_collection_interval":60,"resources":["*"]},"mem":{"measurement":["mem_used_percent"],"metrics_collection_interval":60},"netstat":{"measurement":["tcp_established","tcp_time_wait"],"metrics_collection_interval":60},"swap":{"measurement":["swap_used_percent"],"metrics_collection_interval":60}}}}' > /opt/aws/amazon-cloudwatch-agent/bin/config.json
 
 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json
-  `
+  
+export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRARY_PATH};
 
-	bluePrintWipeScript = `
-find /home/rustserver/server/%s -name "player\.blueprints\.*\.db" | xargs rm
- `
-	mapWipeScript = `
-find /home/rustserver/server/%s -name "proceduralmap\.*\.*\.*\.map" | xargs rm
- `
-
-	installOxideScript = `
-su -c "curl --output Oxide.Rust-linux.zip -L https://github.com/OxideMod/Oxide.Rust/releases/latest/download/Oxide.Rust-linux.zip" - rustserver
-su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
-`
-
-	installBypassQueuePluginScript = `
-su -c "curl https://umod.org/plugins/BypassQueue.cs --output /home/rustserver/oxide/plugins/BypassQueue.cs --create-dirs" - rustserver
-`
-)
-
-// Generate userdata to be used as an AWS EC2 instance's user data. Userdata is
-// executed when an EC2 instance starts.
-func Generate(
-	identity string,
-	hostName string,
-	rconPassword string,
-	maxPlayers int,
-	worldSize int,
-	seed int,
-	salt int,
-	tickRate int,
-	bannerURL string,
-	description string,
-	optionsFlags map[string]interface{},
-	opts ...Option,
-) string {
-	var s strings.Builder
-	s.WriteString(installScript)
-	s.WriteString(installOxideScript)
-	fmt.Fprintf(&s, cfgDirectoryScript, identity)
-
-	for _, opt := range opts {
-		s.WriteString(opt())
-	}
-
-	runtimeFlags := map[string]interface{}{
-		"server.ip":           "0.0.0.0",
-		"server.identity":     identity,
-		"server.hostname":     hostName,
-		"server.port":         "28015",
-		"rcon.ip":             "0.0.0.0",
-		"rcon.password":       rconPassword,
-		"rcon.web":            "1",
-		"rcon.port":           "28016",
-		"app.listenip":        "0.0.0.0",
-		"app.port":            "28082",
-		"server.maxplayers":   maxPlayers,
-		"server.worldsize":    worldSize,
-		"server.seed":         seed,
-		"server.salt":         salt,
-		"server.tickrate":     tickRate,
-		"server.saveinterval": 300,
-		"server.headerimage":  bannerURL,
-		"server.description":  description,
-	}
-	for flag, value := range optionsFlags {
-		runtimeFlags[flag] = value
-	}
-
-	var flags []string
-	for flag, value := range runtimeFlags {
-		if str, ok := value.(string); ok {
-			flags = append(flags, fmt.Sprintf("-%s \\\"%s\\\"", flag, str))
-			continue
-		}
-		flags = append(flags, fmt.Sprintf("-%s %v", flag, value))
-	}
-
-	// This is done for consistent string output so unit-testing is feasible.
-	sort.Slice(flags, func(i, j int) bool { return flags[i] < flags[j] })
-
-	fmt.Fprintf(&s, launchTemplate, strings.Join(flags, " "))
-
-	return s.String()
-}
-
-// Option is a userdata option that is used to configure the userdata.
-// Typically, Option is passed to Generate.
-type Option func() string
-
-// WithBluePrintWipe returns an Option that enables the generation of a
-// blueprint wipe script via Generate.
-func WithBluePrintWipe(identity string) Option {
-	return func() string {
-		return fmt.Sprintf(bluePrintWipeScript, identity)
-	}
-}
-
-// WithMapWipe returns an Option that enables the generation of a map wipe
-// script via Generate.
-func WithMapWipe(identity string) Option {
-	return func() string {
-		return fmt.Sprintf(mapWipeScript, identity)
-	}
-}
-
-// WithQueueBypassPlugin returns an Option that enables the queue bypass oxide
-// plugin.
-func WithQueueBypassPlugin() Option {
-	return func() string {
-		return installBypassQueuePluginScript
-	}
-}
-
-// WithCloudWatchAgent returns an Option that enables the cloud watch agent for
-// monitoring on the EC2 server.
-func WithCloudWatchAgent() Option {
-	return func() string {
-		return cloudWatchAgentScript
-	}
-}
-
-// WithUserCfg returns an Option that configures the userdata to create a user
-// config.
-func WithUserCfg(identity string, ownerIDs, moderatorIDs []string) Option {
-	cmds := make([]string, 0, len(ownerIDs)+len(moderatorIDs))
-	for _, id := range ownerIDs {
-		cmds = append(cmds, fmt.Sprintf("ownerid %s", id))
-	}
-	for _, id := range moderatorIDs {
-		cmds = append(cmds, fmt.Sprintf("moderatorid %s", id))
-	}
-	return func() string {
-		return fmt.Sprintf(userCfgTemplate, identity, strings.Join(cmds, "\n"))
-	}
-}
-
-// WithServerCfg returns an Option that configures the userdata to create a
-// server config.
-func WithServerCfg(identity string, steamIDs []string) Option {
-	cmds := make([]string, 0, len(steamIDs))
-	for _, id := range steamIDs {
-		cmds = append(cmds, fmt.Sprintf("oxide.usergroup add %s vip", id))
-	}
-	return func() string {
-		return fmt.Sprintf(serverCfgTemplate, identity, strings.Join(cmds, "\n"))
-	}
-}
+echo "--- Starting Dedicated Server\n"
+while true; do
+  su -c "/home/rustserver/RustDedicated -batchmode -nographics -app.listenip \"0.0.0.0\" -app.port \"28082\" -rcon.ip \"0.0.0.0\" -rcon.password \"rustpm-rconpassword\" -rcon.port \"28016\" -rcon.web \"1\" -server.description \"Rustpm US East Main | Test Description\" -server.headerimage \"https://s3.amazonaws.com/rustpm.public.assets/banner.png\" -server.hostname \"rustpm-east-1\" -server.identity \"Rustpm East Main\" -server.ip \"0.0.0.0\" -server.maxplayers 100 -server.port \"28015\" -server.salt 321 -server.saveinterval 300 -server.seed 123 -server.tickrate 30 -server.worldsize 2000 -logfile" - rustserver
+  echo "\n--- Restarting Dedicated Server\n"
+done
+--//
