@@ -89,7 +89,7 @@ func (s Server) IsLive() bool {
 func (s Server) Userdata(options ...userdata.Option) string {
 	return userdata.Generate(
 		s.ID.String(),
-		s.Name,
+		fmt.Sprintf("Rustpm.com - %s", s.Name),
 		s.RconPassword,
 		int(s.MaxPlayers),
 		int(s.MapSize),
