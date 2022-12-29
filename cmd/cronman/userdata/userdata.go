@@ -184,7 +184,7 @@ fn_dl_steamcmd
 	cloudWatchAgentScript = `
 if ! type amazon-cloudwatch-agent-ctl >/dev/null 2>&1
 then
-  wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb
+  wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
   dpkg -i -E ./amazon-cloudwatch-agent.deb
 fi
 
