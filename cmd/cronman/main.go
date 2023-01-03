@@ -220,6 +220,7 @@ func newServerDirector(ctx context.Context, logger *zap.Logger) *controller.Serv
 	euCentralEC2 := ec2.NewFromConfig(awscfg, func(opts *ec2.Options) {
 		opts.Region = "eu-central-1"
 	})
+	logger.Info("[Startup] Loaded eu-central-1 client.")
 
 	return controller.NewServerDirector(
 		server.NewManager(logger, usEastEC2),
