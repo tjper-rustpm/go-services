@@ -106,7 +106,7 @@ func TestGenerate(t *testing.T) {
 				WithMapWipe("Rustpm East Main"),
 			},
 		},
-		"queuebypass": {
+		"plugins": {
 			ip:           "east-main.rustpm.com",
 			identity:     "Rustpm East Main",
 			hostName:     "rustpm-east-1",
@@ -119,7 +119,11 @@ func TestGenerate(t *testing.T) {
 			bannerURL:    "https://s3.amazonaws.com/rustpm.public.assets/banner.png",
 			description:  "Rustpm US East Main | Test Description",
 			optionsFlags: map[string]interface{}{},
-			opts:         []Option{WithQueueBypassPlugin()},
+			opts: []Option{
+				WithQueueBypassPlugin(),
+				WithAdminRadarPlugin(),
+				WithVanishPlugin(),
+			},
 		},
 		"usercfg": {
 			ip:           "east-main.rustpm.com",
