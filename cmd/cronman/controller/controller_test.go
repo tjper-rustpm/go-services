@@ -459,6 +459,61 @@ func TestStartServer(t *testing.T) {
 		moderators model.Moderators
 		exp        expected
 	}{
+		"queuebypass, adminradar, and vanish plugins": {
+			wipes: model.Wipes{
+				{
+					Model:     imodel.Model{At: imodel.At{CreatedAt: oneDayAgo}},
+					Kind:      model.WipeKindFull,
+					MapSeed:   3000,
+					MapSalt:   4000,
+					AppliedAt: sql.NullTime{Time: twentyThreeHoursAgo, Valid: true},
+				},
+			},
+			exp: expected{
+				userdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`umod\.org\/plugins\/BypassQueue\.cs`),
+					regexp.MustCompile(`umod\.org\/plugins\/Vanish\.cs`),
+					regexp.MustCompile(`umod\.org\/plugins\/AdminRadar\.cs`),
+				},
+				negativeUserdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`player\\\.blueprints.+\|\sxargs\srm`),
+					regexp.MustCompile(`proceduralmap.+\|\sxargs\srm`),
+				},
+				server: model.DormantServer{
+					Server: model.Server{
+						Name:         "test-server",
+						InstanceID:   "instance-id",
+						InstanceKind: model.InstanceKindStandard,
+						AllocationID: "allocation-ID",
+						ElasticIP:    "elastic-IP",
+						MaxPlayers:   200,
+						MapSize:      2000,
+						TickRate:     30,
+						RconPassword: "rcon-password",
+						Description:  "description",
+						Background:   model.BackgroundKindAirport,
+						URL:          "https://rustpm.com",
+						BannerURL:    "https://rustpm.com",
+						Region:       model.RegionUsEast,
+						Options:      map[string]interface{}{},
+						Moderators:   model.Moderators{},
+						Events:       model.Events{},
+						Tags:         model.Tags{},
+						Vips:         model.Vips{},
+						Owners:       model.Owners{},
+						Wipes: model.Wipes{
+							{
+								Model:     imodel.Model{At: imodel.At{CreatedAt: oneDayAgo}},
+								Kind:      model.WipeKindFull,
+								MapSeed:   3000,
+								MapSalt:   4000,
+								AppliedAt: sql.NullTime{Time: twentyThreeHoursAgo, Valid: true},
+							},
+						},
+					},
+				},
+			},
+		},
 		"no wipe to apply": {
 			wipes: model.Wipes{
 				{

@@ -148,6 +148,10 @@ su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
 su -c "mkdir -p /home/rustserver/server/Rustpm East Main/cfg" - rustserver
 
 su -c "cat <<EOT > /home/rustserver/server/Rustpm East Main/cfg/server.cfg
+oxide.grant group admin adminradar.allowed
+oxide.grant group admin adminradar.bypass
+oxide.grand group admin vanish.allow
+
 oxide.group remove vip
 oxide.group add vip
 oxide.grant group vip bypassqueue.allow

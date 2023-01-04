@@ -149,6 +149,10 @@ su -c "mkdir -p /home/rustserver/server/Rustpm East Main/cfg" - rustserver
 
 su -c "curl https://umod.org/plugins/BypassQueue.cs --output /home/rustserver/oxide/plugins/BypassQueue.cs --create-dirs" - rustserver
 
+su -c "curl https://umod.org/plugins/AdminRadar.cs --output /home/rustserver/oxide/plugins/AdminRadar.cs --create-dirs" - rustserver
+
+su -c "curl https://umod.org/plugins/Vanish.cs --output /home/rustserver/oxide/plugins/Vanish.cs --create-dirs" - rustserver
+
 export LD_LIBRARY_PATH=/home/rustserver:/home/rustserver/RustDedicated:{LD_LIBRARY_PATH};
 
 echo "--- Starting Dedicated Server\n"

@@ -141,6 +141,8 @@ func (ctrl Controller) StartServer(
 	options := []userdata.Option{
 		userdata.WithCloudWatchAgent(),
 		userdata.WithQueueBypassPlugin(),
+		userdata.WithVanishPlugin(),
+		userdata.WithAdminRadarPlugin(),
 		userdata.WithUserCfg(
 			server.ID.String(),
 			server.Owners.SteamIDs(),

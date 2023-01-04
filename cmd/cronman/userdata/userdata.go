@@ -18,13 +18,27 @@ done
 --//
 `
 
+	// NOTE: The users.cfg file is processed on each launch of the rust server.
+	// Users removed and or added to users.cfg will be added and removed from the
+	// server, no other operations are necessary.
 	userCfgTemplate = `
 su -c "cat <<EOT > /home/rustserver/server/%s/cfg/users.cfg
 %s
 EOT" -  rustserver
 `
+	// NOTE: The server.cfg is processed on each launch of the rust server. The
+	// settings it modifies may persist between server starts, therefore it is
+	// critical to remove and initialize all configuration to ensure the server
+	// is operating predictably.
+	//
+	// NOTE: This script assumes that the following oxide plugins are installed:
+	// bypassqueue, adminradar, and vanish.
 	serverCfgTemplate = `
 su -c "cat <<EOT > /home/rustserver/server/%s/cfg/server.cfg
+oxide.grant group admin adminradar.allowed
+oxide.grant group admin adminradar.bypass
+oxide.grand group admin vanish.allow
+
 oxide.group remove vip
 oxide.group add vip
 oxide.grant group vip bypassqueue.allow
@@ -208,6 +222,14 @@ su -c "unzip -o -d /home/rustserver/ Oxide.Rust-linux.zip" - rustserver
 	installBypassQueuePluginScript = `
 su -c "curl https://umod.org/plugins/BypassQueue.cs --output /home/rustserver/oxide/plugins/BypassQueue.cs --create-dirs" - rustserver
 `
+
+	installVanishPluginScript = `
+su -c "curl https://umod.org/plugins/Vanish.cs --output /home/rustserver/oxide/plugins/Vanish.cs --create-dirs" - rustserver
+`
+
+	installAdminRadarPluginScript = `
+su -c "curl https://umod.org/plugins/AdminRadar.cs --output /home/rustserver/oxide/plugins/AdminRadar.cs --create-dirs" - rustserver
+`
 )
 
 // Generate userdata to be used as an AWS EC2 instance's user data. Userdata is
@@ -301,6 +323,21 @@ func WithMapWipe(identity string) Option {
 func WithQueueBypassPlugin() Option {
 	return func() string {
 		return installBypassQueuePluginScript
+	}
+}
+
+// WithVanishPlugin returns an Option that enables the vanish oxide plugin.
+func WithVanishPlugin() Option {
+	return func() string {
+		return installVanishPluginScript
+	}
+}
+
+// WithAdminRadarPlugin returns an Option that enables the admin radar oxide
+// plugin.
+func WithAdminRadarPlugin() Option {
+	return func() string {
+		return installAdminRadarPluginScript
 	}
 }
 
