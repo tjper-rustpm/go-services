@@ -18,6 +18,7 @@ Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment; filename="userdata.txt"
 
 #!/bin/bash
+
 exitcode=0
 green="\e[32m"
 red="\e[31m"
@@ -127,12 +128,12 @@ apt-get -o DPkg::Lock::Timeout=300 update && \
 apt-get -o DPkg::Lock::Timeout=300 upgrade -y && \
 apt-get -o DPkg::Lock::Timeout=300 install -y \
   ca-certificates \
-  lib32gcc1 \
+  lib32gcc-s1 \
   libsdl2-2.0-0:i386 \
   libsdl2-2.0-0 \
   sqlite3 \
   docker.io \
-  unzip
+  unzip || exit 1
 
 echo steamcmd steam/license note '' | debconf-set-selections
 echo steamcmd steam/question select "I AGREE" | debconf-set-selections
