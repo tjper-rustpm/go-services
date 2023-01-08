@@ -573,12 +573,12 @@ func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.Live
 }
 
 func (ctrl *Controller) SayServerTimeRemaining(ctx context.Context, server model.LiveServer, rcon rcon.IRcon) error {
-	_, when, err := server.Server.Events.NextEvent(ctrl.time.Now(), model.EventKindStop)
+	_, whenOffline, err := server.Server.Events.NextEvent(ctrl.time.Now(), model.EventKindStop)
 	if err != nil {
-		return fmt.Errorf("while determining next live server event: %w", err)
+		return fmt.Errorf("while determining next stop server event: %w", err)
 	}
 
-	until := ctrl.time.Until(*when)
+	until := ctrl.time.Until(*whenOffline)
 	until = until.Round(time.Minute)
 
 	var b strings.Builder
@@ -601,11 +601,12 @@ func (ctrl *Controller) SayServerTimeRemaining(ctx context.Context, server model
 		fmt.Fprintf(&b, " %d minute", minutes)
 	}
 
-	fmt.Fprint(&b, ". Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!")
+	fmt.Fprint(&b, ". Visit rustpm.com for more scheduling information.")
 
 	if err := rcon.Say(ctx, b.String()); err != nil {
 		return fmt.Errorf("while saying server time remaining: %w", err)
 	}
+
 	return nil
 }
 
