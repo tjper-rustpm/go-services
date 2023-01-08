@@ -37,7 +37,7 @@ EOT" -  rustserver
 su -c "cat <<EOT > /home/rustserver/server/%s/cfg/server.cfg
 oxide.grant group admin adminradar.allowed
 oxide.grant group admin adminradar.bypass
-oxide.grand group admin vanish.allow
+oxide.grant group admin vanish.allow
 
 oxide.group remove vip
 oxide.group add vip
