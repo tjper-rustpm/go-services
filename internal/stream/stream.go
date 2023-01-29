@@ -196,6 +196,6 @@ func (c Client) extractMessage(messages []redis.XMessage) (*Message, error) {
 }
 
 type Message struct {
-	ID      string
-	Payload []byte
+	ID      string `json:"id"`
+	Payload []byte `json:"payload"`
 }

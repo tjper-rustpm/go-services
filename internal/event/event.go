@@ -65,16 +65,16 @@ func New(kind Kind) Event {
 
 // Event is a generic Rustpm system event.
 type Event struct {
-	ID        uuid.UUID
-	Kind      Kind
-	CreatedAt time.Time
+	ID        uuid.UUID `json:"id"`
+	Kind      Kind      `json:"kind"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // StripeWebhookEvent is fired when a Stripe webhook event is available to
 // processed.
 type StripeWebhookEvent struct {
 	Event
-	StripeEvent stripe.Event
+	StripeEvent stripe.Event `json:"stripeEvent"`
 }
 
 // NewStripeWebhookEvent creates a new StripeWebhookEvent instance.
@@ -89,9 +89,9 @@ func NewStripeWebhookEvent(stripeEvent stripe.Event) StripeWebhookEvent {
 // expiration refreshed.
 type VipRefreshEvent struct {
 	Event
-	ServerID  uuid.UUID
-	SteamID   string
-	ExpiresAt time.Time
+	ServerID  uuid.UUID `json:"serverId"`
+	SteamID   string    `json:"steamId"`
+	ExpiresAt time.Time `json:"expiresAt"`
 }
 
 // NewVipRefreshEvent creates a new VipRefreshEvent instance.
@@ -116,20 +116,20 @@ const (
 )
 
 type ServerDetails struct {
-	Status        ServerStatus
-	ActivePlayers int
-	MaxPlayers    int
+	Status        ServerStatus `json:"status"`
+	ActivePlayers int          `json:"activePlayers"`
+	MaxPlayers    int          `json:"maxPlayers"`
 
 	// Mask constains the fields that have new values within the ServerDetails
 	// instance.
-	Mask []string
+	Mask []string `json:"mask"`
 }
 
 // ServerStatusChangeEvent is fired when a Rustpm server's status changes.
 type ServerStatusChangeEvent struct {
 	Event
-	ServerID uuid.UUID
-	Details  ServerDetails
+	ServerID uuid.UUID     `json:"serverId"`
+	Details  ServerDetails `json:"details"`
 }
 
 // NewServerStatusChangeEvent creates a new ServerStatusEvent instance.

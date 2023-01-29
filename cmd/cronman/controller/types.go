@@ -84,7 +84,6 @@ type Controller struct {
 
 	store *gorm.DB
 
-	// TODO: Should rename this to director or serverDirector.
 	serverDirector *ServerDirector
 	hub            IHub
 	waiter         IWaiter
