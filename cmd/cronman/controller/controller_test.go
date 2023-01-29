@@ -284,7 +284,7 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be going offline in 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 1 minute. Visit rustpm.com for more scheduling information.",
 			},
 		},
 		{
@@ -292,7 +292,7 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   30 * time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be going offline in 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 30 minutes. Visit rustpm.com for more scheduling information.",
 			},
 		},
 		{
@@ -300,7 +300,7 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   time.Hour,
 			exp: expected{
-				said: "Rustpm Test Server will be going offline in 1 hour. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 1 hour. Visit rustpm.com for more scheduling information.",
 			},
 		},
 		{
@@ -308,7 +308,7 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   time.Hour + 30*time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be going offline in 1 hour and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 1 hour and 30 minutes. Visit rustpm.com for more scheduling information.",
 			},
 		},
 		{
@@ -316,7 +316,7 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   2 * time.Hour,
 			exp: expected{
-				said: "Rustpm Test Server will be going offline in 2 hours. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 2 hours. Visit rustpm.com for more scheduling information.",
 			},
 		},
 		{
@@ -324,7 +324,7 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   2*time.Hour + time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be going offline in 2 hours and 1 minute. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 2 hours and 1 minute. Visit rustpm.com for more scheduling information.",
 			},
 		},
 		{
@@ -332,7 +332,7 @@ func TestSayServerTimeRemaining(t *testing.T) {
 			serverName: "Rustpm Test Server",
 			duration:   2*time.Hour + 30*time.Minute,
 			exp: expected{
-				said: "Rustpm Test Server will be going offline in 2 hours and 30 minutes. Please visit rustpm.com for more scheduling information, an overview of our servers, and VIP access!",
+				said: "Rustpm Test Server will be going offline in 2 hours and 30 minutes. Visit rustpm.com for more scheduling information.",
 			},
 		},
 	}
@@ -490,6 +490,61 @@ func TestStartServer(t *testing.T) {
 		moderators model.Moderators
 		exp        expected
 	}{
+		"queuebypass, adminradar, and vanish plugins": {
+			wipes: model.Wipes{
+				{
+					Model:     imodel.Model{At: imodel.At{CreatedAt: oneDayAgo}},
+					Kind:      model.WipeKindFull,
+					MapSeed:   3000,
+					MapSalt:   4000,
+					AppliedAt: sql.NullTime{Time: twentyThreeHoursAgo, Valid: true},
+				},
+			},
+			exp: expected{
+				userdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`umod\.org\/plugins\/BypassQueue\.cs`),
+					regexp.MustCompile(`umod\.org\/plugins\/Vanish\.cs`),
+					regexp.MustCompile(`umod\.org\/plugins\/AdminRadar\.cs`),
+				},
+				negativeUserdataREs: []*regexp.Regexp{
+					regexp.MustCompile(`player\\\.blueprints.+\|\sxargs\srm`),
+					regexp.MustCompile(`proceduralmap.+\|\sxargs\srm`),
+				},
+				server: model.DormantServer{
+					Server: model.Server{
+						Name:         "test-server",
+						InstanceID:   "instance-id",
+						InstanceKind: model.InstanceKindStandard,
+						AllocationID: "allocation-ID",
+						ElasticIP:    "elastic-IP",
+						MaxPlayers:   200,
+						MapSize:      2000,
+						TickRate:     30,
+						RconPassword: "rcon-password",
+						Description:  "description",
+						Background:   model.BackgroundKindAirport,
+						URL:          "https://rustpm.com",
+						BannerURL:    "https://rustpm.com",
+						Region:       model.RegionUsEast,
+						Options:      map[string]interface{}{},
+						Moderators:   model.Moderators{},
+						Events:       model.Events{},
+						Tags:         model.Tags{},
+						Vips:         model.Vips{},
+						Owners:       model.Owners{},
+						Wipes: model.Wipes{
+							{
+								Model:     imodel.Model{At: imodel.At{CreatedAt: oneDayAgo}},
+								Kind:      model.WipeKindFull,
+								MapSeed:   3000,
+								MapSalt:   4000,
+								AppliedAt: sql.NullTime{Time: twentyThreeHoursAgo, Valid: true},
+							},
+						},
+					},
+				},
+			},
+		},
 		"no wipe to apply": {
 			wipes: model.Wipes{
 				{

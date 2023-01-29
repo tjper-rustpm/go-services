@@ -118,7 +118,7 @@ func (c *Client) Close() {
 func (c Client) Say(ctx context.Context, msg string) error {
 	out := &Outbound{
 		Identifier: -1,
-		Message:    fmt.Sprintf("say \"%s\"", msg),
+		Message:    fmt.Sprintf("say %s", msg),
 		Name:       "WebRcon",
 	}
 	if err := c.router.Write(ctx, *out); err != nil {
