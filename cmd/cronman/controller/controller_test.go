@@ -3,21 +3,25 @@ package controller
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/tjper/rustcron/cmd/cronman/db"
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/server"
+	"github.com/tjper/rustcron/internal/event"
 	imodel "github.com/tjper/rustcron/internal/model"
+	"github.com/tjper/rustcron/internal/stream"
 	itime "github.com/tjper/rustcron/internal/time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -167,6 +171,7 @@ func TestCaptureServerInfo(t *testing.T) {
 
 	type expected struct {
 		liveServer model.LiveServer
+		event      event.ServerStatusChangeEvent
 	}
 	tests := []struct {
 		name       string
@@ -190,6 +195,16 @@ func TestCaptureServerInfo(t *testing.T) {
 					QueuedPlayers: 5,
 					Server:        *alphaServer.Clone(),
 				},
+				event: event.ServerStatusChangeEvent{
+					Event: event.Event{
+						Kind: "server_status_change",
+					},
+					Details: event.ServerDetails{
+						ActivePlayers: 101,
+						MaxPlayers:    int(alphaServer.MaxPlayers),
+						Mask:          []string{"activePlayers", "maxPlayers"},
+					},
+				},
 			},
 		},
 	}
@@ -204,9 +219,25 @@ func TestCaptureServerInfo(t *testing.T) {
 			err = db.Migrate(store, migrations)
 			require.Nil(t, err)
 
+			eventStream := stream.NewClientMock(
+				stream.WithWrite(func(_ context.Context, b []byte) error {
+					var event event.ServerStatusChangeEvent
+					err := json.Unmarshal(b, &event)
+					require.Nil(t, err)
+
+					event.ID = uuid.Nil
+					event.CreatedAt = time.Time{}
+					test.exp.event.ServerID = test.server.Server.ID
+
+					require.Equal(t, test.exp.event, event)
+					return nil
+				}),
+			)
+
 			controller := &Controller{
-				logger: zap.NewNop(),
-				store:  store,
+				logger:      zap.NewNop(),
+				store:       store,
+				eventStream: eventStream,
 			}
 
 			err = store.WithContext(ctx).Create(&test.server).Error
@@ -801,6 +832,208 @@ func TestStartServer(t *testing.T) {
 			test.exp.server.Scrub()
 
 			require.Equal(t, test.exp.server, *startedServer)
+		})
+	}
+}
+
+func TestMakeServerLive(t *testing.T) {
+	switch {
+	case dsn == "":
+		t.Skip("CRONMAN_DSN must be set to execute this test.")
+	case migrations == "":
+		t.Skip("CRONMAN_MIGRATIONS must be set to execute this test.")
+	}
+
+	type expected struct {
+		associationID string
+		event         event.ServerStatusChangeEvent
+	}
+	tests := map[string]struct {
+		server        model.DormantServer
+		associationID string
+		exp           expected
+	}{
+		"happy path": {
+			server:        model.DormantServer{Server: *zeroServer.Clone()},
+			associationID: "make-server-available-association-id",
+			exp: expected{
+				associationID: "make-server-available-association-id",
+				event: event.ServerStatusChangeEvent{
+					Event: event.Event{
+						Kind: "server_status_change",
+					},
+					Details: event.ServerDetails{
+						Status: event.Live,
+						Mask:   []string{"status"},
+					},
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			store, err := db.Open(dsn)
+			require.Nil(t, err)
+
+			err = db.Migrate(store, migrations)
+			require.Nil(t, err)
+
+			serverManager := server.NewMockManager()
+			serverManager.SetMakeInstanceAvailableHandler(func(_ context.Context, instanceID string, allocationID string) (*server.AssociationOutput, error) {
+				return &server.AssociationOutput{
+					AssociateAddressOutput: ec2.AssociateAddressOutput{
+						AssociationId: aws.String("make-server-available-association-id"),
+					},
+				}, nil
+			})
+
+			eventStream := stream.NewClientMock(
+				stream.WithWrite(
+					func(_ context.Context, b []byte) error {
+						var event event.ServerStatusChangeEvent
+						err := json.Unmarshal(b, &event)
+						require.Nil(t, err)
+
+						event.ID = uuid.Nil
+						event.CreatedAt = time.Time{}
+						test.exp.event.ServerID = test.server.Server.ID
+
+						require.Equal(t, test.exp.event, event)
+						return nil
+					},
+				),
+			)
+
+			controller := &Controller{
+				logger: zap.NewNop(),
+				waiter: rcon.NewWaiterMock(100 * time.Millisecond),
+				store:  store,
+				serverController: NewServerDirector(
+					serverManager,
+					serverManager,
+					serverManager,
+				),
+				eventStream: eventStream,
+			}
+
+			err = store.WithContext(ctx).Create(&test.server).Error
+			require.Nil(t, err)
+			defer func() {
+				err = store.WithContext(ctx).Delete(&test.server).Error
+				require.Nil(t, err)
+			}()
+
+			liveServer, err := controller.MakeServerLive(ctx, test.server.Server.ID)
+			require.Nil(t, err)
+			defer func() {
+				err = store.WithContext(ctx).Delete(liveServer).Error
+				require.Nil(t, err)
+			}()
+
+			require.Equal(t, test.exp.associationID, liveServer.AssociationID)
+		})
+	}
+}
+
+func TestStopServer(t *testing.T) {
+	switch {
+	case dsn == "":
+		t.Skip("CRONMAN_DSN must be set to execute this test.")
+	case migrations == "":
+		t.Skip("CRONMAN_MIGRATIONS must be set to execute this test.")
+	}
+
+	type expected struct {
+		event event.ServerStatusChangeEvent
+	}
+	tests := map[string]struct {
+		server model.LiveServer
+		exp    expected
+	}{
+		"happy path": {
+			server: model.LiveServer{
+				Server:        *zeroServer.Clone(),
+				AssociationID: "stop-server-association-id",
+			},
+			exp: expected{
+				event: event.ServerStatusChangeEvent{
+					Event: event.Event{
+						Kind: "server_status_change",
+					},
+					Details: event.ServerDetails{
+						Status: event.Offline,
+						Mask:   []string{"status"},
+					},
+				},
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			store, err := db.Open(dsn)
+			require.Nil(t, err)
+
+			err = db.Migrate(store, migrations)
+			require.Nil(t, err)
+
+			serverManager := server.NewMockManager()
+			serverManager.SetMakeInstanceUnavailableHandler(func(_ context.Context, _ string) error {
+				return nil
+			})
+			serverManager.SetStopInstanceHandler(func(_ context.Context, _ string) error {
+				return nil
+			})
+
+			eventStream := stream.NewClientMock(
+				stream.WithWrite(
+					func(_ context.Context, b []byte) error {
+						var event event.ServerStatusChangeEvent
+						err := json.Unmarshal(b, &event)
+						require.Nil(t, err)
+
+						event.ID = uuid.Nil
+						event.CreatedAt = time.Time{}
+						test.exp.event.ServerID = test.server.Server.ID
+
+						require.Equal(t, test.exp.event, event)
+						return nil
+					},
+				),
+			)
+
+			controller := &Controller{
+				logger: zap.NewNop(),
+				hub:    rcon.NewHubMock(),
+				store:  store,
+				serverController: NewServerDirector(
+					serverManager,
+					serverManager,
+					serverManager,
+				),
+				eventStream: eventStream,
+			}
+
+			err = store.WithContext(ctx).Create(&test.server).Error
+			require.Nil(t, err)
+			defer func() {
+				err = store.WithContext(ctx).Delete(&test.server).Error
+				require.Nil(t, err)
+			}()
+
+			dormantServer, err := controller.StopServer(ctx, test.server.Server.ID)
+			require.Nil(t, err)
+			defer func() {
+				err = store.WithContext(ctx).Delete(dormantServer).Error
+				require.Nil(t, err)
+			}()
 		})
 	}
 }

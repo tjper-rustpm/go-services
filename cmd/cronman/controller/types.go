@@ -14,6 +14,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// StreamWriter writes a slice of bytes to an event stream.
+type StreamWriter interface {
+	Write(context.Context, []byte) error
+}
+
 // IServerManager represents the API by which the Controller interacts with
 // Rust servers.
 type IServerManager interface {
@@ -57,6 +62,7 @@ func New(
 	hub IHub,
 	waiter IWaiter,
 	notifier INotifier,
+	eventStream StreamWriter,
 ) *Controller {
 	return &Controller{
 		logger:           logger.With(zap.String("controller-id", uuid.NewString())),
@@ -66,6 +72,7 @@ func New(
 		hub:              hub,
 		waiter:           waiter,
 		notifier:         notifier,
+		eventStream:      eventStream,
 	}
 }
 
@@ -77,10 +84,12 @@ type Controller struct {
 
 	store *gorm.DB
 
+	// TODO: Should rename this to director or serverDirector.
 	serverController *ServerDirector
 	hub              IHub
 	waiter           IWaiter
 	notifier         INotifier
+	eventStream      StreamWriter
 }
 
 // NewServerDirerctor creates a new ServerDirector object.

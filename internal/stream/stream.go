@@ -30,6 +30,11 @@ const (
 // Init intializes a stream Client associated with the specified with group.
 // Multiple Client instances with the same group will form a round-robin queue.
 func Init(ctx context.Context, logger *zap.Logger, rdb *redis.Client, group string) (*Client, error) {
+	// NOTE: The start constant below is 0, meaning the newly created group will
+	// start at the very beginning of the stream. This is not an issue because
+	// we later read the stream utilizing the ">" special ID. This ID results
+	// messages being read that have "never been delivered to any other
+	// "consumer". https://redis.io/commands/xreadgroup/
 	err := rdb.XGroupCreateMkStream(ctx, stream, group, start).Err()
 	if err != nil && !(err.Error() == errBusyGroup.Error()) {
 		return nil, fmt.Errorf("initializing stream; error: %w", err)
@@ -117,7 +122,7 @@ func (c *Client) Claim(ctx context.Context, idle time.Duration) (*Message, error
 		zap.ByteString("payload", m.Payload),
 	)
 
-	return c.extractMessage(messages)
+	return m, err
 }
 
 // Read reads a message from the persistent stream.

@@ -33,6 +33,8 @@ func Parse(b []byte) (interface{}, error) {
 		event = &StripeWebhookEvent{}
 	case VipRefresh:
 		event = &VipRefreshEvent{}
+	case ServerStatusChange:
+		event = &ServerStatusChangeEvent{}
 	default:
 		return nil, fmt.Errorf("unexpected event; kind: %s, error: %w", str, errKindInvalid)
 	}
@@ -47,8 +49,9 @@ func Parse(b []byte) (interface{}, error) {
 type Kind string
 
 const (
-	StripeWebhook Kind = "stripe_webhook"
-	VipRefresh    Kind = "vip_refresh"
+	StripeWebhook      Kind = "stripe_webhook"
+	VipRefresh         Kind = "vip_refresh"
+	ServerStatusChange Kind = "server_status_change"
 )
 
 // New creates a new Event instance.
@@ -102,5 +105,76 @@ func NewVipRefreshEvent(
 		ServerID:  serverID,
 		SteamID:   steamID,
 		ExpiresAt: expiresAt,
+	}
+}
+
+type ServerStatus string
+
+const (
+	Live    ServerStatus = "live_server"
+	Offline ServerStatus = "offline_server"
+)
+
+type ServerDetails struct {
+	Status        ServerStatus
+	ActivePlayers int
+	MaxPlayers    int
+
+	// Mask constains the fields that have new values within the ServerDetails
+	// instance.
+	Mask []string
+}
+
+// ServerStatusChangeEvent is fired when a Rustpm server's status changes.
+type ServerStatusChangeEvent struct {
+	Event
+	ServerID uuid.UUID
+	Details  ServerDetails
+}
+
+// NewServerStatusChangeEvent creates a new ServerStatusEvent instance.
+func NewServerStatusChangeEvent(serverID uuid.UUID, changes ...ServerChange) ServerStatusChangeEvent {
+	event := ServerStatusChangeEvent{
+		Event:    New(ServerStatusChange),
+		ServerID: serverID,
+		Details: ServerDetails{
+			Mask: make([]string, 0),
+		},
+	}
+
+	for _, change := range changes {
+		change(&event)
+	}
+
+	return event
+}
+
+// ServerChange is a function type encompasses implementations that modify the
+// ServerStatusEvent to include details of a server change.
+type ServerChange func(*ServerStatusChangeEvent)
+
+// WithStatusChange updates a ServerStatusEvent to have the status specified.
+func WithStatusChange(status ServerStatus) ServerChange {
+	return func(e *ServerStatusChangeEvent) {
+		e.Details.Status = status
+		e.Details.Mask = append(e.Details.Mask, "status")
+	}
+}
+
+// WithActivePlayers updates a ServerStatusEvent to have the number of active
+// players specified.
+func WithActivePlayers(activePlayers int) ServerChange {
+	return func(e *ServerStatusChangeEvent) {
+		e.Details.ActivePlayers = activePlayers
+		e.Details.Mask = append(e.Details.Mask, "activePlayers")
+	}
+}
+
+// WithMaxPlayers updates a ServerStatusEvent to have the number of max players
+// specified.
+func WithMaxPlayers(maxPlayers int) ServerChange {
+	return func(e *ServerStatusChangeEvent) {
+		e.Details.MaxPlayers = maxPlayers
+		e.Details.Mask = append(e.Details.Mask, "maxPlayers")
 	}
 }

@@ -4,6 +4,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -17,6 +18,7 @@ import (
 	"github.com/tjper/rustcron/cmd/cronman/model"
 	"github.com/tjper/rustcron/cmd/cronman/rcon"
 	"github.com/tjper/rustcron/cmd/cronman/userdata"
+	"github.com/tjper/rustcron/internal/event"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -236,7 +238,7 @@ func (ctrl Controller) MakeServerLive(
 		return nil, fmt.Errorf("ping until ready; %w", err)
 	}
 
-	return db.MakeServerLive(
+	liveServer, err := db.MakeServerLive(
 		ctx,
 		ctrl.store,
 		db.MakeServerLiveInput{
@@ -244,6 +246,13 @@ func (ctrl Controller) MakeServerLive(
 			AssociationID: *instance.AssociationId,
 		},
 	)
+
+	liveEvent := event.NewServerStatusChangeEvent(id, event.WithStatusChange(event.Live))
+	if err := ctrl.writeToEventStream(ctx, &liveEvent); err != nil {
+		return nil, fmt.Errorf("while writing server live event: %w", err)
+	}
+
+	return liveServer, err
 }
 
 // StopServer instructs the Controller stop the server specified by id. Once the
@@ -272,6 +281,11 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 	defer cancel()
 	if err := client.Quit(ctx); err != nil {
 		return nil, err
+	}
+
+	offlineEvent := event.NewServerStatusChangeEvent(id, event.WithStatusChange(event.Offline))
+	if err := ctrl.writeToEventStream(ctx, &offlineEvent); err != nil {
+		return nil, fmt.Errorf("while writing server offline event: %w", err)
 	}
 
 	if err := ctrl.serverController.Region(server.Server.Region).MakeInstanceUnavailable(
@@ -553,7 +567,7 @@ func (ctrl *Controller) LiveServerRconForEach(
 }
 
 // CaptureServerInfo retrieves and stores the server info specified live server.
-func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.LiveServer, rcon rcon.IRcon) error {
+func (ctrl *Controller) CaptureServerInfo(ctx context.Context, liveServer model.LiveServer, rcon rcon.IRcon) error {
 	serverInfo, err := rcon.ServerInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("while retrieving server info via rcon: %w", err)
@@ -563,10 +577,20 @@ func (ctrl *Controller) CaptureServerInfo(ctx context.Context, server model.Live
 		"active_players": serverInfo.Players,
 		"queued_players": serverInfo.Queued,
 	}
-	err = db.UpdateLiveServer(ctx, ctrl.store, server.ID, changes)
+	err = db.UpdateLiveServer(ctx, ctrl.store, liveServer.ID, changes)
 	if err != nil {
 		return fmt.Errorf("while updating captured server info: %w", err)
 	}
+
+	serverDetails := event.NewServerStatusChangeEvent(
+		liveServer.Server.ID,
+		event.WithActivePlayers(serverInfo.Players),
+		event.WithMaxPlayers(int(liveServer.Server.MaxPlayers)),
+	)
+	if err := ctrl.writeToEventStream(ctx, &serverDetails); err != nil {
+		return fmt.Errorf("while writing server details event: %w", err)
+	}
+
 	return nil
 }
 
@@ -737,6 +761,21 @@ func (ctrl *Controller) pingUntilReady(ctx context.Context, ip, password string)
 		rconURL(ip, password),
 	); err != nil {
 		return fmt.Errorf("unable to ping server instance; %w", err)
+	}
+	return nil
+}
+
+func (ctrl Controller) writeToEventStream(
+	ctx context.Context,
+	event interface{},
+) error {
+	b, err := json.Marshal(&event)
+	if err != nil {
+		return fmt.Errorf("while marshalling event: %w", err)
+	}
+
+	if err := ctrl.eventStream.Write(ctx, b); err != nil {
+		return fmt.Errorf("while publishing event: %w", err)
 	}
 	return nil
 }

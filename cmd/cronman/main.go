@@ -57,6 +57,7 @@ func main() {
 		rconHub,
 		rconWaiter,
 		directorNotifier,
+		streamClient,
 	)
 
 	healthz := healthz.NewHTTP()

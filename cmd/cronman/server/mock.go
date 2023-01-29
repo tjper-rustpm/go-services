@@ -14,9 +14,11 @@ func NewMockManager() *MockManager {
 // MockManager provides methods to mock interactions with cronman servers. This
 // is typically used in testing to avoid interacting with AWS.
 type MockManager struct {
-	createInstanceHandler        func(context.Context, model.InstanceKind) (*CreateInstanceOutput, error)
-	makeInstanceAvailableHandler func(context.Context, string, string) (*AssociationOutput, error)
-	startInstanceHandler         func(context.Context, string, string) error
+	createInstanceHandler          func(context.Context, model.InstanceKind) (*CreateInstanceOutput, error)
+	makeInstanceAvailableHandler   func(context.Context, string, string) (*AssociationOutput, error)
+	makeInstanceUnavailableHandler func(context.Context, string) error
+	startInstanceHandler           func(context.Context, string, string) error
+	stopInstanceHandler            func(context.Context, string) error
 }
 
 // SetCreateInstanceHandler sets the handler of the CreateInstance method to
@@ -47,9 +49,18 @@ func (m MockManager) StartInstance(ctx context.Context, id string, userdata stri
 	return m.startInstanceHandler(ctx, id, userdata)
 }
 
+// SetStopInstanceHandler sets the handler of the StopInstance method to the
+// passed function.
+func (m *MockManager) SetStopInstanceHandler(handler func(context.Context, string) error) {
+	m.stopInstanceHandler = handler
+}
+
 // StopInstance mocks the stopping of a cronman server instance.
-func (m MockManager) StopInstance(_ context.Context, _ string) error {
-	return nil
+func (m MockManager) StopInstance(ctx context.Context, id string) error {
+	if m.stopInstanceHandler == nil {
+		return nil
+	}
+	return m.stopInstanceHandler(ctx, id)
 }
 
 // SetMakeInstanceAvailableHandler sets the handler of the MakeInstanceAvailable
@@ -66,8 +77,17 @@ func (m MockManager) MakeInstanceAvailable(ctx context.Context, instanceID strin
 	return m.makeInstanceAvailableHandler(ctx, instanceID, allocationID)
 }
 
+// SetMakeInstanceUnavailableHandler sets the handler of the MakeInstanceUnavailable
+// method to the passed function.
+func (m *MockManager) SetMakeInstanceUnavailableHandler(handler func(context.Context, string) error) {
+	m.makeInstanceUnavailableHandler = handler
+}
+
 // MakeInstanceUnavailable mocks the making a cronman server instance
 // unavailable.
-func (m MockManager) MakeInstanceUnavailable(_ context.Context, _ string) error {
-	return nil
+func (m MockManager) MakeInstanceUnavailable(ctx context.Context, id string) error {
+	if m.makeInstanceUnavailableHandler == nil {
+		return nil
+	}
+	return m.makeInstanceUnavailableHandler(ctx, id)
 }
