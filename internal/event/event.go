@@ -22,7 +22,7 @@ func Parse(b []byte) (interface{}, error) {
 		return nil, fmt.Errorf("unmarshal event; error: %w", err)
 	}
 
-	str, ok := m["Kind"].(string)
+	str, ok := m["kind"].(string)
 	if !ok {
 		return nil, errKindInvalid
 	}
