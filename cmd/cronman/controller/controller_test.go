@@ -804,7 +804,7 @@ func TestStartServer(t *testing.T) {
 				logger: zap.NewNop(),
 				waiter: rcon.NewWaiterMock(100 * time.Millisecond),
 				store:  store,
-				serverController: NewServerDirector(
+				serverDirector: NewServerDirector(
 					serverManager,
 					serverManager,
 					serverManager,
@@ -912,7 +912,7 @@ func TestMakeServerLive(t *testing.T) {
 				logger: zap.NewNop(),
 				waiter: rcon.NewWaiterMock(100 * time.Millisecond),
 				store:  store,
-				serverController: NewServerDirector(
+				serverDirector: NewServerDirector(
 					serverManager,
 					serverManager,
 					serverManager,
@@ -1013,7 +1013,7 @@ func TestStopServer(t *testing.T) {
 				logger: zap.NewNop(),
 				hub:    rcon.NewHubMock(),
 				store:  store,
-				serverController: NewServerDirector(
+				serverDirector: NewServerDirector(
 					serverManager,
 					serverManager,
 					serverManager,

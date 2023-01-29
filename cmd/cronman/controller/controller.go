@@ -31,7 +31,7 @@ func (ctrl Controller) CreateServer(
 	ctx context.Context,
 	input model.Server,
 ) (*model.DormantServer, error) {
-	instance, err := ctrl.serverController.Region(input.Region).CreateInstance(
+	instance, err := ctrl.serverDirector.Region(input.Region).CreateInstance(
 		ctx,
 		input.InstanceKind,
 	)
@@ -162,7 +162,7 @@ func (ctrl Controller) StartServer(
 		}
 	}
 
-	if err := ctrl.serverController.Region(server.Region).StartInstance(
+	if err := ctrl.serverDirector.Region(server.Region).StartInstance(
 		ctx,
 		server.InstanceID,
 		server.Userdata(options...),
@@ -170,7 +170,7 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("start server instance; %w", err)
 	}
 
-	association, err := ctrl.serverController.Region(server.Region).MakeInstanceAvailable(
+	association, err := ctrl.serverDirector.Region(server.Region).MakeInstanceAvailable(
 		ctx,
 		server.InstanceID,
 		server.AllocationID,
@@ -179,7 +179,7 @@ func (ctrl Controller) StartServer(
 		return nil, fmt.Errorf("unable to make server instance available; %w", err)
 	}
 	defer func() {
-		if err := ctrl.serverController.Region(server.Region).MakeInstanceUnavailable(
+		if err := ctrl.serverDirector.Region(server.Region).MakeInstanceUnavailable(
 			ctx,
 			*association.AssociationId,
 		); err != nil {
@@ -222,7 +222,7 @@ func (ctrl Controller) MakeServerLive(
 		return nil, fmt.Errorf("get dormant server; %w", err)
 	}
 
-	instance, err := ctrl.serverController.Region(server.Server.Region).MakeInstanceAvailable(
+	instance, err := ctrl.serverDirector.Region(server.Server.Region).MakeInstanceAvailable(
 		ctx,
 		server.Server.InstanceID,
 		server.Server.AllocationID,
@@ -288,13 +288,13 @@ func (ctrl *Controller) StopServer(ctx context.Context, id uuid.UUID) (*model.Do
 		return nil, fmt.Errorf("while writing server offline event: %w", err)
 	}
 
-	if err := ctrl.serverController.Region(server.Server.Region).MakeInstanceUnavailable(
+	if err := ctrl.serverDirector.Region(server.Server.Region).MakeInstanceUnavailable(
 		ctx,
 		server.AssociationID,
 	); err != nil {
 		return nil, err
 	}
-	if err := ctrl.serverController.Region(server.Server.Region).StopInstance(
+	if err := ctrl.serverDirector.Region(server.Server.Region).StopInstance(
 		ctx,
 		server.Server.InstanceID,
 	); err != nil {

@@ -58,21 +58,21 @@ type INotifier interface {
 func New(
 	logger *zap.Logger,
 	store *gorm.DB,
-	serverController *ServerDirector,
+	serverDirector *ServerDirector,
 	hub IHub,
 	waiter IWaiter,
 	notifier INotifier,
 	eventStream StreamWriter,
 ) *Controller {
 	return &Controller{
-		logger:           logger.With(zap.String("controller-id", uuid.NewString())),
-		time:             new(itime.Time),
-		store:            store,
-		serverController: serverController,
-		hub:              hub,
-		waiter:           waiter,
-		notifier:         notifier,
-		eventStream:      eventStream,
+		logger:         logger.With(zap.String("controller-id", uuid.NewString())),
+		time:           new(itime.Time),
+		store:          store,
+		serverDirector: serverDirector,
+		hub:            hub,
+		waiter:         waiter,
+		notifier:       notifier,
+		eventStream:    eventStream,
 	}
 }
 
@@ -85,11 +85,11 @@ type Controller struct {
 	store *gorm.DB
 
 	// TODO: Should rename this to director or serverDirector.
-	serverController *ServerDirector
-	hub              IHub
-	waiter           IWaiter
-	notifier         INotifier
-	eventStream      StreamWriter
+	serverDirector *ServerDirector
+	hub            IHub
+	waiter         IWaiter
+	notifier       INotifier
+	eventStream    StreamWriter
 }
 
 // NewServerDirerctor creates a new ServerDirector object.
