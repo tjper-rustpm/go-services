@@ -116,7 +116,7 @@ const (
 )
 
 type ServerDetails struct {
-	Status        ServerStatus `json:"status"`
+	Status        ServerStatus `json:"status,omitempty"`
 	ActivePlayers int          `json:"activePlayers"`
 	MaxPlayers    int          `json:"maxPlayers"`
 
