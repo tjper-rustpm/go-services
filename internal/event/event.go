@@ -111,8 +111,8 @@ func NewVipRefreshEvent(
 type ServerStatus string
 
 const (
-	Live    ServerStatus = "live_server"
-	Offline ServerStatus = "offline_server"
+	Live    ServerStatus = "live"
+	Offline ServerStatus = "offline"
 )
 
 type ServerDetails struct {
